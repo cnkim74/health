@@ -646,8 +646,10 @@
   /* ── 복약 설정 모달 ──────────────────────────────────── */
   const MedSettingsModal = ({ meds, onSave, onClose }) => {
     const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(meds)));
-    const [editingSlot, setEditingSlot] = useState(null); // slot key
-    const [editingMed,  setEditingMed]  = useState(null); // {slotKey, medId}
+    const [editingSlot, setEditingSlot] = useState(null);
+    const [editingMed,  setEditingMed]  = useState(null);
+    const nameInputRef = useRef(null);
+
     const SLOT_COLORS = [
       { color:'#2563eb', bg:'#eff6ff', border:'#93c5fd' },
       { color:'#059669', bg:'#f0fdf4', border:'#86efac' },
@@ -655,6 +657,17 @@
       { color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' },
       { color:'#d97706', bg:'#fffbeb', border:'#fcd34d' },
     ];
+
+    // 편집 시작 시 이름 input 자동 포커스 + 전체 선택
+    useEffect(() => {
+      if (editingMed && nameInputRef.current) {
+        setTimeout(() => {
+          nameInputRef.current?.focus();
+          nameInputRef.current?.select();
+        }, 50);
+      }
+    }, [editingMed]);
+
     const updSlotName = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, slot:val} : s));
     const updSlotIcon = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, icon:val} : s));
     const delSlot = (key) => { if(window.confirm('이 시간대를 삭제할까요?')) setCfg(c => c.filter(s => s.key!==key)); };
@@ -670,10 +683,12 @@
       setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.filter(m => m.id!==medId)} : s));
     const addMed = (slotKey) => {
       const id = genId();
-      setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...s.items, {id, name:'새 약', dose:''}]} : s));
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...s.items, {id, name:'', dose:'', startDate:'', endDate:''}]} : s));
       setEditingMed({slotKey, medId:id});
     };
     const reset = () => { if(window.confirm('기본값으로 초기화할까요?')) setCfg(JSON.parse(JSON.stringify(DEFAULT_MEDS))); };
+
+    const inpSt = { border:'1px solid #e2e8f0', borderRadius:'6px', padding:'6px 10px', fontSize:'13px', width:'100%', outline:'none' };
 
     return (
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
@@ -692,7 +707,7 @@
                   <>
                     <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
                       style={{width:'44px',border:'1px solid #e2e8f0',borderRadius:'6px',padding:'4px',fontSize:'16px',textAlign:'center'}}/>
-                    <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)}
+                    <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)} autoFocus
                       style={{flex:1,border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px',fontWeight:'700'}}/>
                     <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'12px'}}>완료</button>
                   </>
@@ -705,22 +720,43 @@
                   </>
                 )}
               </div>
+
               {/* 약 목록 */}
               {slot.items.map(med => (
                 <div key={med.id} style={{background:'#fff',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:'1px solid #e2e8f0'}}>
                   {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
                     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-                      <input value={med.name} onChange={e=>updMedField(slot.key,med.id,'name',e.target.value)}
-                        placeholder="약 이름" style={{border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px'}}/>
+                      <input ref={nameInputRef} value={med.name}
+                        onChange={e=>updMedField(slot.key,med.id,'name',e.target.value)}
+                        onFocus={e=>e.target.select()}
+                        placeholder="약 이름" style={inpSt}/>
                       <input value={med.dose} onChange={e=>updMedField(slot.key,med.id,'dose',e.target.value)}
-                        placeholder="용량 (예: 10mg 1정)" style={{border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px'}}/>
-                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'6px',cursor:'pointer',fontSize:'12px',fontWeight:'700'}}>완료</button>
+                        placeholder="용량 (예: 10mg 1정)" style={inpSt}/>
+                      {/* 투약 기간 */}
+                      <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'3px'}}>투약 시작일</div>
+                          <input type="date" value={med.startDate||''} onChange={e=>updMedField(slot.key,med.id,'startDate',e.target.value)} style={inpSt}/>
+                        </div>
+                        <div style={{color:'#cbd5e1',marginTop:'16px'}}>~</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'3px'}}>투약 종료일</div>
+                          <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
+                        </div>
+                      </div>
+                      <div style={{fontSize:'11px',color:'#94a3b8'}}>💡 날짜 미입력 시 항상 표시</div>
+                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'12px',fontWeight:'700'}}>완료</button>
                     </div>
                   ) : (
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:'13px',fontWeight:'600',color:'#1e293b'}}>{med.name}</div>
+                        <div style={{fontSize:'13px',fontWeight:'600',color:'#1e293b'}}>{med.name||'(이름 없음)'}</div>
                         <div style={{fontSize:'11px',color:'#94a3b8'}}>{med.dose}</div>
+                        {(med.startDate||med.endDate) && (
+                          <div style={{fontSize:'10px',color:'#2563eb',marginTop:'2px'}}>
+                            📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
+                          </div>
+                        )}
                       </div>
                       <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'#94a3b8'}}>✏️</button>
                       <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'#fca5a5'}}>🗑️</button>
@@ -1032,12 +1068,19 @@
                 <div style={{ background:'#e2e8f0', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
                   <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s ease' }}/>
                 </div>
-                {medsConfig.map(slot => (
+                {medsConfig.map(slot => {
+                  const activeItems = slot.items.filter(med => {
+                    if (med.startDate && date < med.startDate) return false;
+                    if (med.endDate   && date > med.endDate)   return false;
+                    return true;
+                  });
+                  if (!activeItems.length) return null;
+                  return (
                   <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
                     <div style={{ fontSize:'12px', fontWeight:'700', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
                       {slot.icon} {slot.slot}
                     </div>
-                    {slot.items.map(med => (
+                    {activeItems.map(med => (
                       <label key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
                         <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
                         <div>
@@ -1048,7 +1091,8 @@
                       </label>
                     ))}
                   </div>
-                ))}
+                  );
+                })}
               </Card>
 
               {/* 혈당 */}
