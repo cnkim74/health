@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Care Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+      background: #f0f4f8;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    input, textarea, select { font-family: inherit; }
+    .med-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb; flex-shrink: 0; }
+    .chart-wrap { position: relative; height: 200px; }
+    @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr !important; } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { useState, useEffect, useRef, useMemo } = React;
+
+  /* ── 복약 기본 데이터 ─────────────────────────────────── */
+  const DEFAULT_MEDS = [
+    { slot:'아침 식전',    key:'morn_pre',   color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+      items:[{ id:'fiasp_am',      name:'피아스포',           dose:'4단위 주사' }] },
+    { slot:'아침 식후 30분', key:'morn_post', color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
+      items:[{ id:'teneliaam_am', name:'테넬리아앰서방정',   dose:'10/500mg 1정' },
+             { id:'thioctacid',   name:'치옥타시드에이취알정', dose:'600mg 1정' }] },
+    { slot:'점심 식전',    key:'lunch_pre',  color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+      items:[{ id:'fiasp_lunch',   name:'피아스포',           dose:'4단위 주사' }] },
+    { slot:'저녁 식전',    key:'din_pre',    color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+      items:[{ id:'fiasp_din',     name:'피아스포',           dose:'4단위 주사' }] },
+    { slot:'저녁 식후 30분', key:'din_post', color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
+      items:[{ id:'lipitor',       name:'리피토정',           dose:'10mg 1정' },
+             { id:'teneliaam_pm', name:'테넬리아앰서방정',   dose:'10/500mg 1정' },
+             { id:'lyrica',        name:'리리카캡슐',         dose:'75mg 1캡슐' }] },
+    { slot:'취침 전',      key:'bed',        color:'#7c3aed', bg:'#faf5ff', border:'#c4b5fd', icon:'💉',
+      items:[{ id:'toujeo',        name:'투제오 솔로스타',    dose:'14단위 주사' }] }
+  ];
+  const genId = () => 'med_' + Math.random().toString(36).slice(2,9);
+
+  const BS_FIELDS = [
+    { id:'bs_bf_am', label:'아침 식전',       icon:'🌅', target:'70–130' },
+    { id:'bs_af_am', label:'아침 식후 2시간', icon:'☀️',  target:'<180'  },
+    { id:'bs_bf_lu', label:'점심 식전',       icon:'🕛', target:'70–130' },
+    { id:'bs_af_lu', label:'점심 식후 2시간', icon:'🌤',  target:'<180'  },
+    { id:'bs_bf_di', label:'저녁 식전',       icon:'🌆', target:'70–130' },
+    { id:'bs_af_di', label:'저녁 식후 2시간', icon:'🌙',  target:'<180'  },
+    { id:'bs_bed',   label:'취침 전',         icon:'🌑', target:'100–140'}
+  ];
+
+  /* 시간대별 혈당 매핑 윈도우 (애플 건강 연동용) */
+  const TIME_WINDOWS = [
+    { id:'bs_bf_am', startH:5.5,  endH:8.5  },
+    { id:'bs_af_am', startH:9.0,  endH:11.5 },
+    { id:'bs_bf_lu', startH:11.0, endH:13.0 },
+    { id:'bs_af_lu', startH:13.5, endH:15.5 },
+    { id:'bs_bf_di', startH:17.0, endH:19.5 },
+    { id:'bs_af_di', startH:20.0, endH:22.0 },
+    { id:'bs_bed',   startH:22.0, endH:24.0 }
+  ];
+
+  const MEALS = [
+    { id:'breakfast', label:'아침 식사', icon:'🌅',
+      ph:'예: 현미밥 반공기, 된장국, 두부조림, 나물\n→ 탄수화물 약 45g' },
+    { id:'lunch',     label:'점심 식사', icon:'🕛',
+      ph:'예: 닭가슴살 샐러드, 삶은 계란 2개, 고구마 반개\n→ 탄수화물 약 40g' },
+    { id:'dinner',    label:'저녁 식사', icon:'🌆',
+      ph:'예: 잡곡밥 반공기, 생선구이, 시금치나물, 미역국\n→ 탄수화물 약 45g' }
+  ];
+
+  /* ── 헬퍼 ─────────────────────────────────────────────── */
+  const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const fmtDate = (s) => {
+    const d = new Date(s + 'T12:00:00');
+    const DAY = ['일','월','화','수','목','금','토'];
+    return { full:`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`, short:`${d.getMonth()+1}/${d.getDate()}` };
+  };
+  const shiftDate = (s, n) => {
+    const d = new Date(s + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const bsColor = (v) => { const n=parseInt(v); if(!n) return '#94a3b8'; if(n<70) return '#7c3aed'; if(n<=140) return '#16a34a'; if(n<=180) return '#d97706'; return '#dc2626'; };
+  const bsLabel = (v) => { const n=parseInt(v); if(!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
+  const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
+  const emptyDay = () => ({ meds:{}, bs:{}, meals:{}, exercise:{type:'',mins:''}, weight:'', bodyFat:'', note:'' });
+
+  /* ── 공통 UI 컴포넌트 (App 밖에 정의해야 리렌더링 버그 없음) ── */
+  const Card = ({children, style}) => (
+    <div style={{ background:'#fff', borderRadius:'14px', padding:'20px', boxShadow:'0 1px 6px rgba(0,0,0,0.06)', marginBottom:'18px', ...style }}>
+      {children}
+    </div>
+  );
+  const STitle = ({icon, label, right}) => (
+    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'15px', fontWeight:'700', color:'#0f172a', marginBottom:'14px' }}>
+      <span>{icon}</span><span>{label}</span>
+      {right && <span style={{ marginLeft:'auto', fontSize:'12px', color:'#94a3b8', fontWeight:'400' }}>{right}</span>}
+    </div>
+  );
+
+  /* ── Gemini 식사 사진 분석 ─────────────────────────────────── */
+  const GEMINI_KEY = 'AIzaSyDsRv6gCfI2JrMYORkz8NJuuf9hy7acQYk';
+
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+  });
+
+  const analyzeFood = async (imageBase64, mimeType) => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+              { text: `이 음식 사진을 분석해 주세요. 인슐린을 맞고 있는 2형 당뇨 환자의 식단 기록입니다.
+아래 형식으로 한국어로 정확하게 답해 주세요:
+
+🍽️ 음식 목록 (항목별 칼로리)
+- 음식명 추정량: XXX kcal, 탄수화물 XXg
+- (각 음식마다 한 줄씩)
+
+📊 총 영양 정보
+칼로리: XXX kcal
+탄수화물: XX g ← 한 끼 목표 45~60g
+단백질: XX g
+지방: XX g
+당류: XX g
+
+🩸 혈당 영향 분석
+혈당 상승 속도: 빠름 / 보통 / 느림
+예상 혈당 영향: 높음 / 중간 / 낮음
+주요 원인: (혈당에 영향을 주는 주요 식품 언급)
+
+✅ 당뇨식 적합성 평가
+적합도: ⭐⭐⭐⭐⭐ (5점 만점)
+판정: 적합 / 주의 / 부적합
+이유: (구체적인 이유 2~3줄)
+
+⚠️ 문제 식품
+(당뇨에 부적절한 식품이 있으면 구체적으로 지적, 없으면 "없음")
+
+💡 개선 제안
+(이 식단을 더 당뇨 친화적으로 바꾸는 구체적인 방법 2~3가지)
+
+탄수화물과 당류 수치를 최대한 정확히 추정해 주세요.` }
+            ]
+          }]
+        })
+      }
+    );
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+    const json = await res.json();
+    return json.candidates?.[0]?.content?.parts?.[0]?.text || '분석 결과를 가져올 수 없어요.';
+  };
+
+  /* ── Supabase 초기화 ─────────────────────────────────────── */
+  const SUPA_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
+  const SUPA_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+  const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+  const getOrCreateUserId = () => {
+    let id = localStorage.getItem('dm_user_id');
+    if (!id) { id = genUUID(); localStorage.setItem('dm_user_id', id); }
+    return id;
+  };
+
+  /* ── 애플 건강 파싱 (indexOf 고속 탐색 - 관련 레코드만 추출) ── */
+  const parseAppleHealthXML = async (xmlText, onProgress) => {
+    const glucoseByDay = {};
+    const weightByDay  = {};
+    const bodyFatByDay = {};
+
+    // 필요한 타입만 indexOf로 빠르게 찾기
+    const targets = [
+      { key: 'HKQuantityTypeIdentifierBloodGlucose',    type: 'glucose' },
+      { key: 'HKQuantityTypeIdentifierBodyMass',         type: 'weight' },
+      { key: 'HKQuantityTypeIdentifierBodyFatPercentage', type: 'fat' }
+    ];
+
+    const processRecord = (rec, type) => {
+      const val  = parseFloat((rec.match(/\bvalue="([^"]+)"/) || [])[1]);
+      const unit = (rec.match(/\bunit="([^"]+)"/) || [])[1] || '';
+      const dm   = rec.match(/\bstartDate="(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
+      if (!dm || isNaN(val)) return;
+      const dayKey = dm[1];
+      const hour   = parseInt(dm[2]) + parseInt(dm[3]) / 60;
+      if (type === 'glucose') {
+        const mgdl = unit === 'mmol/L' ? Math.round(val * 18.015) : Math.round(val);
+        if (!glucoseByDay[dayKey]) glucoseByDay[dayKey] = [];
+        glucoseByDay[dayKey].push({ hour, value: mgdl });
+      } else if (type === 'weight') {
+        const kg = unit === 'lb' ? Math.round(val * 0.453592 * 10) / 10 : Math.round(val * 10) / 10;
+        weightByDay[dayKey] = kg;
+      } else if (type === 'fat') {
+        bodyFatByDay[dayKey] = val <= 1 ? Math.round(val * 100 * 10) / 10 : Math.round(val * 10) / 10;
+      }
+    };
+
+    for (let ti = 0; ti < targets.length; ti++) {
+      const { key, type } = targets[ti];
+      let pos = 0;
+      let count = 0;
+      if (onProgress) onProgress(Math.round(ti / targets.length * 100));
+
+      while (true) {
+        const idx = xmlText.indexOf(key, pos);
+        if (idx === -1) break;
+
+        // 이 위치에서 가장 가까운 <Record 시작점 찾기
+        const recStart = xmlText.lastIndexOf('<Record', idx);
+        if (recStart === -1 || idx - recStart > 2000) { pos = idx + key.length; continue; }
+
+        const recEnd = xmlText.indexOf('/>', recStart);
+        if (recEnd === -1) { pos = idx + key.length; continue; }
+
+        processRecord(xmlText.substring(recStart, recEnd + 2), type);
+        pos = recEnd + 2;
+        count++;
+
+        // 매 300건마다 브라우저에 양보
+        if (count % 300 === 0) {
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+    }
+
+    if (onProgress) onProgress(100);
+    return { glucoseByDay, weightByDay, bodyFatByDay };
+  };
+
+  const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {} }) => {
+    const result = {};
+    Object.entries(glucoseByDay).forEach(([day, readings]) => {
+      const bs = {};
+      TIME_WINDOWS.forEach(w => {
+        const inWin = readings.filter(r => r.hour >= w.startH && r.hour < w.endH).map(r => r.value);
+        const med = median(inWin);
+        if (med) bs[w.id] = String(med);
+      });
+      if (Object.keys(bs).length) { result[day] = result[day] || emptyDay(); result[day].bs = bs; }
+    });
+    Object.entries(weightByDay).forEach(([day, weight]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].weight = String(weight);
+    });
+    Object.entries(bodyFatByDay).forEach(([day, bodyFat]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].bodyFat = String(bodyFat);
+    });
+    return result;
+  };
+
+  /* ── LibreView CSV 파싱 ─────────────────────────────────── */
+  const parseCSVRow = (line) => {
+    const out = []; let inQ = false; let cur = '';
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    out.push(cur.trim());
+    return out;
+  };
+
+  const parseLVTimestamp = (s) => {
+    s = s.replace(/"/g, '').trim();
+    // MM-DD-YYYY HH:MM AM/PM (영어/한국어 오전오후)
+    let m = s.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM|오전|오후)/i);
+    if (m) {
+      const [,p1,p2,yyyy,hh,min,ap] = m;
+      let h = parseInt(hh);
+      if (/PM|오후/i.test(ap) && h!==12) h+=12;
+      if (/AM|오전/i.test(ap) && h===12) h=0;
+      // LibreView는 MM-DD-YYYY 형식
+      return { dayKey:`${yyyy}-${String(p1).padStart(2,'0')}-${String(p2).padStart(2,'0')}`, hour:h+parseInt(min)/60 };
+    }
+    // YYYY-MM-DD HH:MM
+    m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
+    if (m) {
+      const [,yyyy,mm,dd,hh,min] = m;
+      return { dayKey:`${yyyy}-${mm}-${dd}`, hour:parseInt(hh)+parseInt(min)/60 };
+    }
+    return null;
+  };
+
+  const parseLibreViewCSV = (csvText) => {
+    const lines = csvText.split(/\r?\n/);
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(lines.length, 20); i++) {
+      if (/timestamp|타임스탬프|时间戳|장치.?타임스탬프/i.test(lines[i])) { headerIdx = i; break; }
+    }
+    if (headerIdx === -1) return null;
+
+    const headers = parseCSVRow(lines[headerIdx]);
+    const tsIdx   = headers.findIndex(h => /timestamp|타임스탬프|장치.?타임스탬프/i.test(h));
+    const typeIdx = headers.findIndex(h => /record.?type|레코드|기록.?유형/i.test(h));
+    const histIdx = headers.findIndex(h => /historic.?glucose|히스토리.*포도당|과거.?혈당/i.test(h));
+    const scanIdx = headers.findIndex(h => /scan.?glucose|스캔.*포도당|혈당.?스캔/i.test(h));
+
+    if (tsIdx === -1) return null;
+
+    const glucoseByDay = {};
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const row = parseCSVRow(lines[i]);
+      if (row.length <= tsIdx || !row[tsIdx]) continue;
+      const recType = (row[typeIdx] || '').replace(/"/g,'').trim();
+      if (recType !== '0' && recType !== '1') continue;
+
+      const rawVal = recType === '0'
+        ? parseFloat((row[histIdx]||'').replace(/"/g,''))
+        : parseFloat((row[scanIdx]||'').replace(/"/g,''));
+      if (isNaN(rawVal) || rawVal <= 0) continue;
+
+      const parsed = parseLVTimestamp(row[tsIdx]);
+      if (!parsed) continue;
+      const { dayKey, hour } = parsed;
+      if (!glucoseByDay[dayKey]) glucoseByDay[dayKey] = [];
+      glucoseByDay[dayKey].push({ hour, value: Math.round(rawVal) });
+    }
+    return glucoseByDay;
+  };
+
+  /* ── 가져오기 모달 ─────────────────────────────────────── */
+  const ImportModal = ({ onClose, onImport }) => {
+    const [tab,     setTab]     = useState('libreview'); // 'apple' | 'libreview'
+    const [status,  setStatus]  = useState('idle');
+    const [preview, setPreview] = useState(null);
+    const [errMsg,  setErrMsg]  = useState('');
+    const [progress, setProgress] = useState('');
+    const fileRef = useRef(null);
+
+    const reset = () => { setStatus('idle'); setErrMsg(''); setPreview(null); };
+    const onTabChange = (t) => { setTab(t); reset(); };
+
+    const processFile = async (file) => {
+      setStatus('loading'); setErrMsg('');
+      try {
+        /* ── LibreView CSV ── */
+        if (file.name.endsWith('.csv')) {
+          setProgress('CSV 파일 분석 중...');
+          await new Promise(r => setTimeout(r, 30));
+          const csvText = await file.text();
+          const glucoseByDay = parseLibreViewCSV(csvText);
+          if (!glucoseByDay) throw new Error('LibreView CSV 형식을 인식할 수 없어요.\nlibreview.com에서 내보낸 파일인지 확인해 주세요.');
+          const totalDays = Object.keys(glucoseByDay).length;
+          const totalReadings = Object.values(glucoseByDay).reduce((a,b)=>a+b.length,0);
+          if (!totalDays) throw new Error('혈당 데이터를 찾을 수 없어요. 파일을 다시 확인해 주세요.');
+          const mapped = buildDashboardData({ glucoseByDay, weightByDay:{} });
+          setPreview({ mapped, gDays:totalDays, wDays:0, totalReadings, source:'libreview' });
+          setStatus('preview');
+          return;
+        }
+
+        /* ── 애플 건강 ZIP / XML ── */
+        let xmlText = '';
+        if (file.name.endsWith('.zip')) {
+          setProgress('ZIP 압축 해제 중...');
+          if (typeof JSZip === 'undefined') throw new Error('ZIP 라이브러리 로드 실패. 인터넷 연결을 확인하거나 직접 압축 해제 후 export.xml을 선택해 주세요.');
+          const zip = await JSZip.loadAsync(file);
+          // export.xml 찾기: 경로 무관하게 탐색, export_cda.xml 제외
+          const allFiles = Object.keys(zip.files);
+          const xmlFile = allFiles.find(name =>
+            /export\.xml$/i.test(name) && !/cda/i.test(name)
+          ) || allFiles.find(name => /\.xml$/i.test(name) && !/cda/i.test(name));
+          if (!xmlFile) {
+            const found = allFiles.filter(n => !zip.files[n].dir).slice(0,10).join(', ');
+            throw new Error(`ZIP 안에서 export.xml을 찾을 수 없어요.\n발견된 파일: ${found || '없음'}`);
+          }
+          setProgress('XML 파싱 중... (10~30초 소요)');
+          xmlText = await zip.files[xmlFile].async('text');
+        } else if (file.name.endsWith('.xml')) {
+          setProgress('XML 파싱 중...');
+          xmlText = await file.text();
+        } else {
+          throw new Error('.csv / .zip / .xml 파일만 지원해요.');
+        }
+
+        setProgress('혈당·체중·체지방 데이터 추출 중... 0%');
+        await new Promise(r => setTimeout(r, 30));
+        const parsed = await parseAppleHealthXML(xmlText, (pct) => {
+          setProgress(`데이터 분석 중... ${pct}%`);
+        });
+        const mapped = buildDashboardData(parsed);
+
+        const gDays  = Object.keys(parsed.glucoseByDay).length;
+        const wDays  = Object.keys(parsed.weightByDay).length;
+        const bfDays = Object.keys(parsed.bodyFatByDay).length;
+        const totalReadings = Object.values(parsed.glucoseByDay).reduce((a,b) => a+b.length, 0);
+
+        if (!gDays && !wDays && !bfDays) throw new Error('혈당, 체중, 체지방 데이터를 찾을 수 없어요.\n리브레2가 애플 건강과 연동되어 있는지 확인해 주세요.');
+
+        setPreview({ mapped, gDays, wDays, bfDays, totalReadings });
+        setStatus('preview');
+      } catch (e) {
+        setErrMsg(e.message || '파일 처리 중 오류가 발생했어요.');
+        setStatus('error');
+      }
+    };
+
+    const confirm = () => { onImport(preview.mapped); setStatus('done'); };
+
+    const isLV    = tab === 'libreview';
+    const accent  = isLV ? '#7c3aed' : '#2563eb';
+    const accentL = isLV ? '#faf5ff' : '#eff6ff';
+    const accentB = isLV ? '#c4b5fd' : '#93c5fd';
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px' }}
+           onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
+        <div style={{ background:'#fff', borderRadius:'18px', padding:'28px', maxWidth:'540px', width:'100%', maxHeight:'92vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.25)' }}>
+
+          {/* Header */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
+            <div>
+              <div style={{ fontSize:'18px', fontWeight:'800', color:'#1e293b' }}>혈당 데이터 가져오기</div>
+              <div style={{ fontSize:'12px', color:'#94a3b8', marginTop:'2px' }}>리브레2 혈당 기록을 대시보드에 자동 반영</div>
+            </div>
+            <button onClick={onClose} style={{ background:'#f1f5f9', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'16px', color:'#64748b' }}>✕</button>
+          </div>
+
+          {/* 탭 선택 */}
+          <div style={{ display:'flex', gap:'8px', marginBottom:'20px', background:'#f8fafc', borderRadius:'10px', padding:'4px' }}>
+            {[
+              { key:'libreview', label:'📊 LibreView CSV', sub:'추천' },
+              { key:'apple',     label:'🍎 애플 건강앱', sub:'연동 필요' }
+            ].map(t => (
+              <button key={t.key} onClick={() => onTabChange(t.key)} style={{
+                flex:1, padding:'10px 8px', border:'none', borderRadius:'8px', cursor:'pointer',
+                fontSize:'13px', fontWeight:'700', transition:'all 0.2s',
+                background: tab===t.key ? '#fff' : 'transparent',
+                color: tab===t.key ? accent : '#94a3b8',
+                boxShadow: tab===t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
+              }}>
+                {t.label}
+                {t.sub && <span style={{ display:'block', fontSize:'10px', fontWeight:'500', marginTop:'1px', color: tab===t.key ? accent : '#cbd5e1' }}>{t.sub}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* ── LibreView 탭 ── */}
+          {isLV && (status === 'idle' || status === 'error') && (
+            <>
+              <div style={{ background:'#faf5ff', border:'1px solid #c4b5fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:'#7c3aed', fontSize:'13px', marginBottom:'8px' }}>📋 LibreView에서 내보내는 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'13px', color:'#4c1d95', lineHeight:'2.1' }}>
+                  <li><strong>libreview.com</strong> 에 로그인 (LibreLink 계정 동일)</li>
+                  <li>상단 메뉴 → <strong>보고서</strong></li>
+                  <li>기간 선택 후 <strong>"데이터 내보내기"</strong> 클릭</li>
+                  <li>CSV 파일 다운로드</li>
+                  <li>아래에서 CSV 파일 선택</li>
+                </ol>
+              </div>
+              <div
+                onClick={() => fileRef.current?.click()}
+                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'#fdfaff', transition:'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background=accentL; e.currentTarget.style.borderColor=accent; }}
+                onMouseLeave={e => { e.currentTarget.style.background='#fdfaff'; e.currentTarget.style.borderColor=accentB; }}
+              >
+                <div style={{ fontSize:'36px', marginBottom:'8px' }}>📄</div>
+                <div style={{ fontWeight:'700', color:accent, fontSize:'15px', marginBottom:'4px' }}>CSV 파일 선택</div>
+                <div style={{ fontSize:'12px', color:'#94a3b8' }}>libreview.com 에서 내보낸 .csv 파일</div>
+              </div>
+              <input ref={fileRef} type="file" accept=".csv,.zip,.xml" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
+              {status==='error' && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'13px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+            </>
+          )}
+
+          {/* ── 애플 건강 탭 ── */}
+          {!isLV && (status === 'idle' || status === 'error') && (
+            <>
+              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'12px' }}>
+                <div style={{ fontWeight:'700', color:'#92400e', marginBottom:'5px' }}>⚠️ 리브레2 연동이 필요해요</div>
+                <div style={{ color:'#78350f', lineHeight:'1.8' }}>
+                  LibreLink → 메뉴(☰) → <strong>연결된 앱</strong> → <strong>Apple 건강</strong> 토글 ON<br/>
+                  연동 후 건강 앱에 데이터가 쌓이면 아래 방법으로 가져올 수 있어요
+                </div>
+              </div>
+              <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:'#0369a1', fontSize:'13px', marginBottom:'8px' }}>📋 애플 건강 내보내기 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'13px', color:'#0c4a6e', lineHeight:'2.1' }}>
+                  <li>iPhone <strong>건강</strong> 앱 열기</li>
+                  <li>우측 상단 <strong>프로필 사진</strong> 탭</li>
+                  <li>아래로 스크롤 → <strong>"건강 데이터 내보내기"</strong></li>
+                  <li>AirDrop 으로 Mac에 전송</li>
+                  <li>아래에서 zip 파일 선택</li>
+                </ol>
+              </div>
+              <div
+                onClick={() => fileRef.current?.click()}
+                style={{ border:'2px dashed #93c5fd', borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'#f8fafc', transition:'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='#eff6ff'; e.currentTarget.style.borderColor='#2563eb'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#93c5fd'; }}
+              >
+                <div style={{ fontSize:'36px', marginBottom:'8px' }}>📂</div>
+                <div style={{ fontWeight:'700', color:'#1e40af', fontSize:'15px', marginBottom:'4px' }}>ZIP / XML 파일 선택</div>
+                <div style={{ fontSize:'12px', color:'#94a3b8' }}>export.zip 또는 export.xml</div>
+              </div>
+              <input ref={fileRef} type="file" accept=".zip,.xml,.csv" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
+              {status==='error' && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'13px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+            </>
+          )}
+
+          {/* 로딩 */}
+          {status === 'loading' && (
+            <div style={{ textAlign:'center', padding:'36px 20px' }}>
+              <div style={{ fontSize:'48px', marginBottom:'14px' }}>⏳</div>
+              <div style={{ fontWeight:'700', color:'#1e293b', marginBottom:'6px' }}>분석 중...</div>
+              <div style={{ fontSize:'13px', color:'#64748b' }}>{progress}</div>
+              <div style={{ fontSize:'12px', color:'#94a3b8', marginTop:'8px' }}>잠시만 기다려 주세요</div>
+            </div>
+          )}
+
+          {/* 미리보기 */}
+          {status === 'preview' && preview && (
+            <>
+              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
+                <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'12px', fontSize:'14px' }}>
+                  ✅ {preview.source==='libreview' ? 'LibreView' : '애플 건강'} 데이터 발견
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+                  {[
+                    { label:'혈당 측정일', value:`${preview.gDays}일`, icon:'🩸' },
+                    { label:'총 측정 횟수', value:`${preview.totalReadings.toLocaleString()}회`, icon:'📊' },
+                    { label:'체중 기록일', value:`${preview.wDays||0}일`, icon:'⚖️' },
+                    { label:'체지방 기록일', value:`${preview.bfDays||0}일`, icon:'💪' }
+                  ].map(item => (
+                    <div key={item.label} style={{ background:'white', borderRadius:'8px', padding:'10px 6px' }}>
+                      <div style={{ fontSize:'20px' }}>{item.icon}</div>
+                      <div style={{ fontSize:'16px', fontWeight:'800', color:'#1e293b', marginTop:'4px' }}>{item.value}</div>
+                      <div style={{ fontSize:'11px', color:'#94a3b8' }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'16px', fontSize:'12px', color:'#78350f' }}>
+                <strong>📌 가져오기 규칙</strong><br/>
+                • 직접 입력한 데이터는 유지 (덮어쓰지 않아요)<br/>
+                • 연속 혈당은 시간대별 중앙값으로 변환돼요<br/>
+                • 7개 슬롯(식전·식후·취침 전)에 자동 배치
+              </div>
+              <div style={{ display:'flex', gap:'10px' }}>
+                <button onClick={reset} style={{ flex:1, padding:'13px', border:'1px solid #e2e8f0', borderRadius:'10px', cursor:'pointer', background:'#f8fafc', fontSize:'14px', fontWeight:'600', color:'#64748b' }}>다시 선택</button>
+                <button onClick={confirm} style={{ flex:2, padding:'13px', border:'none', borderRadius:'10px', cursor:'pointer', background:accent, color:'#fff', fontSize:'14px', fontWeight:'700' }}>📥 대시보드에 가져오기</button>
+              </div>
+            </>
+          )}
+
+          {/* 완료 */}
+          {status === 'done' && (
+            <div style={{ textAlign:'center', padding:'24px 20px' }}>
+              <div style={{ fontSize:'56px', marginBottom:'14px' }}>🎉</div>
+              <div style={{ fontWeight:'800', fontSize:'20px', color:'#16a34a', marginBottom:'8px' }}>가져오기 완료!</div>
+              <div style={{ fontSize:'13px', color:'#64748b', marginBottom:'24px', lineHeight:'1.8' }}>
+                혈당 데이터가 대시보드에 반영됐어요.<br/>날짜를 이동해서 확인해 보세요.
+              </div>
+              <button onClick={onClose} style={{ padding:'12px 32px', background:accent, color:'#fff', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'14px', fontWeight:'700' }}>확인</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 동기화 코드 모달 ──────────────────────────────────── */
+  const SyncModal = ({ userId, onClose, onChangeId }) => {
+    const [input, setInput] = useState('');
+    const [copied, setCopied] = useState(false);
+    const copy = () => {
+      navigator.clipboard.writeText(userId).then(() => { setCopied(true); setTimeout(()=>setCopied(false),2000); });
+    };
+    const apply = () => {
+      const trimmed = input.trim();
+      if (!trimmed || trimmed === userId) return;
+      if (window.confirm('동기화 코드를 변경하면 이 기기의 기존 데이터와 연결이 끊겨요. 계속할까요?')) {
+        localStorage.setItem('dm_user_id', trimmed);
+        onChangeId(trimmed);
+        onClose();
+      }
+    };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px' }}
+           onClick={e => e.target===e.currentTarget && onClose()}>
+        <div style={{ background:'#fff', borderRadius:'18px', padding:'28px', maxWidth:'460px', width:'100%', boxShadow:'0 24px 80px rgba(0,0,0,0.2)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+            <div style={{ fontSize:'18px', fontWeight:'800', color:'#1e293b' }}>🔗 기기 동기화</div>
+            <button onClick={onClose} style={{ background:'#f1f5f9', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'16px' }}>✕</button>
+          </div>
+
+          <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:'12px', padding:'16px', marginBottom:'20px' }}>
+            <div style={{ fontSize:'12px', color:'#0369a1', fontWeight:'700', marginBottom:'8px' }}>📱 내 동기화 코드</div>
+            <div style={{ fontFamily:'monospace', fontSize:'13px', color:'#1e293b', wordBreak:'break-all', background:'#fff', padding:'10px 12px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'10px' }}>
+              {userId}
+            </div>
+            <button onClick={copy} style={{ width:'100%', padding:'10px', background: copied?'#16a34a':'#2563eb', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'13px', transition:'background 0.2s' }}>
+              {copied ? '✓ 복사됨!' : '코드 복사'}
+            </button>
+          </div>
+
+          <div style={{ fontSize:'13px', color:'#64748b', lineHeight:'1.8', marginBottom:'20px' }}>
+            <strong>다른 기기(iPhone 등)에서 같은 데이터 보려면:</strong><br/>
+            1. 다른 기기에서 대시보드 열기<br/>
+            2. 🔗 동기화 버튼 클릭<br/>
+            3. 위 코드를 아래에 입력 → 적용
+          </div>
+
+          <div style={{ borderTop:'1px solid #f1f5f9', paddingTop:'16px' }}>
+            <div style={{ fontSize:'12px', color:'#94a3b8', marginBottom:'6px' }}>다른 기기의 코드 입력 (동기화 코드 변경)</div>
+            <div style={{ display:'flex', gap:'8px' }}>
+              <input value={input} onChange={e=>setInput(e.target.value)} placeholder="코드를 붙여넣어 주세요"
+                style={{ flex:1, border:'1px solid #e2e8f0', borderRadius:'8px', padding:'10px 12px', fontSize:'13px', outline:'none', fontFamily:'monospace' }} />
+              <button onClick={apply} style={{ padding:'10px 16px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'13px' }}>적용</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 복약 설정 모달 ──────────────────────────────────── */
+  const MedSettingsModal = ({ meds, onSave, onClose }) => {
+    const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(meds)));
+    const [editingSlot, setEditingSlot] = useState(null); // slot key
+    const [editingMed,  setEditingMed]  = useState(null); // {slotKey, medId}
+    const SLOT_COLORS = [
+      { color:'#2563eb', bg:'#eff6ff', border:'#93c5fd' },
+      { color:'#059669', bg:'#f0fdf4', border:'#86efac' },
+      { color:'#7c3aed', bg:'#faf5ff', border:'#c4b5fd' },
+      { color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' },
+      { color:'#d97706', bg:'#fffbeb', border:'#fcd34d' },
+    ];
+    const updSlotName = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, slot:val} : s));
+    const updSlotIcon = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, icon:val} : s));
+    const delSlot = (key) => { if(window.confirm('이 시간대를 삭제할까요?')) setCfg(c => c.filter(s => s.key!==key)); };
+    const addSlot = () => {
+      const key = 'slot_' + Date.now();
+      const col = SLOT_COLORS[cfg.length % SLOT_COLORS.length];
+      setCfg(c => [...c, { slot:'새 시간대', key, icon:'💊', items:[], ...col }]);
+      setEditingSlot(key);
+    };
+    const updMedField = (slotKey, medId, field, val) =>
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.map(m => m.id===medId ? {...m, [field]:val} : m)} : s));
+    const delMed = (slotKey, medId) =>
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.filter(m => m.id!==medId)} : s));
+    const addMed = (slotKey) => {
+      const id = genId();
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...s.items, {id, name:'새 약', dose:''}]} : s));
+      setEditingMed({slotKey, medId:id});
+    };
+    const reset = () => { if(window.confirm('기본값으로 초기화할까요?')) setCfg(JSON.parse(JSON.stringify(DEFAULT_MEDS))); };
+
+    return (
+      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
+           onClick={e=>e.target===e.currentTarget&&onClose()}>
+        <div style={{background:'#fff',borderRadius:'18px',padding:'24px',maxWidth:'520px',width:'100%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.25)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
+            <div style={{fontSize:'18px',fontWeight:'800',color:'#1e293b'}}>⚙️ 복약 설정</div>
+            <button onClick={onClose} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'16px'}}>✕</button>
+          </div>
+
+          {cfg.map(slot => (
+            <div key={slot.key} style={{background:slot.bg,border:`1px solid ${slot.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'10px'}}>
+              {/* 슬롯 헤더 */}
+              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
+                {editingSlot===slot.key ? (
+                  <>
+                    <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
+                      style={{width:'44px',border:'1px solid #e2e8f0',borderRadius:'6px',padding:'4px',fontSize:'16px',textAlign:'center'}}/>
+                    <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)}
+                      style={{flex:1,border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px',fontWeight:'700'}}/>
+                    <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'12px'}}>완료</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{fontSize:'14px'}}>{slot.icon}</span>
+                    <span style={{fontSize:'13px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
+                    <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'#94a3b8'}}>✏️</button>
+                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'#fca5a5'}}>🗑️</button>
+                  </>
+                )}
+              </div>
+              {/* 약 목록 */}
+              {slot.items.map(med => (
+                <div key={med.id} style={{background:'#fff',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:'1px solid #e2e8f0'}}>
+                  {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      <input value={med.name} onChange={e=>updMedField(slot.key,med.id,'name',e.target.value)}
+                        placeholder="약 이름" style={{border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px'}}/>
+                      <input value={med.dose} onChange={e=>updMedField(slot.key,med.id,'dose',e.target.value)}
+                        placeholder="용량 (예: 10mg 1정)" style={{border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'13px'}}/>
+                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'6px',cursor:'pointer',fontSize:'12px',fontWeight:'700'}}>완료</button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:'13px',fontWeight:'600',color:'#1e293b'}}>{med.name}</div>
+                        <div style={{fontSize:'11px',color:'#94a3b8'}}>{med.dose}</div>
+                      </div>
+                      <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'#94a3b8'}}>✏️</button>
+                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'#fca5a5'}}>🗑️</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button onClick={()=>addMed(slot.key)} style={{width:'100%',padding:'7px',background:'transparent',border:`1px dashed ${slot.border}`,color:slot.color,borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontWeight:'700',marginTop:'4px'}}>
+                + 약 추가
+              </button>
+            </div>
+          ))}
+
+          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'#f8fafc',border:'1px dashed #cbd5e1',color:'#64748b',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700',marginBottom:'12px'}}>
+            + 시간대 추가
+          </button>
+
+          <div style={{display:'flex',gap:'8px'}}>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'#fff',border:'1px solid #e2e8f0',color:'#94a3b8',borderRadius:'10px',cursor:'pointer',fontSize:'13px'}}>기본값으로 초기화</button>
+            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>저장</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── App ──────────────────────────────────────────────── */
+  const App = () => {
+    const [date,       setDate]      = useState(todayStr());
+    const [data,       setData]      = useState({});
+    const [showImport, setShowImport] = useState(false);
+    const [showSync,   setShowSync]  = useState(false);
+    const [showMedSettings, setShowMedSettings] = useState(false);
+    const [medsConfig, setMedsConfig] = useState(() => {
+      try { const s = localStorage.getItem('hcd_meds_config'); return s ? JSON.parse(s) : DEFAULT_MEDS; }
+      catch { return DEFAULT_MEDS; }
+    });
+    const [lastImport, setLastImport] = useState(null);
+    const [loading,    setLoading]   = useState(true);
+    const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+    const [userId,     setUserId]    = useState(() => getOrCreateUserId());
+    const [analyzing,  setAnalyzing] = useState(null); // 분석 중인 meal id
+    const [analysisResult, setAnalysisResult] = useState(null); // { mealId, text }
+    const [weightImporting, setWeightImporting] = useState(false);
+    const [weightImportMsg, setWeightImportMsg] = useState('');
+    const chartRef    = useRef(null);
+    const chartInst   = useRef(null);
+    const saveTimer   = useRef(null);
+    const weightFileRef = useRef(null);
+    const imgRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
+    const camRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
+
+    const handlePhotoSelect = async (file, mealId) => {
+      if (!file) return;
+      setAnalyzing(mealId);
+      setAnalysisResult(null);
+      try {
+        const base64   = await fileToBase64(file);
+        const mimeType = file.type || 'image/jpeg';
+        const result   = await analyzeFood(base64, mimeType);
+        setAnalysisResult({ mealId, text: result });
+      } catch(e) {
+        alert('사진 분석 중 오류가 발생했어요.\n' + e.message);
+      }
+      setAnalyzing(null);
+    };
+
+    const applyAnalysis = (mealId, text) => {
+      updMeal(mealId, (day.meals[mealId] ? day.meals[mealId] + '\n\n' : '') + text);
+      setAnalysisResult(null);
+    };
+
+    /* ── 건강앱 체중/체지방 가져오기 ── */
+    const handleWeightImport = async (file) => {
+      if (!file) return;
+      setWeightImporting(true);
+      setWeightImportMsg('파일 처리 중...');
+      try {
+        let xmlText = '';
+        if (file.name.endsWith('.zip')) {
+          setWeightImportMsg('ZIP 압축 해제 중...');
+          if (typeof JSZip === 'undefined') throw new Error('ZIP 라이브러리 로드 실패');
+          const zip = await JSZip.loadAsync(file);
+          const allFilesW = Object.keys(zip.files);
+          const xmlFileW = allFilesW.find(name =>
+            /export\.xml$/i.test(name) && !/cda/i.test(name)
+          ) || allFilesW.find(name => /\.xml$/i.test(name) && !/cda/i.test(name));
+          if (!xmlFileW) throw new Error('export.xml을 찾을 수 없어요');
+          setWeightImportMsg('데이터 추출 중... (10~30초 소요)');
+          xmlText = await zip.files[xmlFileW].async('text');
+        } else if (file.name.endsWith('.xml')) {
+          setWeightImportMsg('XML 파싱 중...');
+          xmlText = await file.text();
+        } else {
+          throw new Error('.zip 또는 .xml 파일을 선택해 주세요');
+        }
+        await new Promise(r => setTimeout(r, 50));
+        const { weightByDay, bodyFatByDay } = await parseAppleHealthXML(xmlText, (pct) => {
+          setWeightImportMsg(`데이터 분석 중... ${pct}%`);
+        });
+        const wDays = Object.keys(weightByDay).length;
+        const bfDays = Object.keys(bodyFatByDay).length;
+        if (!wDays && !bfDays) throw new Error('체중·체지방 데이터를 찾을 수 없어요.\n체성분 앱이 건강앱과 연동되어 있는지 확인해 주세요.');
+        // 가져온 데이터 병합
+        const importedData = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay });
+        await handleImport(importedData);
+        setWeightImportMsg(`✅ 체중 ${wDays}일 · 체지방 ${bfDays}일 가져오기 완료!`);
+        setTimeout(() => { setWeightImportMsg(''); setWeightImporting(false); }, 3000);
+      } catch(e) {
+        setWeightImportMsg('❌ ' + (e.message || '가져오기 실패'));
+        setTimeout(() => { setWeightImportMsg(''); setWeightImporting(false); }, 4000);
+      }
+      if (weightFileRef.current) weightFileRef.current.value = '';
+    };
+
+    /* ── Supabase: 초기 데이터 로드 ── */
+    useEffect(() => {
+      const load = async () => {
+        setLoading(true);
+        try {
+          const { data: rows, error } = await supa
+            .from('diabetes_data')
+            .select('date, payload')
+            .eq('user_id', userId);
+          if (error) throw error;
+          const loaded = {};
+          (rows || []).forEach(r => { loaded[r.date] = r.payload; });
+          setData(loaded);
+        } catch(e) {
+          // Supabase 실패 시 localStorage 캐시 사용
+          try {
+            const s = localStorage.getItem('dm_dash_v2');
+            if (s) { const p = JSON.parse(s); setData(p.data || {}); }
+          } catch(e2) {}
+        }
+        setLoading(false);
+      };
+      load();
+    }, [userId]);
+
+    /* ── Supabase: 현재 날짜 데이터 저장 (디바운스 1.5초) ── */
+    useEffect(() => {
+      if (loading || !data[date]) return;
+      // localStorage 캐시 업데이트
+      localStorage.setItem('dm_dash_v2', JSON.stringify({ data, lastImport }));
+      // Supabase 저장
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      setSaveStatus('saving');
+      saveTimer.current = setTimeout(async () => {
+        try {
+          const { error } = await supa.from('diabetes_data').upsert(
+            { user_id: userId, date, payload: data[date], updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,date' }
+          );
+          if (error) throw error;
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch(e) {
+          setSaveStatus('error');
+          setTimeout(() => setSaveStatus('idle'), 3000);
+        }
+      }, 1500);
+    }, [data, date, loading]);
+
+    /* ── Supabase: 가져오기 후 여러 날 일괄 저장 ── */
+    const saveAllToSupabase = async (newData) => {
+      try {
+        const rows = Object.entries(newData).map(([d, payload]) => ({
+          user_id: userId, date: d, payload, updated_at: new Date().toISOString()
+        }));
+        if (rows.length) await supa.from('diabetes_data').upsert(rows, { onConflict: 'user_id,date' });
+      } catch(e) { console.error('일괄 저장 오류:', e); }
+    };
+
+    const day = useMemo(() => data[date] || emptyDay(), [data, date]);
+    const upDay = (patch) => setData(prev => ({ ...prev, [date]: { ...(prev[date] || emptyDay()), ...patch } }));
+    const togMed  = (id) => upDay({ meds: { ...day.meds, [id]: !day.meds[id] } });
+    const updBS   = (id, v) => upDay({ bs: { ...day.bs, [id]: v } });
+    const updMeal = (id, v) => upDay({ meals: { ...day.meals, [id]: v } });
+    const updEx   = (k, v) => upDay({ exercise: { ...day.exercise, [k]: v } });
+
+    /* 가져오기: 기존 수동 입력 유지, 빈 슬롯만 채움 */
+    const handleImport = async (importedData) => {
+      const merged = {};
+      setData(prev => {
+        const next = { ...prev };
+        Object.entries(importedData).forEach(([d, imported]) => {
+          if (!next[d]) { next[d] = imported; }
+          else {
+            const ex = next[d];
+            next[d] = {
+              ...ex,
+              bs: { ...imported.bs, ...ex.bs },
+              weight:  ex.weight  || imported.weight  || '',
+              bodyFat: ex.bodyFat || imported.bodyFat || ''
+            };
+          }
+          merged[d] = next[d];
+        });
+        return next;
+      });
+      setLastImport(new Date().toLocaleString('ko-KR'));
+      await saveAllToSupabase(merged);
+    };
+
+    /* medsConfig 저장 */
+    useEffect(() => { localStorage.setItem('hcd_meds_config', JSON.stringify(medsConfig)); }, [medsConfig]);
+    const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
+
+    /* Stats */
+    const allMedIds = useMemo(() => medsConfig.flatMap(s => s.items.map(m => m.id)), [medsConfig]);
+    const medDone = allMedIds.filter(id => day.meds[id]).length;
+    const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
+    const bsVals  = Object.values(day.bs).filter(v => parseInt(v) > 0);
+    const bsAvg   = bsVals.length ? Math.round(bsVals.reduce((a,b) => a+parseInt(b), 0) / bsVals.length) : null;
+
+    /* Weekly chart */
+    const weekData = useMemo(() => Array.from({length:7}, (_,i) => {
+      const d = shiftDate(date, i-6);
+      const dd = data[d] || emptyDay();
+      const vals = Object.values(dd.bs).filter(v => parseInt(v) > 0);
+      return { label: fmtDate(d).short, avg: vals.length ? Math.round(vals.reduce((a,b)=>a+parseInt(b),0)/vals.length) : null };
+    }), [data, date]);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+      if (chartInst.current) { chartInst.current.destroy(); chartInst.current = null; }
+      chartInst.current = new Chart(chartRef.current, {
+        type: 'line',
+        data: {
+          labels: weekData.map(d => d.label),
+          datasets: [{
+            label: '평균 혈당', data: weekData.map(d => d.avg),
+            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
+            borderWidth: 2.5, pointBackgroundColor: weekData.map(d => bsColor(d.avg)),
+            pointRadius: 5, fill: true, tension: 0.35, spanGaps: true
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c => c.raw ? `${c.raw} mg/dL` : '기록 없음' } } },
+          scales: {
+            y: { min:50, max:320, grid:{color:'#f1f5f9'}, ticks:{font:{size:11}} },
+            x: { grid:{display:false}, ticks:{font:{size:11}} }
+          }
+        }
+      });
+      return () => { if(chartInst.current){chartInst.current.destroy(); chartInst.current=null;} };
+    }, [weekData]);
+
+    const isToday = date === todayStr();
+
+    return (
+      <div style={{ minHeight:'100vh', background:'#f0f4f8', paddingBottom:'48px' }}>
+
+        {/* Header */}
+        <div style={{ background:'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)', padding:'14px 20px', boxShadow:'0 2px 10px rgba(37,99,235,0.35)', position:'sticky', top:0, zIndex:100 }}>
+          <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', flexWrap:'wrap', alignItems:'center', gap:'12px', justifyContent:'space-between' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <span style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'-0.3px' }}>🏥 Health Care Dashboard</span>
+              {saveStatus==='saving' && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.7)' }}>저장 중...</span>}
+              {saveStatus==='saved'  && <span style={{ fontSize:'11px', color:'#86efac' }}>✓ 저장됨</span>}
+              {saveStatus==='error'  && <span style={{ fontSize:'11px', color:'#fca5a5' }}>⚠ 저장 실패</span>}
+            </div>
+
+            {/* Date nav */}
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
+              <div style={{ textAlign:'center', minWidth:'170px' }}>
+                <div style={{ color:'#fff', fontWeight:'700', fontSize:'14px' }}>{fmtDate(date).full}</div>
+                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.25)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'6px', padding:'2px 10px', fontSize:'12px', cursor:'pointer', marginTop:'3px' }}>오늘로 이동</button>}
+              </div>
+              <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
+            </div>
+
+            {/* Right chips */}
+            <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+              <span style={{ background: medPct===100?'#16a34a':'rgba(255,255,255,0.2)', color:'#fff', borderRadius:'20px', padding:'4px 12px', fontSize:'12px', fontWeight:'600' }}>
+                💊 {medDone}/{allMedIds.length}
+              </span>
+              {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'4px 12px', fontSize:'12px', fontWeight:'600' }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
+              <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                ⚙️ 복약 설정
+              </button>
+              <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                📱 가져오기
+              </button>
+              <button onClick={() => setShowSync(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                🔗 동기화
+              </button>
+            </div>
+          </div>
+          {lastImport && (
+            <div style={{ maxWidth:'1140px', margin:'6px auto 0', fontSize:'11px', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
+              마지막 가져오기: {lastImport}
+            </div>
+          )}
+        </div>
+
+        {/* Main */}
+        <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'22px 16px' }}>
+          <div className="main-grid" style={{ display:'grid', gridTemplateColumns:'1fr 330px', gap:'18px' }}>
+
+            {/* ── LEFT ── */}
+            <div>
+              {/* 복약 */}
+              <Card>
+                <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
+                <div style={{ background:'#e2e8f0', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
+                  <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s ease' }}/>
+                </div>
+                {medsConfig.map(slot => (
+                  <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
+                    <div style={{ fontSize:'12px', fontWeight:'700', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
+                      {slot.icon} {slot.slot}
+                    </div>
+                    {slot.items.map(med => (
+                      <label key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
+                        <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
+                        <div>
+                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
+                          <div style={{ fontSize:'12px', color:'#94a3b8' }}>{med.dose}</div>
+                        </div>
+                        {day.meds[med.id] && <span style={{ marginLeft:'auto', color:'#16a34a', fontSize:'16px' }}>✓</span>}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+              </Card>
+
+              {/* 혈당 */}
+              <Card>
+                <STitle icon="🩸" label="혈당 기록" right="단위: mg/dL" />
+                <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'11px' }}>
+                  {[{c:'#7c3aed',t:'저혈당 (<70)'},{c:'#16a34a',t:'정상 (70–140)'},{c:'#d97706',t:'주의 (140–180)'},{c:'#dc2626',t:'높음 (>180)'}].map(l => (
+                    <div key={l.t} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+                      <div style={{ width:'9px', height:'9px', borderRadius:'50%', background:l.c }}/>
+                      <span style={{ color:'#64748b' }}>{l.t}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'10px' }}>
+                  {BS_FIELDS.map(f => {
+                    const v = day.bs[f.id] || ''; const c = bsColor(v);
+                    return (
+                      <div key={f.id} style={{ background:'#f8fafc', borderRadius:'10px', padding:'12px', border:v?`2px solid ${c}`:'1px solid #e2e8f0', transition:'border-color 0.2s' }}>
+                        <div style={{ fontSize:'11px', color:'#64748b', marginBottom:'6px' }}>{f.icon} {f.label}</div>
+                        <div style={{ display:'flex', alignItems:'flex-end', gap:'6px' }}>
+                          <input type="number" min="30" max="600" value={v} onChange={e=>updBS(f.id,e.target.value)} placeholder="---"
+                            style={{ width:'72px', border:'none', background:'transparent', fontSize:'22px', fontWeight:'800', color:v?c:'#cbd5e1', outline:'none', padding:0 }} />
+                          {v && <div style={{ paddingBottom:'3px' }}><div style={{ fontSize:'10px', color:'#94a3b8' }}>mg/dL</div><div style={{ fontSize:'11px', color:c, fontWeight:'700' }}>{bsLabel(v)}</div></div>}
+                        </div>
+                        <div style={{ fontSize:'10px', color:'#cbd5e1', marginTop:'4px' }}>목표: {f.target}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* 식사 */}
+              <Card>
+                <STitle icon="🍽️" label="식사 기록" />
+                <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'12px' }}>
+                  <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
+                  <div style={{ display:'flex', gap:'20px', flexWrap:'wrap' }}>
+                    <div><div style={{ color:'#16a34a', fontWeight:'700', marginBottom:'3px' }}>✅ 권장</div><div style={{ color:'#374151', lineHeight:'1.8' }}>현미·잡곡밥 · 닭가슴살 · 두부 · 생선<br/>채소류 · 달걀 · 콩류 · 견과류(소량)</div></div>
+                    <div><div style={{ color:'#dc2626', fontWeight:'700', marginBottom:'3px' }}>❌ 제한</div><div style={{ color:'#374151', lineHeight:'1.8' }}>흰쌀밥 · 흰빵 · 라면 · 과자<br/>사탕·주스 · 탄산음료 · 술</div></div>
+                  </div>
+                </div>
+                <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'12px' }}>
+                  <div style={{ fontWeight:'700', color:'#92400e', marginBottom:'5px' }}>📝 식단 기입 방법</div>
+                  <div style={{ color:'#78350f', lineHeight:'1.8' }}>
+                    <strong>형식:</strong> 음식명 + 양 + 탄수화물(g)<br/>
+                    <strong>예:</strong> 현미밥 반공기(30g), 닭가슴살 100g, 브로콜리 1컵<br/>
+                    <strong>한 끼 탄수화물 목표:</strong> 45–60g (하루 130–180g)
+                  </div>
+                </div>
+                {MEALS.map(m => (
+                  <div key={m.id} style={{ marginBottom:'16px' }}>
+                    {/* 라벨 + 사진 버튼 */}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px', flexWrap:'wrap', gap:'6px' }}>
+                      <div style={{ fontSize:'13px', fontWeight:'700', color:'#374151' }}>{m.icon} {m.label}</div>
+                      {analyzing===m.id ? (
+                        <span style={{ fontSize:'12px', color:'#7c3aed', fontWeight:'700' }}>⏳ 분석 중...</span>
+                      ) : (
+                        <div style={{ display:'flex', gap:'6px' }}>
+                          {/* 카메라 촬영 */}
+                          <button onClick={() => camRefs[m.id].current?.click()} disabled={!!analyzing}
+                            style={{ background:'#faf5ff', border:'1px solid #c4b5fd', color:'#7c3aed', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'12px', fontWeight:'700' }}>
+                            📸 촬영
+                          </button>
+                          {/* 앨범 선택 */}
+                          <button onClick={() => imgRefs[m.id].current?.click()} disabled={!!analyzing}
+                            style={{ background:'#eff6ff', border:'1px solid #93c5fd', color:'#2563eb', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'12px', fontWeight:'700' }}>
+                            🖼️ 앨범
+                          </button>
+                        </div>
+                      )}
+                      {/* 카메라용 input */}
+                      <input ref={camRefs[m.id]} type="file" accept="image/*" capture="environment"
+                        onChange={e => e.target.files[0] && handlePhotoSelect(e.target.files[0], m.id)}
+                        style={{ display:'none' }} />
+                      {/* 앨범용 input */}
+                      <input ref={imgRefs[m.id]} type="file" accept="image/*"
+                        onChange={e => e.target.files[0] && handlePhotoSelect(e.target.files[0], m.id)}
+                        style={{ display:'none' }} />
+                    </div>
+
+                    {/* 분석 결과 카드 */}
+                    {analysisResult?.mealId === m.id && (
+                      <div style={{ border:'1px solid #c4b5fd', borderRadius:'12px', marginBottom:'10px', overflow:'hidden' }}>
+                        {/* 헤더 */}
+                        <div style={{ background:'linear-gradient(135deg,#7c3aed,#a855f7)', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <span style={{ color:'#fff', fontWeight:'700', fontSize:'13px' }}>🤖 AI 식단 분석 결과</span>
+                          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'11px' }}>Powered by Gemini</span>
+                        </div>
+                        {/* 내용 */}
+                        <div style={{ background:'#faf5ff', padding:'14px', fontSize:'13px', color:'#1e293b', whiteSpace:'pre-line', lineHeight:'1.9', maxHeight:'400px', overflowY:'auto' }}>
+                          {analysisResult.text}
+                        </div>
+                        {/* 버튼 */}
+                        <div style={{ background:'#f5f3ff', padding:'10px 14px', display:'flex', gap:'8px', borderTop:'1px solid #e9d5ff' }}>
+                          <button onClick={() => applyAnalysis(m.id, analysisResult.text)}
+                            style={{ flex:2, padding:'9px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'13px' }}>
+                            ✅ 식사 기록에 추가
+                          </button>
+                          <button onClick={() => setAnalysisResult(null)}
+                            style={{ flex:1, padding:'9px', background:'#fff', color:'#64748b', border:'1px solid #e2e8f0', borderRadius:'8px', cursor:'pointer', fontSize:'13px' }}>
+                            닫기
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <textarea value={day.meals[m.id]||''} onChange={e=>updMeal(m.id,e.target.value)} placeholder={m.ph} rows={3}
+                      style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'10px 12px', fontSize:'13px', color:'#374151', resize:'vertical', outline:'none', lineHeight:'1.6', background:'#fafafa', transition:'border-color 0.2s' }}
+                      onFocus={e=>e.target.style.borderColor='#2563eb'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
+                  </div>
+                ))}
+              </Card>
+
+              {/* 주간 차트 */}
+              <Card>
+                <STitle icon="📈" label="최근 7일 평균 혈당" />
+                <div className="chart-wrap"><canvas ref={chartRef}/></div>
+                <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center', fontSize:'12px', color:'#64748b' }}>
+                  <span>🟣 저혈당</span><span>🟢 정상</span><span>🟡 주의</span><span>🔴 높음</span>
+                </div>
+                <div style={{ fontSize:'11px', color:'#94a3b8', textAlign:'center', marginTop:'6px' }}>
+                  혈당 기록이 쌓이면 의사 선생님과 인슐린 용량 조정 상담에 활용하세요
+                </div>
+              </Card>
+            </div>
+
+            {/* ── RIGHT ── */}
+            <div>
+              {/* 요약 */}
+              <Card style={{ background:medPct===100?'#f0fdf4':'#fff' }}>
+                <STitle icon="📊" label="오늘 요약" />
+                <div style={{ marginBottom:'16px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'5px' }}>
+                    <span style={{ fontWeight:'600' }}>복약 완료율</span>
+                    <span style={{ fontWeight:'800', color:medPct===100?'#16a34a':'#2563eb' }}>{medPct}%</span>
+                  </div>
+                  <div style={{ background:'#e2e8f0', borderRadius:'4px', height:'8px', overflow:'hidden' }}>
+                    <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'4px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s' }}/>
+                  </div>
+                </div>
+                <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'14px', marginBottom:'14px' }}>
+                  <div style={{ fontSize:'11px', color:'#64748b', marginBottom:'4px' }}>오늘 평균 혈당</div>
+                  <div style={{ fontSize:'32px', fontWeight:'900', color:bsAvg?bsColor(bsAvg):'#cbd5e1' }}>
+                    {bsAvg||'---'}{bsAvg&&<span style={{ fontSize:'14px', fontWeight:'400', color:'#94a3b8' }}> mg/dL</span>}
+                  </div>
+                  {bsAvg&&<div style={{ fontSize:'12px', fontWeight:'700', color:bsColor(bsAvg), marginTop:'2px' }}>{bsLabel(bsAvg)}</div>}
+                  <div style={{ fontSize:'11px', color:'#94a3b8', marginTop:'4px' }}>{bsVals.length}회 측정됨</div>
+                </div>
+                <div style={{ display:'flex', gap:'6px' }}>
+                  {MEALS.map(m => {
+                    const filled = !!(day.meals[m.id]?.trim());
+                    return <div key={m.id} style={{ flex:1, textAlign:'center', borderRadius:'8px', padding:'8px 4px', background:filled?'#f0fdf4':'#f8fafc', border:`1px solid ${filled?'#86efac':'#e2e8f0'}` }}>
+                      <div style={{ fontSize:'16px' }}>{m.icon}</div>
+                      <div style={{ fontSize:'10px', color:filled?'#16a34a':'#94a3b8', fontWeight:'600', marginTop:'3px' }}>{filled?'완료':'미기록'}</div>
+                    </div>;
+                  })}
+                </div>
+              </Card>
+
+              {/* 체중 / 체지방 */}
+              <Card>
+                <STitle icon="⚖️" label="체중 · 체지방 기록" />
+
+                {/* 입력 행 */}
+                <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap' }}>
+                  <div style={{ flex:1, minWidth:'100px' }}>
+                    <div style={{ fontSize:'11px', color:'#64748b', marginBottom:'4px' }}>체중</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                      <input type="number" step="0.1" min="30" max="200" value={day.weight||''} onChange={e=>upDay({weight:e.target.value})} placeholder="00.0"
+                        style={{ width:'90px', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'#1e293b', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'#64748b', fontWeight:'600', fontSize:'13px' }}>kg</span>
+                    </div>
+                  </div>
+                  <div style={{ flex:1, minWidth:'100px' }}>
+                    <div style={{ fontSize:'11px', color:'#64748b', marginBottom:'4px' }}>체지방율</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                      <input type="number" step="0.1" min="1" max="60" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value})} placeholder="00.0"
+                        style={{ width:'90px', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'#64748b', fontWeight:'600', fontSize:'13px' }}>%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 7일 체중 추이 */}
+                {(() => {
+                  const wk = Array.from({length:7}, (_,i) => {
+                    const d = shiftDate(date, i-6);
+                    const dd = data[d] || emptyDay();
+                    return { label: fmtDate(d).short, w: parseFloat(dd.weight)||null, bf: parseFloat(dd.bodyFat)||null };
+                  });
+                  const hasData = wk.some(x => x.w);
+                  if (!hasData) return null;
+                  const minW = Math.min(...wk.filter(x=>x.w).map(x=>x.w)) - 1;
+                  const maxW = Math.max(...wk.filter(x=>x.w).map(x=>x.w)) + 1;
+                  return (
+                    <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'10px', marginBottom:'10px' }}>
+                      <div style={{ fontSize:'11px', color:'#94a3b8', marginBottom:'6px' }}>최근 7일 추이</div>
+                      <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
+                        {wk.map((d,i) => {
+                          const h = d.w ? Math.round(((d.w - minW)/(maxW - minW)) * 38 + 6) : 4;
+                          return (
+                            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+                              <div style={{ width:'100%', height:`${h}px`, background: d.w ? '#2563eb' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
+                              <div style={{ fontSize:'9px', color:'#94a3b8', whiteSpace:'nowrap' }}>{d.label}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:'4px', fontSize:'10px', color:'#64748b' }}>
+                        {wk.map((d,i) => (
+                          <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? '#2563eb' : '#e2e8f0', fontWeight:'700' }}>
+                            {d.w ? `${d.w}` : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 건강앱 가져오기 버튼 */}
+                <input ref={weightFileRef} type="file" accept=".zip,.xml" onChange={e => e.target.files[0] && handleWeightImport(e.target.files[0])} style={{ display:'none' }} />
+                <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting}
+                  style={{ width:'100%', padding:'9px', background: weightImporting?'#f1f5f9':'#f0fdf4', border:'1px solid #86efac', color: weightImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'13px', marginBottom:'6px' }}>
+                  🍎 건강앱에서 가져오기 (ZIP / XML)
+                </button>
+                {weightImportMsg && (
+                  <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'#16a34a': weightImportMsg.startsWith('❌')?'#dc2626':'#64748b', textAlign:'center', padding:'4px 0', fontWeight:'600' }}>
+                    {weightImportMsg}
+                  </div>
+                )}
+                <div style={{ fontSize:'11px', color:'#94a3b8', lineHeight:'1.6', marginTop:'4px' }}>
+                  iPhone 건강앱 → 우상단 프로필 → 건강 데이터 내보내기 → export.zip
+                </div>
+                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
+              </Card>
+
+              {/* 운동 */}
+              <Card>
+                <STitle icon="🏃" label="운동 기록" />
+                <div style={{ marginBottom:'10px' }}>
+                  <div style={{ fontSize:'12px', color:'#64748b', marginBottom:'4px' }}>운동 종류</div>
+                  <input type="text" value={day.exercise?.type||''} onChange={e=>updEx('type',e.target.value)} placeholder="예: 걷기, 수영, 자전거…" style={inpSt} />
+                </div>
+                <div style={{ marginBottom:'10px' }}>
+                  <div style={{ fontSize:'12px', color:'#64748b', marginBottom:'4px' }}>운동 시간 (분)</div>
+                  <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt} />
+                </div>
+                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
+                  💪 식후 30분 걷기 30분이 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
+                </div>
+              </Card>
+
+              {/* 메모 */}
+              <Card>
+                <STitle icon="📝" label="오늘의 메모" />
+                <textarea value={day.note||''} onChange={e=>upDay({note:e.target.value})} placeholder="특이사항, 컨디션, 저혈당 증상, 의사 선생님께 전달할 내용 등…" rows={4}
+                  style={{ ...inpSt, resize:'vertical', lineHeight:'1.6', fontFamily:'inherit' }} />
+              </Card>
+
+              {/* 목표 카드 */}
+              <Card style={{ background:'linear-gradient(135deg,#eff6ff,#f0fdf4)', border:'1px solid #bfdbfe' }}>
+                <div style={{ fontSize:'14px', fontWeight:'700', color:'#1e40af', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
+                <div style={{ fontSize:'12px', color:'#374151', lineHeight:'2' }}>
+                  ✅ 혈당 꾸준히 기록 (리브레2 연동)<br/>
+                  ✅ 탄수화물 조절 (한 끼 45–60g)<br/>
+                  ✅ 식후 걷기 30분<br/>
+                  ✅ 체중 점진적 감량<br/>
+                  ✅ 주치의와 정기 상담<br/><br/>
+                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'11px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* 로딩 오버레이 */}
+        {loading && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(255,255,255,0.85)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', zIndex:3000 }}>
+            <div style={{ fontSize:'48px', marginBottom:'16px' }}>⏳</div>
+            <div style={{ fontSize:'16px', fontWeight:'700', color:'#1e293b' }}>데이터 불러오는 중...</div>
+            <div style={{ fontSize:'13px', color:'#94a3b8', marginTop:'6px' }}>Supabase에서 동기화하고 있어요</div>
+          </div>
+        )}
+
+        {/* Import Modal */}
+        {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
+
+        {/* Sync Modal */}
+        {showSync && <SyncModal userId={userId} onClose={() => setShowSync(false)} onChangeId={(id) => { setUserId(id); setData({}); }} />}
+
+        {/* Med Settings Modal */}
+        {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
+      </div>
+    );
+  };
+
+  /* ── 공통 스타일 상수 ─────────────────────────────────── */
+  const navBtnSt = { background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:'8px', padding:'8px 16px', cursor:'pointer', fontSize:'18px', fontWeight:'700', lineHeight:1 };
+  const inpSt    = { width:'100%', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 12px', fontSize:'14px', outline:'none', background:'#fafafa' };
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
