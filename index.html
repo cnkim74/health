@@ -1002,7 +1002,9 @@
 
   /* ── 관리자 배너 설정 모달 ───────────────────────────── */
   const ADMIN_EMAIL = 'cnkim74@gmail.com';
-  const AdminModal = ({ onClose }) => {
+  const AdminModal = ({ onClose, userEmail }) => {
+    // 관리자 권한 이중 검증 — 이메일이 일치하지 않으면 모달 자체를 렌더링하지 않음
+    if (userEmail !== ADMIN_EMAIL) return null;
     const dm = _dm;
     const [banners, setBanners] = useState(loadBanners);
     const [editing, setEditing] = useState(null); // slotId
@@ -1404,7 +1406,7 @@
     const [showImport, setShowImport] = useState(false);
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
-    const [medsConfig, setMedsConfig] = useState(DEFAULT_MEDS);
+    const [medsConfig, setMedsConfig] = useState([]);
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(true);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -1645,12 +1647,13 @@
 
     /* medsConfig 저장 */
     // 복약 설정: 유저별 로드 (userId 확정 후)
+    // ⚠️ localStorage에 저장된 값이 없으면 빈 배열로 시작 (신규 가입자는 직접 입력)
     useEffect(() => {
       if (!userId) return;
       try {
         const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-        setMedsConfig(s ? JSON.parse(s) : DEFAULT_MEDS);
-      } catch { setMedsConfig(DEFAULT_MEDS); }
+        setMedsConfig(s ? JSON.parse(s) : []);
+      } catch { setMedsConfig([]); }
     }, [userId]);
 
     // 복약 설정: 유저별 저장
@@ -1811,6 +1814,17 @@
                 <div style={{ background:'#e2e8f0', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
                   <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s ease' }}/>
                 </div>
+                {medsConfig.length === 0 && (
+                  <div style={{ textAlign:'center', padding:'28px 16px', background:'var(--input-bg)', borderRadius:'12px', border:'1.5px dashed var(--card-border)' }}>
+                    <div style={{ fontSize:'32px', marginBottom:'10px' }}>💊</div>
+                    <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'6px' }}>복약 정보가 없어요</div>
+                    <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'14px' }}>복용 중인 약을 등록하면 매일 체크할 수 있어요</div>
+                    <button onClick={() => setShowMedSettings(true)}
+                      style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                      ⚙️ 복약 설정하기
+                    </button>
+                  </div>
+                )}
                 {medsConfig.map(slot => {
                   const activeItems = slot.items.filter(med => {
                     if (med.startDate && date < med.startDate) return false;
@@ -2178,7 +2192,7 @@
         {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
 
         {/* Admin Modal */}
-        {showAdmin && <AdminModal onClose={() => setShowAdmin(false)} />}
+        {showAdmin && <AdminModal onClose={() => setShowAdmin(false)} userEmail={authUser?.email} />}
       </div>
     );
   };
