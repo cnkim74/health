@@ -1121,6 +1121,8 @@
     const [isSearching, setIsSearching]   = useState(false);
     const [selectedDrug, setSelectedDrug] = useState(null); // { itemName, efcyQesitm }
     const [newDose, setNewDose]           = useState('');
+    const [newStart, setNewStart]         = useState('');
+    const [newEnd, setNewEnd]             = useState('');
     const [newSlotKey, setNewSlotKey]     = useState('');
     const [addMsg, setAddMsg]             = useState('');
     const searchTimerRef = useRef(null);
@@ -1161,9 +1163,9 @@
       if (!newSlotKey) { setAddMsg('⚠️ 시간대를 선택해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
       const id = genId();
       setCfg(c => c.map(s => s.key === newSlotKey
-        ? { ...s, items: [...s.items, { id, name: selectedDrug.itemName, dose: newDose, startDate: '', endDate: '' }] }
+        ? { ...s, items: [...s.items, { id, name: selectedDrug.itemName, dose: newDose, startDate: newStart, endDate: newEnd }] }
         : s));
-      setSelectedDrug(null); setSearchQuery(''); setSearchResults([]); setNewDose('');
+      setSelectedDrug(null); setSearchQuery(''); setSearchResults([]); setNewDose(''); setNewStart(''); setNewEnd('');
       setAddMsg('✅ ' + selectedDrug.itemName + ' 추가됐어요!');
       setTimeout(() => setAddMsg(''), 3000);
     };
@@ -1364,12 +1366,26 @@
               </div>
             )}
 
-            {/* 용량 + 시간대 선택 */}
-            <div style={{display:'flex',gap:'8px',marginBottom:'8px',flexWrap:'wrap'}}>
+            {/* 용량 */}
+            <div style={{marginBottom:'8px'}}>
               <input value={newDose} onChange={e=>setNewDose(e.target.value)}
                 placeholder="용량 (예: 500mg 1정)"
-                style={{flex:'1 1 160px',border:'1px solid var(--card-border)',borderRadius:'8px',padding:'8px 10px',
-                        fontSize:'13px',outline:'none',background:'var(--card-bg)',color:'var(--text)'}}/>
+                style={{width:'100%',border:'1px solid var(--card-border)',borderRadius:'8px',padding:'8px 10px',
+                        fontSize:'13px',outline:'none',background:'var(--card-bg)',color:'var(--text)',boxSizing:'border-box'}}/>
+            </div>
+
+            {/* 복약 시기 (시작일 ~ 종료일) */}
+            <div style={{marginBottom:'8px'}}>
+              <div style={{fontSize:'12px',color:'var(--text-sub)',fontWeight:'600',marginBottom:'6px'}}>📅 복약 시기 <span style={{fontWeight:'400',color:'var(--text-mute)'}}>(미입력 시 항상 표시)</span></div>
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                <input type="date" value={newStart} onChange={e=>setNewStart(e.target.value)}
+                  style={{flex:1,border:'1px solid var(--card-border)',borderRadius:'8px',padding:'7px 8px',
+                          fontSize:'13px',outline:'none',background:'var(--card-bg)',color:'var(--text)'}}/>
+                <span style={{color:'var(--text-mute)',fontSize:'13px',flexShrink:0}}>~</span>
+                <input type="date" value={newEnd} onChange={e=>setNewEnd(e.target.value)}
+                  style={{flex:1,border:'1px solid var(--card-border)',borderRadius:'8px',padding:'7px 8px',
+                          fontSize:'13px',outline:'none',background:'var(--card-bg)',color:'var(--text)'}}/>
+              </div>
             </div>
 
             {/* 시간대 선택 버튼 */}
