@@ -1953,8 +1953,152 @@
     );
   };
 
+  /* ── 데이터 복구 모달 ── */
+  const DataRecoveryModal = ({ userId, onImportData, onImportMeds, onClose }) => {
+    const dm = _dm;
+    const [inputId, setInputId] = useState('104360e3-1dc8-4c4d-bb36-0b9c07dba2cf');
+    const [busy,    setBusy]    = useState(false);
+    const [result,  setResult]  = useState(null); // { rows, settings, medNames }
+    const [msg,     setMsg]     = useState('');
+    const [importing, setImporting] = useState(false);
+
+    const search = async () => {
+      const lid = inputId.trim();
+      if (!lid) return;
+      setBusy(true); setResult(null); setMsg('');
+      try {
+        const { data: rows, error } = await supa.from('diabetes_data')
+          .select('date, payload').eq('user_id', lid);
+        if (error) throw error;
+        if (!rows || rows.length === 0) {
+          setMsg('해당 코드로 저장된 데이터가 없어요.');
+          setBusy(false); return;
+        }
+        const dataRows    = rows.filter(r => r.date !== '_user_settings_');
+        const settingsRow = rows.find(r => r.date === '_user_settings_');
+        const medsConfig  = settingsRow?.payload?.medsConfig || [];
+        const medNames    = medsConfig.flatMap(s => s.items.map(m => m.name)).filter(Boolean);
+        // 모든 날짜에서 고유 med ID 추출
+        const allMedIds   = new Set();
+        dataRows.forEach(r => { if (r.payload?.meds) Object.keys(r.payload.meds).forEach(id => allMedIds.add(id)); });
+        setResult({ lid, dataRows, settingsRow, medsConfig, medNames, allMedIds: [...allMedIds] });
+      } catch(e) {
+        setMsg('❌ 조회 실패: ' + (e.message || '오류'));
+      }
+      setBusy(false);
+    };
+
+    const doImport = async () => {
+      if (!result) return;
+      setImporting(true); setMsg('');
+      try {
+        // 건강 데이터 가져오기
+        if (result.dataRows.length > 0) {
+          const patch = {};
+          result.dataRows.forEach(r => { patch[r.date] = r.payload; });
+          onImportData(patch);
+        }
+        // 복약 설정 가져오기
+        if (result.medsConfig.length > 0) {
+          onImportMeds(result.medsConfig);
+        }
+        // 이 UUID 기억
+        localStorage.setItem('cn_legacy_uid', result.lid);
+        localStorage.setItem('dm_user_id',    result.lid);
+        setMsg('✅ 데이터를 현재 계정으로 가져왔어요! 저장 중...');
+        setTimeout(onClose, 2500);
+      } catch(e) {
+        setMsg('❌ 가져오기 실패: ' + (e.message || '오류'));
+      }
+      setImporting(false);
+    };
+
+    const inp = { width:'100%', padding:'10px 12px', border:'1px solid var(--card-border)', borderRadius:'10px',
+                  fontSize:'13px', fontFamily:'var(--font-num)', outline:'none',
+                  background:'var(--input-bg)', color:'var(--text)', boxSizing:'border-box' };
+
+    return (
+      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.6)',display:'flex',alignItems:'center',
+                   justifyContent:'center',zIndex:2500,padding:'20px'}}
+           onClick={e=>e.target===e.currentTarget&&onClose()}>
+        <div style={{background:'var(--card-bg)',borderRadius:'20px',padding:'26px 22px',maxWidth:'480px',
+                     width:'100%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.3)'}}>
+
+          {/* 헤더 */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
+            <div style={{fontSize:'16px',fontWeight:'800',color:'var(--text)'}}>🔍 데이터 복구</div>
+            <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',
+                                              width:'32px',height:'32px',cursor:'pointer',fontSize:'16px'}}>✕</button>
+          </div>
+
+          <div style={{fontSize:'13px',color:'var(--text-sub)',marginBottom:'14px',lineHeight:1.6}}>
+            이전에 사용하던 동기화 코드(UUID)를 입력하면 해당 코드로 저장된 데이터를 조회하고 현재 계정으로 가져올 수 있어요.
+          </div>
+
+          {/* UUID 입력 */}
+          <div style={{display:'flex',gap:'8px',marginBottom:'14px'}}>
+            <input value={inputId} onChange={e=>setInputId(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={inp}/>
+            <button onClick={search} disabled={busy||!inputId.trim()}
+              style={{background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',
+                      padding:'10px 16px',cursor:busy?'default':'pointer',fontSize:'13px',fontWeight:'700',
+                      whiteSpace:'nowrap',opacity:busy?0.6:1}}>
+              {busy ? '조회 중...' : '조회'}
+            </button>
+          </div>
+
+          {/* 결과 */}
+          {result && (
+            <div style={{background:'var(--cn-ok-100)',border:'1px solid var(--cn-ok)',borderRadius:'12px',
+                         padding:'14px',marginBottom:'14px'}}>
+              <div style={{fontSize:'13px',fontWeight:'800',color:'var(--cn-ok)',marginBottom:'10px'}}>
+                ✅ 데이터를 찾았어요!
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:'6px',fontSize:'13px',color:'var(--text)'}}>
+                <div>📅 건강 기록: <strong>{result.dataRows.length}일치</strong></div>
+                {result.dataRows.length > 0 && (() => {
+                  const dates = result.dataRows.map(r=>r.date).sort();
+                  return <div style={{fontSize:'12px',color:'var(--text-sub)'}}>
+                    {dates[0]} ~ {dates[dates.length-1]}
+                  </div>;
+                })()}
+                <div>💊 복약 설정: <strong>{result.medsConfig.length}개 시간대, {result.medNames.length}개 약</strong></div>
+                {result.medNames.length > 0 && (
+                  <div style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',
+                               fontSize:'12px',color:'var(--text-sub)',lineHeight:1.8}}>
+                    {result.medNames.join(' · ')}
+                  </div>
+                )}
+                {result.medsConfig.length === 0 && result.allMedIds.length > 0 && (
+                  <div style={{fontSize:'12px',color:'var(--text-sub)'}}>
+                    (복약 설정 없음 — 기록에서 {result.allMedIds.length}개 ID 발견)
+                  </div>
+                )}
+              </div>
+              <button onClick={doImport} disabled={importing}
+                style={{width:'100%',marginTop:'12px',padding:'12px',background:importing?'var(--divider)':'var(--cn-brand)',
+                        color:importing?'var(--text-mute)':'#fff',border:'none',borderRadius:'10px',
+                        cursor:importing?'default':'pointer',fontSize:'14px',fontWeight:'800'}}>
+                {importing ? '가져오는 중...' : '현재 계정으로 가져오기 →'}
+              </button>
+            </div>
+          )}
+
+          {msg && (
+            <div style={{background:msg.startsWith('✅')?'var(--cn-ok-100)':'var(--cn-danger-100)',
+                         border:`1px solid ${msg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)'}`,
+                         borderRadius:'10px',padding:'10px 14px',fontSize:'13px',fontWeight:'600',
+                         color:msg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)'}}>
+              {msg}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /* ── 프로필 탭 ── */
-  const ProfileTab = ({ authUser, userId, onMedSettings, onImport, onSync, onAdmin, onRefresh, syncing, darkMode, onToggleDark, onChangePassword }) => {
+  const ProfileTab = ({ authUser, userId, onMedSettings, onImport, onSync, onAdmin, onRefresh, syncing, darkMode, onToggleDark, onChangePassword, onDataRecovery }) => {
     const isAdmin = authUser?.email === 'cnkim74@gmail.com';
     const Row = ({ icon, label, sub, onClick, accent, disabled }) => (
       <button onClick={onClick} disabled={disabled}
@@ -1983,6 +2127,7 @@
         <Row icon="💊" label="복약 설정" sub="복용 중인 약 등록" onClick={onMedSettings} />
         <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 ZIP/XML · 삼성 헬스 ZIP" onClick={onImport} />
         <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
+        <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드(UUID)로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <Row icon="♻️" label={syncing?'새로고침 중...':'새로고침'} sub="최신 데이터 다시 불러오기" onClick={onRefresh} disabled={syncing} />
 
         <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>화면</div>
@@ -2315,6 +2460,7 @@
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
     const [showChangePw,    setShowChangePw]    = useState(false);
+    const [showDataRecovery, setShowDataRecovery] = useState(false);
     const [medsConfig, setMedsConfig] = useState([]);
     const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
@@ -3565,6 +3711,7 @@
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
               onChangePassword={() => setShowChangePw(true)}
+              onDataRecovery={() => setShowDataRecovery(true)}
             />
           </div>
 
@@ -3612,6 +3759,16 @@
 
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+
+        {/* Data Recovery Modal */}
+        {showDataRecovery && (
+          <DataRecoveryModal
+            userId={userId}
+            onImportData={(patch) => setData(prev => ({ ...prev, ...patch }))}
+            onImportMeds={(cfg) => saveMeds(cfg)}
+            onClose={() => { setShowDataRecovery(false); setRefreshKey(k=>k+1); }}
+          />
+        )}
 
         {/* Admin Modal */}
         {showAdmin && <AdminModal onClose={() => setShowAdmin(false)} userEmail={authUser?.email} />}
