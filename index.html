@@ -172,20 +172,24 @@
   .cn-challenge-card {
     background: linear-gradient(135deg, var(--cn-brand-100), var(--card-bg));
     border: 1px solid var(--cn-brand);
-    border-radius: 16px; padding: 20px; margin-bottom: 14px;
+    border-radius: 12px; padding: 10px 14px; margin-bottom: 8px;
   }
-  .cn-badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-top: 16px; }
+  .cn-badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; margin-top: 6px; }
   .cn-badge {
     aspect-ratio: 1; background: var(--input-bg); border: 1.5px solid var(--card-border);
-    border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 10px; text-align: center; gap: 4px; transition: all 0.2s ease;
+    border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 6px; text-align: center; gap: 2px; transition: all 0.2s ease;
   }
   .cn-badge.earned { background: var(--cn-brand-100); border-color: var(--cn-brand); }
-  .cn-badge-icon { font-size: 28px; filter: grayscale(1); opacity: 0.35; }
+  .cn-badge-icon { font-size: 18px; filter: grayscale(1); opacity: 0.35; }
   .cn-badge.earned .cn-badge-icon { filter: none; opacity: 1; }
-  .cn-badge-name { font-size: 11px; font-weight: 700; color: var(--text); }
-  .cn-badge-desc { font-size: 10px; color: var(--text-sub); line-height: 1.3; }
-  .cn-streak-big { font-family: var(--font-num); font-size: 56px; font-weight: 700; color: var(--cn-brand); line-height: 1; letter-spacing: -0.02em; }
+  .cn-badge-name { font-size: 9px; font-weight: 700; color: var(--text); }
+  .cn-badge-desc { font-size: 8px; color: var(--text-sub); line-height: 1.3; }
+  .cn-streak-big { font-family: var(--font-num); font-size: 34px; font-weight: 700; color: var(--cn-brand); line-height: 1; letter-spacing: -0.02em; }
+  /* 하단 챌린지+프로필 나란히 배치 */
+  .cn-bottom-grid { max-width:1140px; margin:0 auto; padding:0 16px 22px; display:grid; grid-template-columns:1fr 300px; gap:14px; }
+  .cn-bottom-grid > div > .cn-card { padding: 14px 16px; }
+  @media (max-width:1023px) { .cn-bottom-grid { display:block; padding:0; } .cn-bottom-grid > div > .cn-card { padding: 20px; } }
 
   /* ── 대시보드 홈탭 추가 스타일 ── */
   .dash-score-card { background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-soft) 100%); border: 1px solid var(--card-border); border-radius: 16px; padding: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 18px; box-shadow: var(--card-shadow); }
@@ -2065,25 +2069,25 @@
     return (
       <div className="cn-card" data-tab="challenge">
         <div className="cn-challenge-card">
-          <div style={{ fontSize:'14px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'6px' }}>🔥 연속 기록</div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'4px' }}>🔥 연속 기록</div>
           <div className="cn-streak-big">{streak}</div>
-          <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'4px' }}>일 연속 혈당 기록 중</div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'3px' }}>일 연속 혈당 기록 중</div>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
-          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px' }}>
-            <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'600' }}>최근 7일 정상범위</div>
-            <div style={{ fontFamily:'var(--font-num)', fontSize:'32px', fontWeight:'700', color: last7.pct >= 70 ? 'var(--cn-ok)' : 'var(--cn-warn)', marginTop:'6px' }}>{last7.pct}%</div>
-            <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'2px' }}>{last7.inRange}/{last7.total}회</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'10px' }}>
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px', padding:'10px 12px' }}>
+            <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>최근 7일 정상범위</div>
+            <div style={{ fontFamily:'var(--font-num)', fontSize:'24px', fontWeight:'700', color: last7.pct >= 70 ? 'var(--cn-ok)' : 'var(--cn-warn)', marginTop:'4px' }}>{last7.pct}%</div>
+            <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{last7.inRange}/{last7.total}회</div>
           </div>
-          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px' }}>
-            <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'600' }}>복약 연속</div>
-            <div style={{ fontFamily:'var(--font-num)', fontSize:'32px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'6px' }}>{medStreak}<span style={{ fontSize:'16px', color:'var(--text-sub)', marginLeft:'4px' }}>일</span></div>
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px', padding:'10px 12px' }}>
+            <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>복약 연속</div>
+            <div style={{ fontFamily:'var(--font-num)', fontSize:'24px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'4px' }}>{medStreak}<span style={{ fontSize:'13px', color:'var(--text-sub)', marginLeft:'3px' }}>일</span></div>
           </div>
         </div>
 
-        <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'4px' }}>🏅 배지</div>
-        <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'8px' }}>{earned}/{badges.length} 획득</div>
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text)', marginBottom:'3px' }}>🏅 배지</div>
+        <div style={{ fontSize:'11px', color:'var(--text-sub)', marginBottom:'6px' }}>{earned}/{badges.length} 획득</div>
         <div className="cn-badge-grid">
           {badges.map(b => (
             <div key={b.id} className={'cn-badge' + (b.earned ? ' earned' : '')}>
@@ -2307,47 +2311,47 @@
     const isAdmin = authUser?.email === 'cnkim74@gmail.com';
     const Row = ({ icon, label, sub, onClick, accent, disabled }) => (
       <button onClick={onClick} disabled={disabled}
-        style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px',
-                 padding:'14px 16px', display:'flex', alignItems:'center', gap:'12px', cursor: disabled?'default':'pointer',
-                 marginBottom:'10px', opacity: disabled?0.5:1, textAlign:'left', fontFamily:'inherit' }}>
-        <div style={{ fontSize:'22px', width:'36px', height:'36px', background: accent || 'var(--cn-brand-100)', color: accent?'#fff':'var(--cn-brand)',
-                     borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{icon}</div>
+        style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px',
+                 padding:'10px 12px', display:'flex', alignItems:'center', gap:'10px', cursor: disabled?'default':'pointer',
+                 marginBottom:'7px', opacity: disabled?0.5:1, textAlign:'left', fontFamily:'inherit' }}>
+        <div style={{ fontSize:'18px', width:'28px', height:'28px', background: accent || 'var(--cn-brand-100)', color: accent?'#fff':'var(--cn-brand)',
+                     borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{icon}</div>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>{label}</div>
-          {sub && <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'2px' }}>{sub}</div>}
+          <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)' }}>{label}</div>
+          {sub && <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'1px' }}>{sub}</div>}
         </div>
-        <div style={{ color:'var(--text-mute)', fontSize:'18px' }}>›</div>
+        <div style={{ color:'var(--text-mute)', fontSize:'16px' }}>›</div>
       </button>
     );
     return (
       <div className="cn-card" data-tab="profile">
-        <div style={{ background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', borderRadius:'16px',
-                     padding:'22px 18px', marginBottom:'16px', color:'#fff' }}>
-          <div style={{ fontSize:'13px', opacity:0.9 }}>로그인 계정</div>
-          <div style={{ fontSize:'18px', fontWeight:'700', marginTop:'4px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
-          <div style={{ fontSize:'11px', opacity:0.75, marginTop:'6px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+        <div style={{ background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', borderRadius:'12px',
+                     padding:'14px 16px', marginBottom:'12px', color:'#fff' }}>
+          <div style={{ fontSize:'12px', opacity:0.9 }}>로그인 계정</div>
+          <div style={{ fontSize:'15px', fontWeight:'700', marginTop:'3px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
+          <div style={{ fontSize:'11px', opacity:0.75, marginTop:'4px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
         </div>
 
-        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'12px 4px 8px' }}>데이터</div>
+        <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>데이터</div>
         <Row icon="💊" label="복약 설정" sub="복용 중인 약 등록" onClick={onMedSettings} />
         <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 ZIP/XML · 삼성 헬스 ZIP" onClick={onImport} />
         <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드(UUID)로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <Row icon="♻️" label={syncing?'새로고침 중...':'새로고침'} sub="최신 데이터 다시 불러오기" onClick={onRefresh} disabled={syncing} />
 
-        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>화면</div>
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면</div>
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙" onClick={onToggleDark} />
 
         {isAdmin && (<>
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>관리자</div>
+          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>관리자</div>
           <Row icon="🛠️" label="관리자 설정" sub="배너 · 콘텐츠 관리" onClick={onAdmin} accent="var(--cn-warn)" />
         </>)}
 
-        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>계정</div>
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>계정</div>
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
 
-        <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'24px', lineHeight:1.6 }}>
+        <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'12px', lineHeight:1.6 }}>
           CARENOTE v2.0<br/>내 몸을 기록하는 노트
         </div>
       </div>
@@ -3898,13 +3902,12 @@
             </div>
           </div>
 
-          {/* ── 챌린지 탭 ── */}
-          <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'0 16px 22px' }}>
-            <ChallengeTab data={data} date={date} userId={userId} />
-          </div>
-
-          {/* ── 프로필 탭 ── */}
-          <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'0 16px 22px' }}>
+          {/* ── 챌린지 + 프로필 탭 (데스크톱: 나란히) ── */}
+          <div className="cn-bottom-grid">
+            <div>
+              <ChallengeTab data={data} date={date} userId={userId} />
+            </div>
+            <div>
             <ProfileTab
               authUser={authUser} userId={userId}
               onMedSettings={() => setShowMedSettings(true)}
@@ -3918,6 +3921,7 @@
               onChangePassword={() => setShowChangePw(true)}
               onDataRecovery={() => setShowDataRecovery(true)}
             />
+            </div>
           </div>
 
           {/* Banner: 페이지 맨 아래 */}
