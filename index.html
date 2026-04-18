@@ -182,6 +182,20 @@
   const SUPA_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+  /* ── e약은요 의약품 정보 API ───────────────────────────────── */
+  const DRUG_API_KEY = '12c113eddc12643698f9d49c82bc7ac526c33cc339906c4964299ef4b258ff9d';
+  const fetchDrugInfo = async (name) => {
+    const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
+      + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}`
+      + `&itemName=${encodeURIComponent(name)}&type=json&numOfRows=3&pageNo=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API 서버 오류');
+    const json = await res.json();
+    const items = json?.body?.items;
+    if (!items || !items.length) throw new Error(`"${name}" 정보를 찾을 수 없어요`);
+    return items[0];
+  };
+
   const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
   });
@@ -815,6 +829,73 @@
     );
   };
 
+  /* ── 의약품 정보 팝업 ──────────────────────────────────── */
+  const DrugInfoModal = ({ medName, onClose }) => {
+    const [info,    setInfo]    = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error,   setError]   = useState('');
+
+    useEffect(() => {
+      (async () => {
+        try { setInfo(await fetchDrugInfo(medName)); }
+        catch(e) { setError(e.message); }
+        setLoading(false);
+      })();
+    }, [medName]);
+
+    const Sec = ({ icon, label, content }) => content ? (
+      <div style={{ marginBottom:'14px', paddingBottom:'14px', borderBottom:'1px solid #f1f5f9' }}>
+        <div style={{ fontSize:'11px', fontWeight:'700', color:'#2563eb', marginBottom:'5px' }}>{icon} {label}</div>
+        <div style={{ fontSize:'13px', color:'#374151', lineHeight:'1.7' }}>{content}</div>
+      </div>
+    ) : null;
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.65)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:3000, padding:'20px' }}
+           onClick={e => e.target===e.currentTarget && onClose()}>
+        <div style={{ background:'#fff', borderRadius:'20px', padding:'26px', maxWidth:'500px', width:'100%', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.3)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'18px' }}>
+            <div>
+              <div style={{ fontSize:'19px', fontWeight:'800', color:'#1e293b' }}>💊 {medName}</div>
+              {info && <div style={{ fontSize:'12px', color:'#94a3b8', marginTop:'3px' }}>{info.entpName}</div>}
+            </div>
+            <button onClick={onClose} style={{ background:'#f1f5f9', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'16px', color:'#64748b', flexShrink:0 }}>✕</button>
+          </div>
+
+          {loading && (
+            <div style={{ textAlign:'center', padding:'40px 0', color:'#94a3b8' }}>
+              <div style={{ fontSize:'28px', marginBottom:'10px' }}>🔍</div>
+              <div style={{ fontSize:'14px' }}>의약품 정보 검색 중...</div>
+            </div>
+          )}
+          {error && (
+            <div style={{ textAlign:'center', padding:'36px 0', color:'#94a3b8' }}>
+              <div style={{ fontSize:'28px', marginBottom:'10px' }}>😔</div>
+              <div style={{ fontSize:'14px' }}>{error}</div>
+              <div style={{ fontSize:'12px', marginTop:'6px', color:'#cbd5e1' }}>약 이름이 정확한지 확인해 주세요</div>
+            </div>
+          )}
+          {info && !loading && (
+            <div>
+              {info.itemName && info.itemName !== medName && (
+                <div style={{ background:'#eff6ff', borderRadius:'8px', padding:'8px 12px', fontSize:'12px', color:'#2563eb', marginBottom:'16px' }}>
+                  검색 결과: {info.itemName}
+                </div>
+              )}
+              <Sec icon="✅" label="효능·효과"   content={info.efcyQesitm} />
+              <Sec icon="📋" label="용법·용량"   content={info.useMethodQesitm} />
+              <Sec icon="⚠️" label="주의사항"    content={info.atpnQesitm} />
+              <Sec icon="🚨" label="경고"        content={info.atpnWarnQesitm} />
+              <Sec icon="🔄" label="상호작용"    content={info.intrcQesitm} />
+              <Sec icon="😣" label="부작용"      content={info.seQesitm} />
+              <Sec icon="📦" label="보관법"      content={info.depositMethodQesitm} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /* ── 로그인 / 회원가입 화면 ───────────────────────────── */
   const LoginScreen = () => {
     const [mode,     setMode]     = useState('login'); // 'login' | 'signup'
@@ -952,6 +1033,7 @@
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
     const [analyzing,  setAnalyzing] = useState(null); // 분석 중인 meal id
     const [analysisResult, setAnalysisResult] = useState(null); // { mealId, text }
+    const [drugInfoModal, setDrugInfoModal] = useState(null); // 약 이름 or null
 
     // Supabase Auth 초기화
     useEffect(() => {
@@ -1331,14 +1413,16 @@
                       {slot.icon} {slot.slot}
                     </div>
                     {activeItems.map(med => (
-                      <label key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
+                      <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
                         <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
-                        <div>
+                        <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer' }}>
                           <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
                           <div style={{ fontSize:'12px', color:'#94a3b8' }}>{med.dose}</div>
-                        </div>
-                        {day.meds[med.id] && <span style={{ marginLeft:'auto', color:'#16a34a', fontSize:'16px' }}>✓</span>}
-                      </label>
+                        </label>
+                        <button onClick={() => setDrugInfoModal(med.name)} title="약 정보 보기"
+                          style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:'15px', color:'#93c5fd', padding:'2px 4px', flexShrink:0 }}>ℹ️</button>
+                        {day.meds[med.id] && <span style={{ color:'#16a34a', fontSize:'16px' }}>✓</span>}
+                      </div>
                     ))}
                   </div>
                   );
@@ -1657,6 +1741,9 @@
             <div style={{ fontSize:'13px', color:'#94a3b8', marginTop:'6px' }}>Supabase에서 동기화하고 있어요</div>
           </div>
         )}
+
+        {/* Drug Info Modal */}
+        {drugInfoModal && <DrugInfoModal medName={drugInfoModal} onClose={() => setDrugInfoModal(null)} />}
 
         {/* Import Modal */}
         {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
