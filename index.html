@@ -1340,56 +1340,57 @@
       <div style={{ minHeight:'100vh', background:'#f0f4f8', paddingBottom:'48px' }}>
 
         {/* Header */}
-        <div style={{ background:'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)', padding:'14px 20px', boxShadow:'0 2px 10px rgba(37,99,235,0.35)', position:'sticky', top:0, zIndex:100 }}>
-          <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', flexWrap:'wrap', alignItems:'center', gap:'12px', justifyContent:'space-between' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-              <span style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'-0.3px' }}>🏥 Health Care Dashboard</span>
+        <div style={{ background:'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)', padding:'10px 20px', boxShadow:'0 2px 10px rgba(37,99,235,0.35)', position:'sticky', top:0, zIndex:100 }}>
+          {/* ─ 1행: 로고 · 날짜 · 유저 ─ */}
+          <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px' }}>
+            {/* 로고 + 저장상태 */}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
+              <span style={{ fontSize:'16px', fontWeight:'800', color:'#fff', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>🏥 Health Care Dashboard</span>
               {saveStatus==='saving' && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.7)' }}>저장 중...</span>}
               {saveStatus==='saved'  && <span style={{ fontSize:'11px', color:'#86efac' }}>✓ 저장됨</span>}
               {saveStatus==='error'  && <span style={{ fontSize:'11px', color:'#fca5a5' }}>⚠ 저장 실패</span>}
             </div>
 
-            {/* Date nav */}
-            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            {/* 날짜 네비 */}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
-              <div style={{ textAlign:'center', minWidth:'170px' }}>
-                <div style={{ color:'#fff', fontWeight:'700', fontSize:'14px' }}>{fmtDate(date).full}</div>
-                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.25)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'6px', padding:'2px 10px', fontSize:'12px', cursor:'pointer', marginTop:'3px' }}>오늘로 이동</button>}
+              <div style={{ textAlign:'center', minWidth:'160px' }}>
+                <div style={{ color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
+                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.25)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer', marginTop:'2px' }}>오늘로 이동</button>}
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
             </div>
 
-            {/* Right chips */}
-            <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
-              <span style={{ background: medPct===100?'#16a34a':'rgba(255,255,255,0.2)', color:'#fff', borderRadius:'20px', padding:'4px 12px', fontSize:'12px', fontWeight:'600' }}>
-                💊 {medDone}/{allMedIds.length}
+            {/* 이메일 + 로그아웃 */}
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.15)', borderRadius:'8px', padding:'4px 10px', flexShrink:0 }}>
+              <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.85)', maxWidth:'150px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {authUser.email}
               </span>
-              {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'4px 12px', fontSize:'12px', fontWeight:'600' }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
-              <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
-                ⚙️ 복약 설정
+              <button onClick={() => supa.auth.signOut()} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>
+                로그아웃
               </button>
-              <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
-                📱 가져오기
-              </button>
-              <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
-                style={{ background: syncing ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor: syncing ? 'default' : 'pointer', fontSize:'13px', fontWeight:'700' }}>
-                {syncing ? '⏳ 불러오는 중...' : '🔄 새로고침'}
-              </button>
-              <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.15)', borderRadius:'8px', padding:'5px 10px' }}>
-                <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.8)', maxWidth:'120px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  {authUser.email}
-                </span>
-                <button onClick={() => supa.auth.signOut()} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>
-                  로그아웃
-                </button>
-              </div>
             </div>
           </div>
-          {lastImport && (
-            <div style={{ maxWidth:'1140px', margin:'6px auto 0', fontSize:'11px', color:'rgba(255,255,255,0.6)', textAlign:'right' }}>
-              마지막 가져오기: {lastImport}
-            </div>
-          )}
+
+          {/* ─ 2행: 복약·혈당 현황 + 기능 버튼 ─ */}
+          <div style={{ maxWidth:'1140px', margin:'6px auto 0', display:'flex', alignItems:'center', gap:'8px', flexWrap:'nowrap' }}>
+            <span style={{ background: medPct===100?'#16a34a':'rgba(255,255,255,0.2)', color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+              💊 {medDone}/{allMedIds.length}
+            </span>
+            {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
+            <div style={{ flex:1 }} />
+            <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', flexShrink:0 }}>
+              ⚙️ 복약설정
+            </button>
+            <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', flexShrink:0 }}>
+              📱 가져오기
+            </button>
+            <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
+              style={{ background: syncing ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing ? 'default' : 'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', flexShrink:0 }}>
+              {syncing ? '⏳ 로딩중...' : '🔄 새로고침'}
+            </button>
+            {lastImport && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.55)', whiteSpace:'nowrap', flexShrink:0 }}>마지막: {lastImport}</span>}
+          </div>
         </div>
 
         {/* Main */}
