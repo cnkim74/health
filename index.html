@@ -159,7 +159,7 @@
   .cn-tab-btn.active { color: var(--cn-brand); }
   .cn-tab-btn:hover { color: var(--text); }
   .cn-tab-btn.active:hover { color: var(--cn-brand); }
-  body.has-tabbar { padding-bottom: 80px; }
+  body.has-tabbar { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
   /* 데스크톱에서는 탭바 숨기고 기존 레이아웃 유지 */
   @media (min-width: 1024px) {
     .cn-tabbar { display: none; }
@@ -168,7 +168,22 @@
     .main-grid { display: grid !important; }
   }
   @media (max-width: 1023px) {
-    .main-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+    .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+    /* 헤더: 모바일에서 불필요한 요소 숨김 */
+    .cn-hdr-user    { display: none !important; }
+    .cn-hdr-dark    { display: none !important; }
+    .cn-hdr-sub     { display: none !important; }
+    .cn-hdr-actions { display: none !important; }
+    .cn-hdr-logo    { width: 30px !important; height: 30px !important; }
+    /* 메인 패딩 축소 */
+    .cn-main-pad    { padding: 10px 12px !important; }
+    /* 카드 패딩 축소 */
+    .cn-card        { padding: 14px 14px !important; border-radius: 12px !important; }
+    /* 탭바 높이 및 safe-area */
+    .cn-tabbar {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      height: auto;
+    }
   }
   .cn-challenge-card {
     background: linear-gradient(135deg, var(--cn-brand-100), var(--card-bg));
@@ -2402,7 +2417,7 @@
   };
 
   /* ── 프로필 탭 ── */
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark }) => {
     const Row = ({ icon, label, sub, onClick, accent }) => (
       <button onClick={onClick}
         style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px',
@@ -2425,9 +2440,12 @@
           <div style={{ fontSize:'15px', fontWeight:'700', marginTop:'3px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
           <div style={{ fontSize:'11px', opacity:0.75, marginTop:'4px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
         </div>
-        <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>설정</div>
+        <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>데이터</div>
+        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 · 삼성 헬스" onClick={onImport} />
         <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
-        <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드(UUID)로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
+        <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
+        <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
+        <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
@@ -3245,41 +3263,40 @@
         <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 20px', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100 }}>
 
           {/* ─ 1행: 로고+브랜드 · 날짜 · 유저 ─ */}
-          <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px' }}>
+          <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
 
-            {/* 로고 + 사이트명 + 슬로건 */}
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', flexShrink:0 }}>
-              <CareNoteLogo size={40} />
+            {/* 로고 + 사이트명 */}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
+              <div className="cn-hdr-logo"><CareNoteLogo size={40} /></div>
               <div>
-                <div style={{ fontSize:'19px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
-                <div style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500', letterSpacing:'0.2px', marginTop:'1px' }}>내 몸을 기록하는 노트</div>
+                <div style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
+                <div className="cn-hdr-sub" style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
               </div>
-              <div style={{ marginLeft:'6px', display:'flex', gap:'5px', alignItems:'center' }}>
-                {saveStatus==='saving' && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
-                {saveStatus==='saved'  && <span style={{ fontSize:'12px', color:'var(--cn-ok)' }}>✓ 저장됨</span>}
-                {saveStatus==='error'  && <span style={{ fontSize:'12px', color:'var(--cn-danger)' }}>⚠ 저장 실패</span>}
+              <div style={{ marginLeft:'4px', display:'flex', gap:'4px', alignItems:'center' }}>
+                {saveStatus==='saving' && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
+                {saveStatus==='saved'  && <span style={{ fontSize:'11px', color:'var(--cn-ok)' }}>✓</span>}
+                {saveStatus==='error'  && <span style={{ fontSize:'11px', color:'var(--cn-danger)' }}>⚠</span>}
               </div>
             </div>
 
             {/* 날짜 네비 */}
-            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', flex:1, justifyContent:'center' }}>
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
-              <div style={{ textAlign:'center', minWidth:'164px' }}>
-                <div style={{ color:'#fff', fontWeight:'700', fontSize:'14px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
-                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'12px', cursor:'pointer', marginTop:'2px' }}>오늘로 이동</button>}
+              <div style={{ textAlign:'center', minWidth:'130px' }}>
+                <div style={{ color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
+                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer', marginTop:'2px' }}>오늘로</button>}
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
             </div>
 
-            {/* 다크모드 토글 + 이메일 + 로그아웃 */}
+            {/* 다크모드 + 이메일 + 로그아웃 (데스크탑만) */}
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
-              {/* 다크모드 토글 */}
-              <button onClick={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
-                title={darkMode ? '라이트 모드로 전환' : '다크 모드로 전환'}
+              <button className="cn-hdr-dark"
+                onClick={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
                 style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'20px', padding:'4px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'5px' }}>
                 {darkMode ? '☀️ 라이트' : '🌙 다크'}
               </button>
-              <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'4px 10px' }}>
+              <div className="cn-hdr-user" style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'4px 10px' }}>
                 <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.8)', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {authUser.email}
                 </span>
@@ -3291,29 +3308,25 @@
           </div>
 
           {/* ─ 2행: 복약·혈당 현황 + 기능 버튼 ─ */}
-          <div style={{ maxWidth:'1140px', margin:'7px auto 0', display:'flex', alignItems:'center', gap:'8px', flexWrap:'nowrap', borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'7px' }}>
-            <span style={{ background: medPct===100?'rgba(22,163,74,0.85)':'rgba(255,255,255,0.15)', color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+          <div style={{ maxWidth:'1140px', margin:'6px auto 0', display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'6px' }}>
+            <span style={{ background: medPct===100?'rgba(22,163,74,0.85)':'rgba(255,255,255,0.15)', color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               💊 {medDone}/{allMedIds.length} 완료
             </span>
-            {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
-            <div style={{ flex:1 }} />
-            <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
-              ⚙️ 복약설정
-            </button>
-            <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
-              📱 가져오기
-            </button>
-            <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
-              style={{ background: syncing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color: syncing ? 'rgba(255,255,255,0.45)' : '#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing ? 'default' : 'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
-              {syncing ? '⏳ 로딩중...' : '🔄 새로고침'}
-            </button>
-            {isAdmin && (
-              <button onClick={() => setShowAdmin(true)}
-                style={{ background:'rgba(255,165,0,0.2)', border:'1px solid rgba(255,165,0,0.4)', color:'#fbbf24', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
-                🛠️ 관리자
+            {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL</span>}
+            {/* 데스크탑 전용 액션 버튼 */}
+            <div className="cn-hdr-actions" style={{ display:'flex', gap:'6px', alignItems:'center', marginLeft:'auto' }}>
+              <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
+                ⚙️ 복약설정
               </button>
-            )}
-            {lastImport && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', whiteSpace:'nowrap', flexShrink:0 }}>마지막: {lastImport}</span>}
+              <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
+                📱 가져오기
+              </button>
+              <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
+                style={{ background: syncing?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color: syncing?'rgba(255,255,255,0.45)':'#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing?'default':'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
+                {syncing ? '⏳' : '🔄 새로고침'}
+              </button>
+              {lastImport && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', whiteSpace:'nowrap' }}>마지막: {lastImport}</span>}
+            </div>
           </div>
         </div>
 
@@ -3321,7 +3334,7 @@
         <BannerSlot slotId="top" />
 
         {/* Main */}
-        <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'22px 16px' }}>
+        <div className="cn-main-pad" style={{ maxWidth:'1140px', margin:'0 auto', padding:'22px 16px' }}>
           <div className="main-grid" style={{ display:'grid', gridTemplateColumns:'1fr 330px', gap:'18px' }}>
 
             {/* ── LEFT ── */}
@@ -3994,6 +4007,9 @@
               onChangePassword={() => setShowChangePw(true)}
               onDataRecovery={() => setShowDataRecovery(true)}
               onFeedback={() => setShowFeedback(true)}
+              onImport={() => setShowImport(true)}
+              darkMode={darkMode}
+              onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
             />
           </div>
         </div>
@@ -4011,6 +4027,7 @@
                 { label:'💬 피드백·버그신고', action:() => setShowFeedback(true) },
                 { label:'🔄 기기동기화', action:() => setShowSync(true) },
                 { label:'🔑 비밀번호변경', action:() => setShowChangePw(true) },
+                { label: darkMode ? '☀️ 라이트모드' : '🌙 다크모드', action:() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); } },
                 { label:'🚪 로그아웃', action:() => supa.auth.signOut() },
               ].map(({ label, action }) => (
                 <button key={label} onClick={action}
