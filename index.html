@@ -9,7 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -179,7 +179,7 @@
 
   /* ── Supabase 초기화 ─────────────────────────────────────── */
   const SUPA_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2dHJua2t6a3h6dWpidmhoY2hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDg5NzUsImV4cCI6MjA5MTc4NDk3NX0.a8ndADUdTCHFRpfQ_zYG2HeXSJTQsng_R6KqNqVXtkQ';
+  const SUPA_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
   const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
