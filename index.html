@@ -191,20 +191,24 @@
     return id;
   };
 
-  /* ── 애플 건강 파싱 (indexOf 고속 탐색 - 관련 레코드만 추출) ── */
-  const parseAppleHealthXML = async (xmlText, onProgress) => {
+  /* ── 애플 건강 파싱 (2MB 청크 스트리밍 - 대용량 파일 지원) ── */
+  const parseAppleHealthXML = async (getChunks, totalBytes, onProgress) => {
     const glucoseByDay = {};
     const weightByDay  = {};
     const bodyFatByDay = {};
 
-    // 필요한 타입만 indexOf로 빠르게 찾기
-    const targets = [
-      { key: 'HKQuantityTypeIdentifierBloodGlucose',    type: 'glucose' },
-      { key: 'HKQuantityTypeIdentifierBodyMass',         type: 'weight' },
-      { key: 'HKQuantityTypeIdentifierBodyFatPercentage', type: 'fat' }
-    ];
+    const TARGET_KEYS = {
+      'HKQuantityTypeIdentifierBloodGlucose':     'glucose',
+      'HKQuantityTypeIdentifierBodyMass':          'weight',
+      'HKQuantityTypeIdentifierBodyFatPercentage': 'fat'
+    };
 
-    const processRecord = (rec, type) => {
+    const processRecord = (rec) => {
+      let type = null;
+      for (const [k, t] of Object.entries(TARGET_KEYS)) {
+        if (rec.includes(k)) { type = t; break; }
+      }
+      if (!type) return;
       const val  = parseFloat((rec.match(/\bvalue="([^"]+)"/) || [])[1]);
       const unit = (rec.match(/\bunit="([^"]+)"/) || [])[1] || '';
       const dm   = rec.match(/\bstartDate="(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
@@ -223,31 +227,37 @@
       }
     };
 
-    for (let ti = 0; ti < targets.length; ti++) {
-      const { key, type } = targets[ti];
+    let tail = '';           // 이전 청크에서 잘린 불완전한 레코드
+    let bytesProcessed = 0;
+    let recCount = 0;
+
+    for await (const chunk of getChunks()) {
+      const text = tail + chunk;
       let pos = 0;
-      let count = 0;
-      if (onProgress) onProgress(Math.round(ti / targets.length * 100));
+      let lastEnd = 0;
 
       while (true) {
-        const idx = xmlText.indexOf(key, pos);
-        if (idx === -1) break;
+        const recStart = text.indexOf('<Record', pos);
+        if (recStart === -1) break;
+        const recEnd = text.indexOf('/>', recStart);
+        if (recEnd === -1) break; // 청크 경계에서 잘린 레코드 → tail로 보관
 
-        // 이 위치에서 가장 가까운 <Record 시작점 찾기
-        const recStart = xmlText.lastIndexOf('<Record', idx);
-        if (recStart === -1 || idx - recStart > 2000) { pos = idx + key.length; continue; }
+        const rec = text.substring(recStart, recEnd + 2);
+        if (Object.keys(TARGET_KEYS).some(k => rec.includes(k))) processRecord(rec);
+        lastEnd = recEnd + 2;
+        pos = lastEnd;
+        recCount++;
+        // 매 50건마다 브라우저에 양보 (UI 반응성 유지)
+        if (recCount % 50 === 0) await new Promise(r => setTimeout(r, 0));
+      }
 
-        const recEnd = xmlText.indexOf('/>', recStart);
-        if (recEnd === -1) { pos = idx + key.length; continue; }
+      // 마지막 완전한 레코드 이후 텍스트를 다음 청크로 넘김
+      tail = text.substring(lastEnd);
+      if (tail.length > 30000) tail = tail.slice(-30000); // 안전장치
 
-        processRecord(xmlText.substring(recStart, recEnd + 2), type);
-        pos = recEnd + 2;
-        count++;
-
-        // 매 300건마다 브라우저에 양보
-        if (count % 300 === 0) {
-          await new Promise(r => setTimeout(r, 0));
-        }
+      bytesProcessed += chunk.length;
+      if (onProgress && totalBytes) {
+        onProgress(Math.min(99, Math.round(bytesProcessed / totalBytes * 100)));
       }
     }
 
@@ -829,15 +839,17 @@
       setAnalysisResult(null);
     };
 
-    /* ── 건강앱 체중/체지방 가져오기 ── */
+    /* ── 건강앱 체중/체지방 가져오기 (2MB 청크 스트리밍, 대용량 파일 지원) ── */
     const handleWeightImport = async (file) => {
       if (!file) return;
       setWeightImporting(true);
       setWeightImportMsg('파일 처리 중...');
       try {
-        let xmlText = '';
+        const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+        let getChunks, totalBytes;
+
         if (file.name.endsWith('.zip')) {
-          setWeightImportMsg('ZIP 압축 해제 중...');
+          setWeightImportMsg('ZIP 압축 해제 중... (잠시 기다려 주세요)');
           if (typeof JSZip === 'undefined') throw new Error('ZIP 라이브러리 로드 실패');
           const zip = await JSZip.loadAsync(file);
           const allFilesW = Object.keys(zip.files);
@@ -845,16 +857,40 @@
             /export\.xml$/i.test(name) && !/cda/i.test(name)
           ) || allFilesW.find(name => /\.xml$/i.test(name) && !/cda/i.test(name));
           if (!xmlFileW) throw new Error('export.xml을 찾을 수 없어요');
-          setWeightImportMsg('데이터 추출 중... (10~30초 소요)');
-          xmlText = await zip.files[xmlFileW].async('text');
+          setWeightImportMsg('XML 추출 중... (압축 해제 중, 오래 걸릴 수 있어요)');
+          // Blob으로 추출 → JS 힙 외부에 저장되어 메모리 효율적
+          const xmlBlob = await zip.files[xmlFileW].async('blob');
+          totalBytes = xmlBlob.size;
+          getChunks = async function* () {
+            const decoder = new TextDecoder('utf-8');
+            let offset = 0;
+            while (offset < totalBytes) {
+              const slice = xmlBlob.slice(offset, offset + CHUNK_SIZE);
+              const buf = await slice.arrayBuffer();
+              yield decoder.decode(new Uint8Array(buf), { stream: offset + CHUNK_SIZE < totalBytes });
+              offset += CHUNK_SIZE;
+              await new Promise(r => setTimeout(r, 0));
+            }
+          };
         } else if (file.name.endsWith('.xml')) {
-          setWeightImportMsg('XML 파싱 중...');
-          xmlText = await file.text();
+          totalBytes = file.size;
+          getChunks = async function* () {
+            const decoder = new TextDecoder('utf-8');
+            let offset = 0;
+            while (offset < totalBytes) {
+              const slice = file.slice(offset, offset + CHUNK_SIZE);
+              const buf = await slice.arrayBuffer();
+              yield decoder.decode(new Uint8Array(buf), { stream: offset + CHUNK_SIZE < totalBytes });
+              offset += CHUNK_SIZE;
+              await new Promise(r => setTimeout(r, 0));
+            }
+          };
         } else {
           throw new Error('.zip 또는 .xml 파일을 선택해 주세요');
         }
-        await new Promise(r => setTimeout(r, 50));
-        const { weightByDay, bodyFatByDay } = await parseAppleHealthXML(xmlText, (pct) => {
+
+        setWeightImportMsg('데이터 분석 중... 0%');
+        const { weightByDay, bodyFatByDay } = await parseAppleHealthXML(getChunks, totalBytes, (pct) => {
           setWeightImportMsg(`데이터 분석 중... ${pct}%`);
         });
         const wDays = Object.keys(weightByDay).length;
@@ -1358,7 +1394,7 @@
                         <div style={{ display:'flex', marginTop:'4px' }}>
                           {wk.map((d,i) => (
                             <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.bf ? '#7c3aed' : '#e2e8f0', fontWeight:'700' }}>
-                              {d.bf ? `${d.bf}` : ''}
+                              {d.bf ? `${d.bf.toFixed(2)}` : ''}
                             </div>
                           ))}
                         </div>
