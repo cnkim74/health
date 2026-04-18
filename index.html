@@ -1092,6 +1092,8 @@
     const nameInputRef = useRef(null);
     const [loadingCloud, setLoadingCloud] = useState(false);
     const [loadMsg, setLoadMsg] = useState('');
+    const [legacyInput, setLegacyInput] = useState(() => localStorage.getItem('dm_user_id') || '');
+    const [showLegacy, setShowLegacy] = useState(false);
 
     // 복약 설정 불러오기 — 4단계 폴백
     // ① 현재 Supabase 계정(authUser.id) → ② localStorage(authUser.id 키)
@@ -1119,24 +1121,28 @@
           setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),3500); return;
         }
 
-        // ③ 예전 기기 UUID(dm_user_id)로 Supabase 조회
+        // ③ 예전 UUID 조회 (localStorage dm_user_id + 직접 입력값 모두 시도)
         const legacyId = localStorage.getItem('dm_user_id');
-        if (legacyId && legacyId !== userId) {
+        const candidates = [...new Set([legacyId, legacyInput.trim()].filter(x => x && x !== userId))];
+        for (const lid of candidates) {
           const { data: legacyRow } = await supa.from('diabetes_data')
-            .select('payload').eq('user_id', legacyId).eq('date', '_user_settings_').maybeSingle();
+            .select('payload').eq('user_id', lid).eq('date', '_user_settings_').maybeSingle();
           const fromLegacySB = legacyRow?.payload?.medsConfig;
           if (fromLegacySB && Array.isArray(fromLegacySB) && fromLegacySB.length > 0) {
             setCfg(JSON.parse(JSON.stringify(fromLegacySB)));
-            setLoadMsg('✅ 이전 기기 데이터에서 ' + fromLegacySB.flatMap(s=>s.items).length + '개 약을 불러왔어요! (저장을 눌러 계정에 연결하세요)');
-            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),5000); return;
+            // 이 UUID를 기억해 다음번엔 자동으로 찾게 함
+            localStorage.setItem('dm_user_id', lid);
+            localStorage.setItem('cn_legacy_uid', lid);
+            setLoadMsg('✅ 이전 계정 데이터에서 ' + fromLegacySB.flatMap(s=>s.items).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
+            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),6000); return;
           }
           // ④ 예전 기기 localStorage 키
-          const ls2 = localStorage.getItem(`hcd_meds_config_${legacyId}`);
+          const ls2 = localStorage.getItem(`hcd_meds_config_${lid}`);
           const fromLS2 = ls2 ? JSON.parse(ls2) : null;
           if (fromLS2 && Array.isArray(fromLS2) && fromLS2.length > 0) {
             setCfg(JSON.parse(JSON.stringify(fromLS2)));
-            setLoadMsg('✅ 이전 기기 로컬 데이터에서 ' + fromLS2.flatMap(s=>s.items).length + '개 약을 불러왔어요! (저장을 눌러 계정에 연결하세요)');
-            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),5000); return;
+            setLoadMsg('✅ 이전 로컬 데이터에서 ' + fromLS2.flatMap(s=>s.items).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
+            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),6000); return;
           }
         }
 
@@ -1232,14 +1238,34 @@
             </div>
           </div>
           {loadMsg && (
-            <div style={{background: loadMsg.startsWith('✅')?'var(--cn-ok-100)': loadMsg.startsWith('❌')?'var(--cn-danger-100)':'var(--cn-warn-100)',
-                         border:`1px solid ${loadMsg.startsWith('✅')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'var(--cn-warn)'}`,
-                         borderRadius:'8px',padding:'8px 12px',marginBottom:'12px',
+            <div style={{background: loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok-100)': loadMsg.startsWith('❌')?'var(--cn-danger-100)':'var(--cn-warn-100)',
+                         border:`1px solid ${loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'var(--cn-warn)'}`,
+                         borderRadius:'8px',padding:'8px 12px',marginBottom:'8px',
                          fontSize:'13px',fontWeight:'600',
-                         color: loadMsg.startsWith('✅')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'#92400e'}}>
+                         color: loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'#92400e'}}>
               {loadMsg}
             </div>
           )}
+          {/* 레거시 UUID 직접 입력 */}
+          <div style={{marginBottom:'14px'}}>
+            <button onClick={()=>setShowLegacy(v=>!v)}
+              style={{background:'none',border:'none',cursor:'pointer',fontSize:'12px',color:'var(--text-mute)',padding:'0',textDecoration:'underline'}}>
+              {showLegacy ? '▲ 이전 동기화 코드 숨기기' : '▼ 이전 동기화 코드(UUID)가 있으신가요?'}
+            </button>
+            {showLegacy && (
+              <div style={{marginTop:'8px',display:'flex',gap:'6px',alignItems:'center'}}>
+                <input value={legacyInput} onChange={e=>setLegacyInput(e.target.value)}
+                  placeholder="예: 104360e3-1dc8-4c4d-bb36-0b9c07dba2cf"
+                  style={{flex:1,border:'1px solid var(--card-border)',borderRadius:'8px',padding:'7px 10px',
+                          fontSize:'12px',fontFamily:'var(--font-num)',outline:'none',background:'var(--input-bg)',color:'var(--text)'}}/>
+                <button onClick={loadFromCloud} disabled={loadingCloud}
+                  style={{background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'8px',
+                          padding:'7px 12px',cursor:'pointer',fontSize:'12px',fontWeight:'700',whiteSpace:'nowrap'}}>
+                  조회
+                </button>
+              </div>
+            )}
+          </div>
 
           {cfg.map(slot => (
             <div key={slot.key} style={{background:slot.bg,border:`1px solid ${slot.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'10px'}}>
@@ -2490,9 +2516,10 @@
           const loaded = {};
           (rows || []).forEach(r => { if (r.date !== '_user_settings_') loaded[r.date] = r.payload; });
 
-          // 2차 폴백: 데이터가 없고, 예전 dm_user_id UUID가 있으면 그걸로도 조회
+          // 2차 폴백: 데이터가 없고, 예전 UUID가 있으면 그걸로도 조회
+          // (dm_user_id localStorage 키 또는 cn_legacy_uid 저장 키 모두 시도)
           if (Object.keys(loaded).length === 0) {
-            const legacyId = localStorage.getItem('dm_user_id');
+            const legacyId = localStorage.getItem('dm_user_id') || localStorage.getItem('cn_legacy_uid');
             if (legacyId && legacyId !== userId) {
               const { data: legacyRows } = await supa
                 .from('diabetes_data')
