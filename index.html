@@ -64,6 +64,19 @@
       transition: background 0.25s, border-color 0.25s;
     }
     .cn-divider { border-color: var(--divider); }
+
+    /* ── 다크모드 포괄 오버라이드 ── */
+    body.dark input,
+    body.dark textarea,
+    body.dark select {
+      background: var(--input-bg) !important;
+      color: var(--text) !important;
+      border-color: var(--input-border) !important;
+      color-scheme: dark;
+    }
+    body.dark input::placeholder,
+    body.dark textarea::placeholder { color: var(--text-sub) !important; opacity: 1 !important; }
+
     @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr !important; } }
   </style>
 </head>
@@ -143,15 +156,19 @@
   const emptyDay = () => ({ meds:{}, bs:{}, meals:{}, exercise:{type:'',mins:''}, weight:'', bodyFat:'', note:'' });
 
   /* ── 공통 UI 컴포넌트 (App 밖에 정의해야 리렌더링 버그 없음) ── */
+  /* ── 다크모드 컨텍스트 ─────────────────────────────────── */
+  const ThemeCtx = React.createContext(false);
+  const useDark = () => React.useContext(ThemeCtx);
+
   const Card = ({children, style}) => (
     <div className="cn-card" style={style}>
       {children}
     </div>
   );
   const STitle = ({icon, label, right}) => (
-    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'17px', fontWeight:'700', color:'var(--text)', marginBottom:'14px' }}>
+    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'16px', fontWeight:'700', color:'var(--text)', marginBottom:'14px' }}>
       <span>{icon}</span><span>{label}</span>
-      {right && <span style={{ marginLeft:'auto', fontSize:'15px', color:'var(--text-sub)', fontWeight:'500' }}>{right}</span>}
+      {right && <span style={{ marginLeft:'auto', fontSize:'14px', color:'var(--text-sub)', fontWeight:'500' }}>{right}</span>}
     </div>
   );
 
@@ -473,6 +490,7 @@
 
   /* ── 가져오기 모달 ─────────────────────────────────────── */
   const ImportModal = ({ onClose, onImport }) => {
+    const dm = useDark();
     const [tab,     setTab]     = useState('libreview'); // 'apple' | 'libreview'
     const [status,  setStatus]  = useState('idle');
     const [preview, setPreview] = useState(null);
@@ -585,10 +603,10 @@
           {/* Header */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
             <div>
-              <div style={{ fontSize:'26px', fontWeight:'800', color:'var(--text)' }}>혈당 데이터 가져오기</div>
-              <div style={{ fontSize:'26px', color:'var(--text-sub)', marginTop:'2px' }}>리브레2 혈당 기록을 대시보드에 자동 반영</div>
+              <div style={{ fontSize:'25px', fontWeight:'800', color:'var(--text)' }}>혈당 데이터 가져오기</div>
+              <div style={{ fontSize:'25px', color:'var(--text-sub)', marginTop:'2px' }}>리브레2 혈당 기록을 대시보드에 자동 반영</div>
             </div>
-            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'26px', color:'var(--text-sub)' }}>✕</button>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'25px', color:'var(--text-sub)' }}>✕</button>
           </div>
 
           {/* 탭 선택 */}
@@ -599,13 +617,13 @@
             ].map(t => (
               <button key={t.key} onClick={() => onTabChange(t.key)} style={{
                 flex:1, padding:'10px 8px', border:'none', borderRadius:'8px', cursor:'pointer',
-                fontSize:'17px', fontWeight:'700', transition:'all 0.2s',
+                fontSize:'16px', fontWeight:'700', transition:'all 0.2s',
                 background: tab===t.key ? '#fff' : 'transparent',
                 color: tab===t.key ? accent : '#94a3b8',
                 boxShadow: tab===t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
               }}>
                 {t.label}
-                {t.sub && <span style={{ display:'block', fontSize:'26px', fontWeight:'500', marginTop:'1px', color: tab===t.key ? accent : '#cbd5e1' }}>{t.sub}</span>}
+                {t.sub && <span style={{ display:'block', fontSize:'25px', fontWeight:'500', marginTop:'1px', color: tab===t.key ? accent : '#cbd5e1' }}>{t.sub}</span>}
               </button>
             ))}
           </div>
@@ -613,9 +631,9 @@
           {/* ── LibreView 탭 ── */}
           {isLV && (status === 'idle' || status === 'error') && (
             <>
-              <div style={{ background:'#faf5ff', border:'1px solid #c4b5fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
-                <div style={{ fontWeight:'700', color:'#7c3aed', fontSize:'17px', marginBottom:'8px' }}>📋 LibreView에서 내보내는 방법</div>
-                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'17px', color:'#4c1d95', lineHeight:'2.1' }}>
+              <div style={{ background:dm?'#1a1030':'#faf5ff', border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:'#7c3aed', fontSize:'16px', marginBottom:'8px' }}>📋 LibreView에서 내보내는 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'#c4b5fd':'#4c1d95', lineHeight:'2.1' }}>
                   <li><strong>libreview.com</strong> 에 로그인 (LibreLink 계정 동일)</li>
                   <li>상단 메뉴 → <strong>보고서</strong></li>
                   <li>기간 선택 후 <strong>"데이터 내보내기"</strong> 클릭</li>
@@ -625,32 +643,32 @@
               </div>
               <div
                 onClick={() => fileRef.current?.click()}
-                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'#fdfaff', transition:'all 0.2s' }}
+                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:dm?'#1a1030':'#fdfaff', transition:'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.background=accentL; e.currentTarget.style.borderColor=accent; }}
                 onMouseLeave={e => { e.currentTarget.style.background='#fdfaff'; e.currentTarget.style.borderColor=accentB; }}
               >
                 <div style={{ fontSize:'36px', marginBottom:'8px' }}>📄</div>
-                <div style={{ fontWeight:'700', color:accent, fontSize:'17px', marginBottom:'4px' }}>CSV 파일 선택</div>
-                <div style={{ fontSize:'26px', color:'var(--text-sub)' }}>libreview.com 에서 내보낸 .csv 파일</div>
+                <div style={{ fontWeight:'700', color:accent, fontSize:'16px', marginBottom:'4px' }}>CSV 파일 선택</div>
+                <div style={{ fontSize:'25px', color:'var(--text-sub)' }}>libreview.com 에서 내보낸 .csv 파일</div>
               </div>
               <input ref={fileRef} type="file" accept=".csv,.zip,.xml" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
-              {status==='error' && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'17px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+              {status==='error' && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
             </>
           )}
 
           {/* ── 애플 건강 탭 ── */}
           {!isLV && (status === 'idle' || status === 'error') && (
             <>
-              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'26px' }}>
-                <div style={{ fontWeight:'700', color:'#92400e', marginBottom:'5px' }}>⚠️ 리브레2 연동이 필요해요</div>
-                <div style={{ color:'#78350f', lineHeight:'1.8' }}>
+              <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'25px' }}>
+                <div style={{ fontWeight:'700', color:dm?'#fcd34d':'#92400e', marginBottom:'5px' }}>⚠️ 리브레2 연동이 필요해요</div>
+                <div style={{ color:dm?'#fde68a':'#78350f', lineHeight:'1.8' }}>
                   LibreLink → 메뉴(☰) → <strong>연결된 앱</strong> → <strong>Apple 건강</strong> 토글 ON<br/>
                   연동 후 건강 앱에 데이터가 쌓이면 아래 방법으로 가져올 수 있어요
                 </div>
               </div>
-              <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
-                <div style={{ fontWeight:'700', color:'#0369a1', fontSize:'17px', marginBottom:'8px' }}>📋 애플 건강 내보내기 방법</div>
-                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'17px', color:'#0c4a6e', lineHeight:'2.1' }}>
+              <div style={{ background:dm?'#0c1e2e':'#f0f9ff', border:dm?'1px solid #0369a1':'1px solid #bae6fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:dm?'#7ec8f0':'#0369a1', fontSize:'16px', marginBottom:'8px' }}>📋 애플 건강 내보내기 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'#93c5fd':'#0c4a6e', lineHeight:'2.1' }}>
                   <li>iPhone <strong>건강</strong> 앱 열기</li>
                   <li>우측 상단 <strong>프로필 사진</strong> 탭</li>
                   <li>아래로 스크롤 → <strong>"건강 데이터 내보내기"</strong></li>
@@ -665,11 +683,11 @@
                 onMouseLeave={e => { e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#93c5fd'; }}
               >
                 <div style={{ fontSize:'36px', marginBottom:'8px' }}>📂</div>
-                <div style={{ fontWeight:'700', color:'#1e40af', fontSize:'17px', marginBottom:'4px' }}>ZIP / XML 파일 선택</div>
-                <div style={{ fontSize:'26px', color:'var(--text-sub)' }}>export.zip 또는 export.xml</div>
+                <div style={{ fontWeight:'700', color:dm?'#93c5fd':'#1e40af', fontSize:'16px', marginBottom:'4px' }}>ZIP / XML 파일 선택</div>
+                <div style={{ fontSize:'25px', color:'var(--text-sub)' }}>export.zip 또는 export.xml</div>
               </div>
               <input ref={fileRef} type="file" accept=".zip,.xml,.csv" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
-              {status==='error' && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'17px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+              {status==='error' && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
             </>
           )}
 
@@ -678,16 +696,16 @@
             <div style={{ textAlign:'center', padding:'36px 20px' }}>
               <div style={{ fontSize:'48px', marginBottom:'14px' }}>⏳</div>
               <div style={{ fontWeight:'700', color:'var(--text)', marginBottom:'6px' }}>분석 중...</div>
-              <div style={{ fontSize:'17px', color:'var(--text-sub)' }}>{progress}</div>
-              <div style={{ fontSize:'26px', color:'var(--text-sub)', marginTop:'8px' }}>잠시만 기다려 주세요</div>
+              <div style={{ fontSize:'16px', color:'var(--text-sub)' }}>{progress}</div>
+              <div style={{ fontSize:'25px', color:'var(--text-sub)', marginTop:'8px' }}>잠시만 기다려 주세요</div>
             </div>
           )}
 
           {/* 미리보기 */}
           {status === 'preview' && preview && (
             <>
-              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
-                <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'12px', fontSize:'26px' }}>
+              <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
+                <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'12px', fontSize:'25px' }}>
                   ✅ {preview.source==='libreview' ? 'LibreView' : '애플 건강'} 데이터 발견
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
@@ -697,23 +715,23 @@
                     { label:'체중 기록일', value:`${preview.wDays||0}일`, icon:'⚖️' },
                     { label:'체지방 기록일', value:`${preview.bfDays||0}일`, icon:'💪' }
                   ].map(item => (
-                    <div key={item.label} style={{ background:'white', borderRadius:'8px', padding:'10px 6px' }}>
-                      <div style={{ fontSize:'26px' }}>{item.icon}</div>
-                      <div style={{ fontSize:'26px', fontWeight:'800', color:'var(--text)', marginTop:'4px' }}>{item.value}</div>
-                      <div style={{ fontSize:'17px', color:'var(--text-sub)' }}>{item.label}</div>
+                    <div key={item.label} style={{ background:dm?'#161b22':'white', borderRadius:'8px', padding:'10px 6px' }}>
+                      <div style={{ fontSize:'25px' }}>{item.icon}</div>
+                      <div style={{ fontSize:'25px', fontWeight:'800', color:'var(--text)', marginTop:'4px' }}>{item.value}</div>
+                      <div style={{ fontSize:'16px', color:'var(--text-sub)' }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'16px', fontSize:'26px', color:'#78350f' }}>
+              <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'16px', fontSize:'25px', color:dm?'#fde68a':'#78350f' }}>
                 <strong>📌 가져오기 규칙</strong><br/>
                 • 직접 입력한 데이터는 유지 (덮어쓰지 않아요)<br/>
                 • 연속 혈당은 시간대별 중앙값으로 변환돼요<br/>
                 • 7개 슬롯(식전·식후·취침 전)에 자동 배치
               </div>
               <div style={{ display:'flex', gap:'10px' }}>
-                <button onClick={reset} style={{ flex:1, padding:'13px', border:'1px solid #e2e8f0', borderRadius:'10px', cursor:'pointer', background:'var(--input-bg)', fontSize:'26px', fontWeight:'600', color:'var(--text-sub)' }}>다시 선택</button>
-                <button onClick={confirm} style={{ flex:2, padding:'13px', border:'none', borderRadius:'10px', cursor:'pointer', background:accent, color:'#fff', fontSize:'26px', fontWeight:'700' }}>📥 대시보드에 가져오기</button>
+                <button onClick={reset} style={{ flex:1, padding:'13px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'10px', cursor:'pointer', background:'var(--input-bg)', fontSize:'25px', fontWeight:'600', color:'var(--text-sub)' }}>다시 선택</button>
+                <button onClick={confirm} style={{ flex:2, padding:'13px', border:'none', borderRadius:'10px', cursor:'pointer', background:accent, color:'#fff', fontSize:'25px', fontWeight:'700' }}>📥 대시보드에 가져오기</button>
               </div>
             </>
           )}
@@ -722,11 +740,11 @@
           {status === 'done' && (
             <div style={{ textAlign:'center', padding:'24px 20px' }}>
               <div style={{ fontSize:'56px', marginBottom:'14px' }}>🎉</div>
-              <div style={{ fontWeight:'800', fontSize:'26px', color:'#16a34a', marginBottom:'8px' }}>가져오기 완료!</div>
-              <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'24px', lineHeight:'1.8' }}>
+              <div style={{ fontWeight:'800', fontSize:'25px', color:'#16a34a', marginBottom:'8px' }}>가져오기 완료!</div>
+              <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'24px', lineHeight:'1.8' }}>
                 혈당 데이터가 대시보드에 반영됐어요.<br/>날짜를 이동해서 확인해 보세요.
               </div>
-              <button onClick={onClose} style={{ padding:'12px 32px', background:accent, color:'#fff', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'26px', fontWeight:'700' }}>확인</button>
+              <button onClick={onClose} style={{ padding:'12px 32px', background:accent, color:'#fff', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'25px', fontWeight:'700' }}>확인</button>
             </div>
           )}
         </div>
@@ -736,6 +754,7 @@
 
   /* ── 동기화 코드 모달 ──────────────────────────────────── */
   const SyncModal = ({ userId, onClose, onChangeId }) => {
+    const dm = useDark();
     const [input, setInput] = useState('');
     const [copied, setCopied] = useState(false);
     const copy = () => {
@@ -755,21 +774,21 @@
            onClick={e => e.target===e.currentTarget && onClose()}>
         <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'28px', maxWidth:'460px', width:'100%', boxShadow:'0 24px 80px rgba(0,0,0,0.2)' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
-            <div style={{ fontSize:'26px', fontWeight:'800', color:'var(--text)' }}>🔗 기기 동기화</div>
-            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'26px' }}>✕</button>
+            <div style={{ fontSize:'25px', fontWeight:'800', color:'var(--text)' }}>🔗 기기 동기화</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'25px' }}>✕</button>
           </div>
 
-          <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:'12px', padding:'16px', marginBottom:'20px' }}>
-            <div style={{ fontSize:'26px', color:'#0369a1', fontWeight:'700', marginBottom:'8px' }}>📱 내 동기화 코드</div>
-            <div style={{ fontFamily:'monospace', fontSize:'17px', color:'var(--text)', wordBreak:'break-all', background:'var(--card-bg)', padding:'10px 12px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'10px' }}>
+          <div style={{ background:dm?'#0c1e2e':'#f0f9ff', border:dm?'1px solid #0369a1':'1px solid #bae6fd', borderRadius:'12px', padding:'16px', marginBottom:'20px' }}>
+            <div style={{ fontSize:'25px', color:dm?'#7ec8f0':'#0369a1', fontWeight:'700', marginBottom:'8px' }}>📱 내 동기화 코드</div>
+            <div style={{ fontFamily:'monospace', fontSize:'16px', color:'var(--text)', wordBreak:'break-all', background:'var(--card-bg)', padding:'10px 12px', borderRadius:'8px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, marginBottom:'10px' }}>
               {userId}
             </div>
-            <button onClick={copy} style={{ width:'100%', padding:'10px', background: copied?'#16a34a':'#2563eb', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'17px', transition:'background 0.2s' }}>
+            <button onClick={copy} style={{ width:'100%', padding:'10px', background: copied?'#16a34a':'#2563eb', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px', transition:'background 0.2s' }}>
               {copied ? '✓ 복사됨!' : '코드 복사'}
             </button>
           </div>
 
-          <div style={{ fontSize:'17px', color:'var(--text-sub)', lineHeight:'1.8', marginBottom:'20px' }}>
+          <div style={{ fontSize:'16px', color:'var(--text-sub)', lineHeight:'1.8', marginBottom:'20px' }}>
             <strong>다른 기기(iPhone 등)에서 같은 데이터 보려면:</strong><br/>
             1. 다른 기기에서 대시보드 열기<br/>
             2. 🔗 동기화 버튼 클릭<br/>
@@ -777,11 +796,11 @@
           </div>
 
           <div style={{ borderTop:'1px solid #f1f5f9', paddingTop:'16px' }}>
-            <div style={{ fontSize:'26px', color:'var(--text-sub)', marginBottom:'6px' }}>다른 기기의 코드 입력 (동기화 코드 변경)</div>
+            <div style={{ fontSize:'25px', color:'var(--text-sub)', marginBottom:'6px' }}>다른 기기의 코드 입력 (동기화 코드 변경)</div>
             <div style={{ display:'flex', gap:'8px' }}>
               <input value={input} onChange={e=>setInput(e.target.value)} placeholder="코드를 붙여넣어 주세요"
-                style={{ flex:1, border:'1px solid #e2e8f0', borderRadius:'8px', padding:'10px 12px', fontSize:'17px', outline:'none', fontFamily:'monospace' }} />
-              <button onClick={apply} style={{ padding:'10px 16px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'17px' }}>적용</button>
+                style={{ flex:1, border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', outline:'none', fontFamily:'monospace' }} />
+              <button onClick={apply} style={{ padding:'10px 16px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>적용</button>
             </div>
           </div>
         </div>
@@ -791,6 +810,7 @@
 
   /* ── 복약 설정 모달 ──────────────────────────────────── */
   const MedSettingsModal = ({ meds, onSave, onClose }) => {
+    const dm = useDark();
     const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(meds)));
     const [editingSlot, setEditingSlot] = useState(null);
     const [editingMed,  setEditingMed]  = useState(null);
@@ -834,15 +854,15 @@
     };
     const reset = () => { if(window.confirm('기본값으로 초기화할까요?')) setCfg(JSON.parse(JSON.stringify(DEFAULT_MEDS))); };
 
-    const inpSt = { border:'1px solid #e2e8f0', borderRadius:'6px', padding:'6px 10px', fontSize:'17px', width:'100%', outline:'none' };
+    const inpSt = { border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'6px', padding:'6px 10px', fontSize:'16px', width:'100%', outline:'none' };
 
     return (
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
            onClick={e=>e.target===e.currentTarget&&onClose()}>
         <div style={{background:'var(--card-bg)',borderRadius:'18px',padding:'24px',maxWidth:'520px',width:'100%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.25)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
-            <div style={{fontSize:'26px',fontWeight:'800',color:'var(--text)'}}>⚙️ 복약 설정</div>
-            <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'26px'}}>✕</button>
+            <div style={{fontSize:'25px',fontWeight:'800',color:'var(--text)'}}>⚙️ 복약 설정</div>
+            <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'25px'}}>✕</button>
           </div>
 
           {cfg.map(slot => (
@@ -852,24 +872,24 @@
                 {editingSlot===slot.key ? (
                   <>
                     <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
-                      style={{width:'44px',border:'1px solid #e2e8f0',borderRadius:'6px',padding:'4px',fontSize:'26px',textAlign:'center'}}/>
+                      style={{width:'44px',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,borderRadius:'6px',padding:'4px',fontSize:'25px',textAlign:'center'}}/>
                     <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)} autoFocus
-                      style={{flex:1,border:'1px solid #e2e8f0',borderRadius:'6px',padding:'6px 10px',fontSize:'17px',fontWeight:'700'}}/>
-                    <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'26px'}}>완료</button>
+                      style={{flex:1,border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,borderRadius:'6px',padding:'6px 10px',fontSize:'16px',fontWeight:'700'}}/>
+                    <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'25px'}}>완료</button>
                   </>
                 ) : (
                   <>
-                    <span style={{fontSize:'26px'}}>{slot.icon}</span>
-                    <span style={{fontSize:'17px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
-                    <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'26px',color:'var(--text-sub)'}}>✏️</button>
-                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'26px',color:'#fca5a5'}}>🗑️</button>
+                    <span style={{fontSize:'25px'}}>{slot.icon}</span>
+                    <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
+                    <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'25px',color:'var(--text-sub)'}}>✏️</button>
+                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'25px',color:'#fca5a5'}}>🗑️</button>
                   </>
                 )}
               </div>
 
               {/* 약 목록 */}
               {slot.items.map(med => (
-                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:'1px solid #e2e8f0'}}>
+                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`}}>
                   {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
                     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                       <input ref={nameInputRef} value={med.name}
@@ -881,48 +901,48 @@
                       {/* 투약 기간 */}
                       <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:'17px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
+                          <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
                           <input type="date" value={med.startDate||''} onChange={e=>updMedField(slot.key,med.id,'startDate',e.target.value)} style={inpSt}/>
                         </div>
-                        <div style={{color:'#cbd5e1',marginTop:'16px'}}>~</div>
+                        <div style={{color:dm?'#475569':'#cbd5e1',marginTop:'16px'}}>~</div>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:'17px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 종료일</div>
+                          <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 종료일</div>
                           <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
                         </div>
                       </div>
-                      <div style={{fontSize:'17px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 항상 표시</div>
-                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'26px',fontWeight:'700'}}>완료</button>
+                      <div style={{fontSize:'16px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 항상 표시</div>
+                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'25px',fontWeight:'700'}}>완료</button>
                     </div>
                   ) : (
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:'17px',fontWeight:'600',color:'var(--text)'}}>{med.name||'(이름 없음)'}</div>
-                        <div style={{fontSize:'17px',color:'var(--text-sub)'}}>{med.dose}</div>
+                        <div style={{fontSize:'16px',fontWeight:'600',color:'var(--text)'}}>{med.name||'(이름 없음)'}</div>
+                        <div style={{fontSize:'16px',color:'var(--text-sub)'}}>{med.dose}</div>
                         {(med.startDate||med.endDate) && (
-                          <div style={{fontSize:'26px',color:'#2563eb',marginTop:'2px'}}>
+                          <div style={{fontSize:'25px',color:'#2563eb',marginTop:'2px'}}>
                             📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
                           </div>
                         )}
                       </div>
-                      <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'17px',color:'var(--text-sub)'}}>✏️</button>
-                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'17px',color:'#fca5a5'}}>🗑️</button>
+                      <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-sub)'}}>✏️</button>
+                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'#fca5a5'}}>🗑️</button>
                     </div>
                   )}
                 </div>
               ))}
-              <button onClick={()=>addMed(slot.key)} style={{width:'100%',padding:'7px',background:'transparent',border:`1px dashed ${slot.border}`,color:slot.color,borderRadius:'8px',cursor:'pointer',fontSize:'26px',fontWeight:'700',marginTop:'4px'}}>
+              <button onClick={()=>addMed(slot.key)} style={{width:'100%',padding:'7px',background:'transparent',border:`1px dashed ${slot.border}`,color:slot.color,borderRadius:'8px',cursor:'pointer',fontSize:'25px',fontWeight:'700',marginTop:'4px'}}>
                 + 약 추가
               </button>
             </div>
           ))}
 
-          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed #cbd5e1',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'17px',fontWeight:'700',marginBottom:'12px'}}>
+          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed #cbd5e1',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px',fontWeight:'700',marginBottom:'12px'}}>
             + 시간대 추가
           </button>
 
           <div style={{display:'flex',gap:'8px'}}>
-            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:'1px solid #e2e8f0',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'17px'}}>기본값으로 초기화</button>
-            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'26px',fontWeight:'700'}}>저장</button>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>기본값으로 초기화</button>
+            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'25px',fontWeight:'700'}}>저장</button>
           </div>
         </div>
       </div>
@@ -931,6 +951,7 @@
 
   /* ── 의약품 정보 팝업 ──────────────────────────────────── */
   const DrugInfoModal = ({ medName, onClose }) => {
+    const dm = useDark();
     const [info,       setInfo]       = useState(null);
     const [loading,    setLoading]    = useState(true);
     const [error,      setError]      = useState('');
@@ -948,9 +969,9 @@
     }, [medName]);
 
     const Sec = ({ icon, label, content }) => content ? (
-      <div style={{ marginBottom:'14px', paddingBottom:'14px', borderBottom:'1px solid #f1f5f9' }}>
-        <div style={{ fontSize:'17px', fontWeight:'700', color:'#2563eb', marginBottom:'5px' }}>{icon} {label}</div>
-        <div style={{ fontSize:'17px', color:'var(--text)', lineHeight:'1.7' }}>{content}</div>
+      <div style={{ marginBottom:'14px', paddingBottom:'14px', borderBottom:`1px solid ${dm?'#21262d':'#f1f5f9'}` }}>
+        <div style={{ fontSize:'16px', fontWeight:'700', color:'#2563eb', marginBottom:'5px' }}>{icon} {label}</div>
+        <div style={{ fontSize:'16px', color:'var(--text)', lineHeight:'1.7' }}>{content}</div>
       </div>
     ) : null;
 
@@ -960,30 +981,30 @@
         <div style={{ background:'var(--card-bg)', borderRadius:'20px', padding:'26px', maxWidth:'500px', width:'100%', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.3)' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'18px' }}>
             <div>
-              <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>💊 {medName}</div>
-              {info && <div style={{ fontSize:'26px', color:'var(--text-sub)', marginTop:'3px' }}>{info.entpName}</div>}
+              <div style={{ fontSize:'20px', fontWeight:'800', color:'var(--text)' }}>💊 {medName}</div>
+              {info && <div style={{ fontSize:'25px', color:'var(--text-sub)', marginTop:'3px' }}>{info.entpName}</div>}
             </div>
-            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'26px', color:'var(--text-sub)', flexShrink:0 }}>✕</button>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'25px', color:'var(--text-sub)', flexShrink:0 }}>✕</button>
           </div>
 
           {loading && (
             <div style={{ textAlign:'center', padding:'40px 0', color:'var(--text-sub)' }}>
-              <div style={{ fontSize:'32px', marginBottom:'10px' }}>🔍</div>
-              <div style={{ fontSize:'26px' }}>의약품 정보 검색 중...</div>
+              <div style={{ fontSize:'31px', marginBottom:'10px' }}>🔍</div>
+              <div style={{ fontSize:'25px' }}>의약품 정보 검색 중...</div>
             </div>
           )}
           {error && (
             <div style={{ textAlign:'center', padding:'30px 0', color:'var(--text-sub)' }}>
-              <div style={{ fontSize:'32px', marginBottom:'10px' }}>{injectable ? '💉' : '🔍'}</div>
-              <div style={{ fontSize:'26px', color:'#475569', fontWeight:'600' }}>{error}</div>
+              <div style={{ fontSize:'31px', marginBottom:'10px' }}>{injectable ? '💉' : '🔍'}</div>
+              <div style={{ fontSize:'25px', color:dm?'#94a3b8':'#475569', fontWeight:'600' }}>{error}</div>
               {injectable ? (
-                <div style={{ fontSize:'26px', marginTop:'10px', color:'var(--text-sub)', lineHeight:'1.7', background:'var(--input-bg)', borderRadius:'10px', padding:'12px 16px', textAlign:'left' }}>
+                <div style={{ fontSize:'25px', marginTop:'10px', color:'var(--text-sub)', lineHeight:'1.7', background:'var(--input-bg)', borderRadius:'10px', padding:'12px 16px', textAlign:'left' }}>
                   <b>이유:</b> 식약처 e약은요 서비스는 일반 소비자용 경구약 정보를 제공하며,
                   인슐린·주사제 등 전문 주사약은 수록 대상에서 제외됩니다.<br/>
                   <span style={{ color:'#2563eb' }}>→ 처방전·약사·제조사 자료를 참고하세요.</span>
                 </div>
               ) : (
-                <div style={{ fontSize:'26px', marginTop:'8px', color:'#cbd5e1' }}>
+                <div style={{ fontSize:'25px', marginTop:'8px', color:dm?'#475569':'#cbd5e1' }}>
                   약품명 철자를 확인하거나 복약설정에서 이름을 수정해 보세요
                 </div>
               )}
@@ -992,7 +1013,7 @@
           {info && !loading && (
             <div>
               {info.itemName && info.itemName !== medName && (
-                <div style={{ background:'#eff6ff', borderRadius:'8px', padding:'8px 12px', fontSize:'26px', color:'#2563eb', marginBottom:'16px' }}>
+                <div style={{ background:dm?'#0c1a2e':'#eff6ff', borderRadius:'8px', padding:'8px 12px', fontSize:'25px', color:'#2563eb', marginBottom:'16px' }}>
                   검색 결과: {info.itemName}
                 </div>
               )}
@@ -1012,6 +1033,7 @@
 
   /* ── 로그인 / 회원가입 화면 ───────────────────────────── */
   const LoginScreen = () => {
+    const dm = useDark();
     const [mode,     setMode]     = useState('login'); // 'login' | 'signup'
     const [email,    setEmail]    = useState('');
     const [password, setPassword] = useState('');
@@ -1052,7 +1074,7 @@
     };
 
     const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid #e2e8f0', borderRadius:'10px',
-                  fontSize:'17px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  fontSize:'16px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
                   transition:'border-color 0.2s' };
 
     return (
@@ -1066,8 +1088,8 @@
             <div style={{ display:'flex', justifyContent:'center', marginBottom:'10px' }}>
               <CareNoteLogo size={52} />
             </div>
-            <div style={{ fontSize:'26px', fontWeight:'800', color:'#0f172a', letterSpacing:'1px' }}>CARENOTE</div>
-            <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'4px', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
+            <div style={{ fontSize:'25px', fontWeight:'800', color:dm?'#e6edf3':'#0f172a', letterSpacing:'1px' }}>CARENOTE</div>
+            <div style={{ fontSize:'13px', color:'var(--text-sub)', marginTop:'4px', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
           </div>
 
           {/* 탭 */}
@@ -1075,7 +1097,7 @@
             {['login','signup'].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setMessage(''); }}
                 style={{ flex:1, padding:'9px', border:'none', borderRadius:'9px', cursor:'pointer',
-                         fontSize:'26px', fontWeight:'700', transition:'all 0.2s',
+                         fontSize:'25px', fontWeight:'700', transition:'all 0.2s',
                          background: mode===m ? '#fff' : 'transparent',
                          color: mode===m ? '#1d4ed8' : '#94a3b8',
                          boxShadow: mode===m ? '0 1px 4px rgba(0,0,0,0.1)' : 'none' }}>
@@ -1085,8 +1107,8 @@
           </div>
 
           {/* 에러 / 성공 메시지 */}
-          {error   && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', borderRadius:'10px', padding:'10px 14px', fontSize:'17px', marginBottom:'16px' }}>{error}</div>}
-          {message && <div style={{ background:'#f0fdf4', border:'1px solid #86efac', color:'#166534', borderRadius:'10px', padding:'10px 14px', fontSize:'17px', marginBottom:'16px' }}>{message}</div>}
+          {error   && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', borderRadius:'10px', padding:'10px 14px', fontSize:'16px', marginBottom:'16px' }}>{error}</div>}
+          {message && <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', color:'#166534', borderRadius:'10px', padding:'10px 14px', fontSize:'16px', marginBottom:'16px' }}>{message}</div>}
 
           {/* 폼 */}
           <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
@@ -1100,7 +1122,7 @@
               onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
             <button type="submit" disabled={busy}
               style={{ padding:'13px', background: busy?'#93c5fd':'#2563eb', color:'#fff', border:'none',
-                       borderRadius:'12px', fontSize:'17px', fontWeight:'700', cursor: busy?'default':'pointer',
+                       borderRadius:'12px', fontSize:'16px', fontWeight:'700', cursor: busy?'default':'pointer',
                        transition:'background 0.2s', marginTop:'4px' }}>
               {busy ? '처리 중...' : mode === 'login' ? '로그인' : '가입하기'}
             </button>
@@ -1109,14 +1131,14 @@
           {/* 구분선 */}
           <div style={{ display:'flex', alignItems:'center', gap:'10px', margin:'18px 0' }}>
             <div style={{ flex:1, height:'1px', background:'#e2e8f0' }}/>
-            <span style={{ fontSize:'26px', color:'#cbd5e1' }}>또는</span>
+            <span style={{ fontSize:'25px', color:dm?'#475569':'#cbd5e1' }}>또는</span>
             <div style={{ flex:1, height:'1px', background:'#e2e8f0' }}/>
           </div>
 
           {/* 구글 로그인 */}
           <button onClick={handleGoogle} disabled={busy}
             style={{ width:'100%', padding:'12px', background:'var(--card-bg)', border:'1.5px solid #e2e8f0',
-                     borderRadius:'12px', fontSize:'26px', fontWeight:'600', cursor: busy?'default':'pointer',
+                     borderRadius:'12px', fontSize:'25px', fontWeight:'600', cursor: busy?'default':'pointer',
                      display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
                      color:'var(--text)', transition:'border-color 0.2s' }}
             onMouseOver={e=>e.currentTarget.style.borderColor='#2563eb'}
@@ -1450,16 +1472,17 @@
       <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center', color:'var(--text-sub)' }}>
           <CareNoteLogo size={56} />
-          <div style={{ fontSize:'20px', fontWeight:'700', color:'var(--text)', marginTop:'14px' }}>CARENOTE</div>
-          <div style={{ fontSize:'15px', marginTop:'6px' }}>로딩 중...</div>
+          <div style={{ fontSize:'19px', fontWeight:'700', color:'var(--text)', marginTop:'14px' }}>CARENOTE</div>
+          <div style={{ fontSize:'14px', marginTop:'6px' }}>로딩 중...</div>
         </div>
       </div>
     );
 
     // 미인증 → 로그인 화면
-    if (!authUser) return <LoginScreen />;
+    if (!authUser) return <ThemeCtx.Provider value={darkMode}><LoginScreen /></ThemeCtx.Provider>;
 
     return (
+      <ThemeCtx.Provider value={darkMode}>
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
 
         {/* ── CARENOTE Header ── */}
@@ -1472,13 +1495,13 @@
             <div style={{ display:'flex', alignItems:'center', gap:'10px', flexShrink:0 }}>
               <CareNoteLogo size={40} />
               <div>
-                <div style={{ fontSize:'20px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
+                <div style={{ fontSize:'19px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
                 <div style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500', letterSpacing:'0.2px', marginTop:'1px' }}>내 몸을 기록하는 노트</div>
               </div>
               <div style={{ marginLeft:'6px', display:'flex', gap:'5px', alignItems:'center' }}>
-                {saveStatus==='saving' && <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
-                {saveStatus==='saved'  && <span style={{ fontSize:'13px', color:'#86efac' }}>✓ 저장됨</span>}
-                {saveStatus==='error'  && <span style={{ fontSize:'13px', color:'#fca5a5' }}>⚠ 저장 실패</span>}
+                {saveStatus==='saving' && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
+                {saveStatus==='saved'  && <span style={{ fontSize:'12px', color:'#86efac' }}>✓ 저장됨</span>}
+                {saveStatus==='error'  && <span style={{ fontSize:'12px', color:'#fca5a5' }}>⚠ 저장 실패</span>}
               </div>
             </div>
 
@@ -1486,7 +1509,7 @@
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
               <div style={{ textAlign:'center', minWidth:'164px' }}>
-                <div style={{ color:'#fff', fontWeight:'700', fontSize:'15px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
+                <div style={{ color:'#fff', fontWeight:'700', fontSize:'14px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
                 {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'12px', cursor:'pointer', marginTop:'2px' }}>오늘로 이동</button>}
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
@@ -1497,14 +1520,14 @@
               {/* 다크모드 토글 */}
               <button onClick={() => setDarkMode(d => !d)}
                 title={darkMode ? '라이트 모드로 전환' : '다크 모드로 전환'}
-                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'20px', padding:'4px 12px', cursor:'pointer', fontSize:'14px', fontWeight:'600', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'5px' }}>
+                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'20px', padding:'4px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'5px' }}>
                 {darkMode ? '☀️ 라이트' : '🌙 다크'}
               </button>
               <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'4px 10px' }}>
-                <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.8)', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.8)', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {authUser.email}
                 </span>
-                <button onClick={() => supa.auth.signOut()} style={{ background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'13px', fontWeight:'700', whiteSpace:'nowrap' }}>
+                <button onClick={() => supa.auth.signOut()} style={{ background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap' }}>
                   로그아웃
                 </button>
               </div>
@@ -1513,19 +1536,19 @@
 
           {/* ─ 2행: 복약·혈당 현황 + 기능 버튼 ─ */}
           <div style={{ maxWidth:'1140px', margin:'7px auto 0', display:'flex', alignItems:'center', gap:'8px', flexWrap:'nowrap', borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'7px' }}>
-            <span style={{ background: medPct===100?'rgba(22,163,74,0.85)':'rgba(255,255,255,0.15)', color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+            <span style={{ background: medPct===100?'rgba(22,163,74,0.85)':'rgba(255,255,255,0.15)', color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               💊 {medDone}/{allMedIds.length} 완료
             </span>
-            {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
+            {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 12px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL · {bsLabel(bsAvg)}</span>}
             <div style={{ flex:1 }} />
-            <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+            <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               ⚙️ 복약설정
             </button>
-            <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+            <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               📱 가져오기
             </button>
             <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
-              style={{ background: syncing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color: syncing ? 'rgba(255,255,255,0.45)' : '#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing ? 'default' : 'pointer', fontSize:'13px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+              style={{ background: syncing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color: syncing ? 'rgba(255,255,255,0.45)' : '#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing ? 'default' : 'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               {syncing ? '⏳ 로딩중...' : '🔄 새로고침'}
             </button>
             {lastImport && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', whiteSpace:'nowrap', flexShrink:0 }}>마지막: {lastImport}</span>}
@@ -1553,19 +1576,19 @@
                   if (!activeItems.length) return null;
                   return (
                   <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
-                    <div style={{ fontSize:'26px', fontWeight:'700', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
+                    <div style={{ fontSize:'25px', fontWeight:'700', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
                       {slot.icon} {slot.slot}
                     </div>
                     {activeItems.map(med => (
                       <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
                         <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
                         <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer' }}>
-                          <div style={{ fontSize:'26px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
-                          <div style={{ fontSize:'26px', color:'var(--text-sub)' }}>{med.dose}</div>
+                          <div style={{ fontSize:'25px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
+                          <div style={{ fontSize:'25px', color:'var(--text-sub)' }}>{med.dose}</div>
                         </label>
                         <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
-                          style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'26px', color:'#2563eb', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
-                        {day.meds[med.id] && <span style={{ color:'#16a34a', fontSize:'26px' }}>✓</span>}
+                          style={{ background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'25px', color:'#2563eb', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
+                        {day.meds[med.id] && <span style={{ color:'#16a34a', fontSize:'25px' }}>✓</span>}
                       </div>
                     ))}
                   </div>
@@ -1576,7 +1599,7 @@
               {/* 혈당 */}
               <Card>
                 <STitle icon="🩸" label="혈당 기록" right="단위: mg/dL" />
-                <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'17px' }}>
+                <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'16px' }}>
                   {[{c:'#7c3aed',t:'저혈당 (<70)'},{c:'#16a34a',t:'정상 (70–140)'},{c:'#d97706',t:'주의 (140–180)'},{c:'#dc2626',t:'높음 (>180)'}].map(l => (
                     <div key={l.t} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <div style={{ width:'9px', height:'9px', borderRadius:'50%', background:l.c }}/>
@@ -1589,13 +1612,13 @@
                     const v = day.bs[f.id] || ''; const c = bsColor(v);
                     return (
                       <div key={f.id} style={{ background:'var(--input-bg)', borderRadius:'10px', padding:'12px', border:v?`2px solid ${c}`:'1px solid #e2e8f0', transition:'border-color 0.2s' }}>
-                        <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'6px' }}>{f.icon} {f.label}</div>
+                        <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'6px' }}>{f.icon} {f.label}</div>
                         <div style={{ display:'flex', alignItems:'flex-end', gap:'6px' }}>
                           <input type="number" min="30" max="600" value={v} onChange={e=>updBS(f.id,e.target.value)} placeholder="---"
-                            style={{ width:'72px', border:'none', background:'transparent', fontSize:'26px', fontWeight:'800', color:v?c:'#cbd5e1', outline:'none', padding:0 }} />
-                          {v && <div style={{ paddingBottom:'3px' }}><div style={{ fontSize:'26px', color:'var(--text-sub)' }}>mg/dL</div><div style={{ fontSize:'17px', color:c, fontWeight:'700' }}>{bsLabel(v)}</div></div>}
+                            style={{ width:'72px', border:'none', background:'transparent', fontSize:'25px', fontWeight:'800', color:v?c:'#cbd5e1', outline:'none', padding:0 }} />
+                          {v && <div style={{ paddingBottom:'3px' }}><div style={{ fontSize:'25px', color:'var(--text-sub)' }}>mg/dL</div><div style={{ fontSize:'16px', color:c, fontWeight:'700' }}>{bsLabel(v)}</div></div>}
                         </div>
-                        <div style={{ fontSize:'26px', color:'#cbd5e1', marginTop:'4px' }}>목표: {f.target}</div>
+                        <div style={{ fontSize:'25px', color:dm?'#475569':'#cbd5e1', marginTop:'4px' }}>목표: {f.target}</div>
                       </div>
                     );
                   })}
@@ -1605,16 +1628,16 @@
               {/* 식사 */}
               <Card>
                 <STitle icon="🍽️" label="식사 기록" />
-                <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'26px' }}>
+                <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'25px' }}>
                   <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
                   <div style={{ display:'flex', gap:'20px', flexWrap:'wrap' }}>
                     <div><div style={{ color:'#16a34a', fontWeight:'700', marginBottom:'3px' }}>✅ 권장</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>현미·잡곡밥 · 닭가슴살 · 두부 · 생선<br/>채소류 · 달걀 · 콩류 · 견과류(소량)</div></div>
                     <div><div style={{ color:'#dc2626', fontWeight:'700', marginBottom:'3px' }}>❌ 제한</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>흰쌀밥 · 흰빵 · 라면 · 과자<br/>사탕·주스 · 탄산음료 · 술</div></div>
                   </div>
                 </div>
-                <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'26px' }}>
-                  <div style={{ fontWeight:'700', color:'#92400e', marginBottom:'5px' }}>📝 식단 기입 방법</div>
-                  <div style={{ color:'#78350f', lineHeight:'1.8' }}>
+                <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'25px' }}>
+                  <div style={{ fontWeight:'700', color:dm?'#fcd34d':'#92400e', marginBottom:'5px' }}>📝 식단 기입 방법</div>
+                  <div style={{ color:dm?'#fde68a':'#78350f', lineHeight:'1.8' }}>
                     <strong>형식:</strong> 음식명 + 양 + 탄수화물(g)<br/>
                     <strong>예:</strong> 현미밥 반공기(30g), 닭가슴살 100g, 브로콜리 1컵<br/>
                     <strong>한 끼 탄수화물 목표:</strong> 45–60g (하루 130–180g)
@@ -1624,19 +1647,19 @@
                   <div key={m.id} style={{ marginBottom:'16px' }}>
                     {/* 라벨 + 사진 버튼 */}
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px', flexWrap:'wrap', gap:'6px' }}>
-                      <div style={{ fontSize:'17px', fontWeight:'700', color:'var(--text)' }}>{m.icon} {m.label}</div>
+                      <div style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>{m.icon} {m.label}</div>
                       {analyzing===m.id ? (
-                        <span style={{ fontSize:'26px', color:'#7c3aed', fontWeight:'700' }}>⏳ 분석 중...</span>
+                        <span style={{ fontSize:'25px', color:'#7c3aed', fontWeight:'700' }}>⏳ 분석 중...</span>
                       ) : (
                         <div style={{ display:'flex', gap:'6px' }}>
                           {/* 카메라 촬영 */}
                           <button onClick={() => camRefs[m.id].current?.click()} disabled={!!analyzing}
-                            style={{ background:'#faf5ff', border:'1px solid #c4b5fd', color:'#7c3aed', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'26px', fontWeight:'700' }}>
+                            style={{ background:dm?'#1a1030':'#faf5ff', border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', color:'#7c3aed', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'25px', fontWeight:'700' }}>
                             📸 촬영
                           </button>
                           {/* 앨범 선택 */}
                           <button onClick={() => imgRefs[m.id].current?.click()} disabled={!!analyzing}
-                            style={{ background:'#eff6ff', border:'1px solid #93c5fd', color:'#2563eb', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'26px', fontWeight:'700' }}>
+                            style={{ background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #93c5fd', color:'#2563eb', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'25px', fontWeight:'700' }}>
                             🖼️ 앨범
                           </button>
                         </div>
@@ -1653,24 +1676,24 @@
 
                     {/* 분석 결과 카드 */}
                     {analysisResult?.mealId === m.id && (
-                      <div style={{ border:'1px solid #c4b5fd', borderRadius:'12px', marginBottom:'10px', overflow:'hidden' }}>
+                      <div style={{ border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', borderRadius:'12px', marginBottom:'10px', overflow:'hidden' }}>
                         {/* 헤더 */}
                         <div style={{ background:'linear-gradient(135deg,#7c3aed,#a855f7)', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <span style={{ color:'#fff', fontWeight:'700', fontSize:'17px' }}>🤖 AI 식단 분석 결과</span>
-                          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'17px' }}>Powered by Gemini</span>
+                          <span style={{ color:'#fff', fontWeight:'700', fontSize:'16px' }}>🤖 AI 식단 분석 결과</span>
+                          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'16px' }}>Powered by Gemini</span>
                         </div>
                         {/* 내용 */}
-                        <div style={{ background:'#faf5ff', padding:'14px', fontSize:'17px', color:'var(--text)', whiteSpace:'pre-line', lineHeight:'1.9', maxHeight:'400px', overflowY:'auto' }}>
+                        <div style={{ background:dm?'#1a1030':'#faf5ff', padding:'14px', fontSize:'16px', color:'var(--text)', whiteSpace:'pre-line', lineHeight:'1.9', maxHeight:'400px', overflowY:'auto' }}>
                           {analysisResult.text}
                         </div>
                         {/* 버튼 */}
                         <div style={{ background:'#f5f3ff', padding:'10px 14px', display:'flex', gap:'8px', borderTop:'1px solid #e9d5ff' }}>
                           <button onClick={() => applyAnalysis(m.id, analysisResult.text)}
-                            style={{ flex:2, padding:'9px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'17px' }}>
+                            style={{ flex:2, padding:'9px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>
                             ✅ 식사 기록에 추가
                           </button>
                           <button onClick={() => setAnalysisResult(null)}
-                            style={{ flex:1, padding:'9px', background:'var(--card-bg)', color:'var(--text-sub)', border:'1px solid #e2e8f0', borderRadius:'8px', cursor:'pointer', fontSize:'17px' }}>
+                            style={{ flex:1, padding:'9px', background:'var(--card-bg)', color:'var(--text-sub)', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', cursor:'pointer', fontSize:'16px' }}>
                             닫기
                           </button>
                         </div>
@@ -1678,7 +1701,7 @@
                     )}
 
                     <textarea value={day.meals[m.id]||''} onChange={e=>updMeal(m.id,e.target.value)} placeholder={m.ph} rows={3}
-                      style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'10px 12px', fontSize:'17px', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:'1.6', background:'#fafafa', transition:'border-color 0.2s' }}
+                      style={{ width:'100%', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:'1.6', background:'#fafafa', transition:'border-color 0.2s' }}
                       onFocus={e=>e.target.style.borderColor='#2563eb'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
                   </div>
                 ))}
@@ -1688,10 +1711,10 @@
               <Card>
                 <STitle icon="📈" label="최근 7일 평균 혈당" />
                 <div className="chart-wrap"><canvas ref={chartRef}/></div>
-                <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center', fontSize:'26px', color:'var(--text-sub)' }}>
+                <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center', fontSize:'25px', color:'var(--text-sub)' }}>
                   <span>🟣 저혈당</span><span>🟢 정상</span><span>🟡 주의</span><span>🔴 높음</span>
                 </div>
-                <div style={{ fontSize:'17px', color:'var(--text-sub)', textAlign:'center', marginTop:'6px' }}>
+                <div style={{ fontSize:'16px', color:'var(--text-sub)', textAlign:'center', marginTop:'6px' }}>
                   혈당 기록이 쌓이면 의사 선생님과 인슐린 용량 조정 상담에 활용하세요
                 </div>
               </Card>
@@ -1703,7 +1726,7 @@
               <Card style={{ background:medPct===100?'#f0fdf4':'#fff' }}>
                 <STitle icon="📊" label="오늘 요약" />
                 <div style={{ marginBottom:'16px' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'17px', marginBottom:'5px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'16px', marginBottom:'5px' }}>
                     <span style={{ fontWeight:'600' }}>복약 완료율</span>
                     <span style={{ fontWeight:'800', color:medPct===100?'#16a34a':'#2563eb' }}>{medPct}%</span>
                   </div>
@@ -1712,19 +1735,19 @@
                   </div>
                 </div>
                 <div style={{ background:'var(--input-bg)', borderRadius:'10px', padding:'14px', marginBottom:'14px' }}>
-                  <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'4px' }}>오늘 평균 혈당</div>
-                  <div style={{ fontSize:'32px', fontWeight:'900', color:bsAvg?bsColor(bsAvg):'#cbd5e1' }}>
-                    {bsAvg||'---'}{bsAvg&&<span style={{ fontSize:'26px', fontWeight:'400', color:'var(--text-sub)' }}> mg/dL</span>}
+                  <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>오늘 평균 혈당</div>
+                  <div style={{ fontSize:'31px', fontWeight:'900', color:bsAvg?bsColor(bsAvg):'#cbd5e1' }}>
+                    {bsAvg||'---'}{bsAvg&&<span style={{ fontSize:'25px', fontWeight:'400', color:'var(--text-sub)' }}> mg/dL</span>}
                   </div>
-                  {bsAvg&&<div style={{ fontSize:'26px', fontWeight:'700', color:bsColor(bsAvg), marginTop:'2px' }}>{bsLabel(bsAvg)}</div>}
-                  <div style={{ fontSize:'17px', color:'var(--text-sub)', marginTop:'4px' }}>{bsVals.length}회 측정됨</div>
+                  {bsAvg&&<div style={{ fontSize:'25px', fontWeight:'700', color:bsColor(bsAvg), marginTop:'2px' }}>{bsLabel(bsAvg)}</div>}
+                  <div style={{ fontSize:'16px', color:'var(--text-sub)', marginTop:'4px' }}>{bsVals.length}회 측정됨</div>
                 </div>
                 <div style={{ display:'flex', gap:'6px' }}>
                   {MEALS.map(m => {
                     const filled = !!(day.meals[m.id]?.trim());
                     return <div key={m.id} style={{ flex:1, textAlign:'center', borderRadius:'8px', padding:'8px 4px', background:filled?'#f0fdf4':'#f8fafc', border:`1px solid ${filled?'#86efac':'#e2e8f0'}` }}>
-                      <div style={{ fontSize:'26px' }}>{m.icon}</div>
-                      <div style={{ fontSize:'26px', color:filled?'#16a34a':'#94a3b8', fontWeight:'600', marginTop:'3px' }}>{filled?'완료':'미기록'}</div>
+                      <div style={{ fontSize:'25px' }}>{m.icon}</div>
+                      <div style={{ fontSize:'25px', color:filled?'#16a34a':'#94a3b8', fontWeight:'600', marginTop:'3px' }}>{filled?'완료':'미기록'}</div>
                     </div>;
                   })}
                 </div>
@@ -1737,19 +1760,19 @@
                 {/* 입력 행 */}
                 <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap' }}>
                   <div style={{ flex:1, minWidth:'100px' }}>
-                    <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
+                    <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <input type="number" step="0.1" min="30" max="200" value={day.weight||''} onChange={e=>upDay({weight:e.target.value})} placeholder="00.0"
-                        style={{ width:'90px', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 10px', fontSize:'26px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
-                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'17px' }}>kg</span>
+                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'25px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px' }}>kg</span>
                     </div>
                   </div>
                   <div style={{ flex:1, minWidth:'100px' }}>
-                    <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
+                    <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <input type="number" step="0.1" min="1" max="60" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value})} placeholder="00.0"
-                        style={{ width:'90px', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 10px', fontSize:'26px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
-                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'17px' }}>%</span>
+                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'25px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px' }}>%</span>
                     </div>
                   </div>
                 </div>
@@ -1770,11 +1793,11 @@
                   const maxBf = hasBf ? Math.max(...wk.filter(x=>x.bf).map(x=>x.bf)) + 1 : 1;
                   return (
                     <div style={{ background:'var(--input-bg)', borderRadius:'10px', padding:'10px', marginBottom:'10px' }}>
-                      <div style={{ fontSize:'17px', color:'var(--text-sub)', marginBottom:'6px' }}>최근 7일 추이</div>
+                      <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'6px' }}>최근 7일 추이</div>
 
                       {/* 체중 차트 */}
                       {hasW && <>
-                        <div style={{ fontSize:'26px', color:'#2563eb', fontWeight:'600', marginBottom:'4px' }}>⚖️ 체중 (kg)</div>
+                        <div style={{ fontSize:'25px', color:'#2563eb', fontWeight:'600', marginBottom:'4px' }}>⚖️ 체중 (kg)</div>
                         <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
                           {wk.map((d,i) => {
                             const h = d.w ? Math.round(((d.w - minW)/(maxW - minW || 1)) * 38 + 6) : 4;
@@ -1797,7 +1820,7 @@
 
                       {/* 체지방 차트 */}
                       {hasBf && <div style={{ marginTop: hasW ? '10px' : '0' }}>
-                        <div style={{ fontSize:'26px', color:'#7c3aed', fontWeight:'600', marginBottom:'4px' }}>💪 체지방률 (%)</div>
+                        <div style={{ fontSize:'25px', color:'#7c3aed', fontWeight:'600', marginBottom:'4px' }}>💪 체지방률 (%)</div>
                         <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
                           {wk.map((d,i) => {
                             const h = d.bf ? Math.round(((d.bf - minBf)/(maxBf - minBf || 1)) * 38 + 6) : 4;
@@ -1824,32 +1847,32 @@
                 {/* 건강앱 가져오기 버튼 */}
                 <input ref={weightFileRef} type="file" accept=".zip,.xml" onChange={e => e.target.files[0] && handleWeightImport(e.target.files[0])} style={{ display:'none' }} />
                 <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting}
-                  style={{ width:'100%', padding:'9px', background: weightImporting?'#f1f5f9':'#f0fdf4', border:'1px solid #86efac', color: weightImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'17px', marginBottom:'6px' }}>
+                  style={{ width:'100%', padding:'9px', background: weightImporting?'#f1f5f9':'#f0fdf4', border:'1px solid #86efac', color: weightImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'16px', marginBottom:'6px' }}>
                   🍎 건강앱에서 가져오기 (ZIP / XML)
                 </button>
                 {weightImportMsg && (
-                  <div style={{ fontSize:'26px', color: weightImportMsg.startsWith('✅')?'#16a34a': weightImportMsg.startsWith('❌')?'#dc2626':'#64748b', textAlign:'center', padding:'4px 0', fontWeight:'600' }}>
+                  <div style={{ fontSize:'25px', color: weightImportMsg.startsWith('✅')?'#16a34a': weightImportMsg.startsWith('❌')?'#dc2626':'#64748b', textAlign:'center', padding:'4px 0', fontWeight:'600' }}>
                     {weightImportMsg}
                   </div>
                 )}
-                <div style={{ fontSize:'17px', color:'var(--text-sub)', lineHeight:'1.6', marginTop:'4px' }}>
+                <div style={{ fontSize:'16px', color:'var(--text-sub)', lineHeight:'1.6', marginTop:'4px' }}>
                   iPhone 건강앱 → 우상단 프로필 → 건강 데이터 내보내기 → export.zip
                 </div>
-                <div style={{ fontSize:'17px', color:'#16a34a', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
+                <div style={{ fontSize:'16px', color:'#16a34a', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
               </Card>
 
               {/* 운동 */}
               <Card>
                 <STitle icon="🏃" label="운동 기록" />
                 <div style={{ marginBottom:'10px' }}>
-                  <div style={{ fontSize:'26px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 종류</div>
+                  <div style={{ fontSize:'25px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 종류</div>
                   <input type="text" value={day.exercise?.type||''} onChange={e=>updEx('type',e.target.value)} placeholder="예: 걷기, 수영, 자전거…" style={inpSt} />
                 </div>
                 <div style={{ marginBottom:'10px' }}>
-                  <div style={{ fontSize:'26px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 시간 (분)</div>
+                  <div style={{ fontSize:'25px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 시간 (분)</div>
                   <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt} />
                 </div>
-                <div style={{ fontSize:'17px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
+                <div style={{ fontSize:'16px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
                   💪 식후 30분 걷기 30분이 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
                 </div>
               </Card>
@@ -1863,14 +1886,14 @@
 
               {/* 목표 카드 */}
               <Card style={{ background:'linear-gradient(135deg,#eff6ff,#f0fdf4)', border:'1px solid #bfdbfe' }}>
-                <div style={{ fontSize:'26px', fontWeight:'700', color:'#1e40af', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
-                <div style={{ fontSize:'26px', color:'var(--text)', lineHeight:'2' }}>
+                <div style={{ fontSize:'25px', fontWeight:'700', color:dm?'#93c5fd':'#1e40af', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
+                <div style={{ fontSize:'25px', color:'var(--text)', lineHeight:'2' }}>
                   ✅ 혈당 꾸준히 기록 (리브레2 연동)<br/>
                   ✅ 탄수화물 조절 (한 끼 45–60g)<br/>
                   ✅ 식후 걷기 30분<br/>
                   ✅ 체중 점진적 감량<br/>
                   ✅ 주치의와 정기 상담<br/><br/>
-                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'17px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
+                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'16px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
                 </div>
               </Card>
             </div>
@@ -1881,8 +1904,8 @@
         {loading && (
           <div style={{ position:'fixed', inset:0, background:'rgba(255,255,255,0.85)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', zIndex:3000 }}>
             <div style={{ fontSize:'48px', marginBottom:'16px' }}>⏳</div>
-            <div style={{ fontSize:'26px', fontWeight:'700', color:'var(--text)' }}>데이터 불러오는 중...</div>
-            <div style={{ fontSize:'17px', color:'var(--text-sub)', marginTop:'6px' }}>Supabase에서 동기화하고 있어요</div>
+            <div style={{ fontSize:'25px', fontWeight:'700', color:'var(--text)' }}>데이터 불러오는 중...</div>
+            <div style={{ fontSize:'16px', color:'var(--text-sub)', marginTop:'6px' }}>Supabase에서 동기화하고 있어요</div>
           </div>
         )}
 
@@ -1898,12 +1921,14 @@
         {/* Med Settings Modal */}
         {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
       </div>
+      </ThemeCtx.Provider>
     );
   };
 
   /* ── 공통 스타일 상수 ─────────────────────────────────── */
-  const navBtnSt = { background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:'8px', padding:'8px 16px', cursor:'pointer', fontSize:'26px', fontWeight:'700', lineHeight:1 };
-  const inpSt    = { width:'100%', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'8px 12px', fontSize:'26px', outline:'none', background:'#fafafa' };
+  const navBtnSt = { background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:'8px', padding:'8px 16px', cursor:'pointer', fontSize:'25px', fontWeight:'700', lineHeight:1 };
+  /* inpSt는 App 안에서 dm 없이 쓰이므로 CSS 오버라이드로 처리됨 */
+  const inpSt    = { width:'100%', border:'1px solid var(--input-border)', borderRadius:'8px', padding:'8px 12px', fontSize:'25px', outline:'none', background:'var(--input-bg)', color:'var(--text)' };
 
   ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
