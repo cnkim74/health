@@ -1307,31 +1307,62 @@
                     const dd = data[d] || emptyDay();
                     return { label: fmtDate(d).short, w: parseFloat(dd.weight)||null, bf: parseFloat(dd.bodyFat)||null };
                   });
-                  const hasData = wk.some(x => x.w);
-                  if (!hasData) return null;
-                  const minW = Math.min(...wk.filter(x=>x.w).map(x=>x.w)) - 1;
-                  const maxW = Math.max(...wk.filter(x=>x.w).map(x=>x.w)) + 1;
+                  const hasW  = wk.some(x => x.w);
+                  const hasBf = wk.some(x => x.bf);
+                  if (!hasW && !hasBf) return null;
+                  const minW = hasW ? Math.min(...wk.filter(x=>x.w).map(x=>x.w)) - 1 : 0;
+                  const maxW = hasW ? Math.max(...wk.filter(x=>x.w).map(x=>x.w)) + 1 : 1;
+                  const minBf = hasBf ? Math.min(...wk.filter(x=>x.bf).map(x=>x.bf)) - 1 : 0;
+                  const maxBf = hasBf ? Math.max(...wk.filter(x=>x.bf).map(x=>x.bf)) + 1 : 1;
                   return (
                     <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'10px', marginBottom:'10px' }}>
                       <div style={{ fontSize:'11px', color:'#94a3b8', marginBottom:'6px' }}>최근 7일 추이</div>
-                      <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
-                        {wk.map((d,i) => {
-                          const h = d.w ? Math.round(((d.w - minW)/(maxW - minW)) * 38 + 6) : 4;
-                          return (
-                            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
-                              <div style={{ width:'100%', height:`${h}px`, background: d.w ? '#2563eb' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
-                              <div style={{ fontSize:'9px', color:'#94a3b8', whiteSpace:'nowrap' }}>{d.label}</div>
+
+                      {/* 체중 차트 */}
+                      {hasW && <>
+                        <div style={{ fontSize:'10px', color:'#2563eb', fontWeight:'600', marginBottom:'4px' }}>⚖️ 체중 (kg)</div>
+                        <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
+                          {wk.map((d,i) => {
+                            const h = d.w ? Math.round(((d.w - minW)/(maxW - minW || 1)) * 38 + 6) : 4;
+                            return (
+                              <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+                                <div style={{ width:'100%', height:`${h}px`, background: d.w ? '#2563eb' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
+                                <div style={{ fontSize:'9px', color:'#94a3b8', whiteSpace:'nowrap' }}>{d.label}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display:'flex', marginTop:'4px' }}>
+                          {wk.map((d,i) => (
+                            <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? '#2563eb' : '#e2e8f0', fontWeight:'700' }}>
+                              {d.w ? `${d.w}` : ''}
                             </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:'4px', fontSize:'10px', color:'#64748b' }}>
-                        {wk.map((d,i) => (
-                          <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? '#2563eb' : '#e2e8f0', fontWeight:'700' }}>
-                            {d.w ? `${d.w}` : ''}
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </>}
+
+                      {/* 체지방 차트 */}
+                      {hasBf && <div style={{ marginTop: hasW ? '10px' : '0' }}>
+                        <div style={{ fontSize:'10px', color:'#7c3aed', fontWeight:'600', marginBottom:'4px' }}>💪 체지방률 (%)</div>
+                        <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
+                          {wk.map((d,i) => {
+                            const h = d.bf ? Math.round(((d.bf - minBf)/(maxBf - minBf || 1)) * 38 + 6) : 4;
+                            return (
+                              <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+                                <div style={{ width:'100%', height:`${h}px`, background: d.bf ? '#7c3aed' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
+                                <div style={{ fontSize:'9px', color:'#94a3b8', whiteSpace:'nowrap' }}>{d.label}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display:'flex', marginTop:'4px' }}>
+                          {wk.map((d,i) => (
+                            <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.bf ? '#7c3aed' : '#e2e8f0', fontWeight:'700' }}>
+                              {d.bf ? `${d.bf}` : ''}
+                            </div>
+                          ))}
+                        </div>
+                      </div>}
                     </div>
                   );
                 })()}
