@@ -187,13 +187,14 @@
   const fetchDrugInfo = async (name) => {
     const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
       + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}`
-      + `&itemName=${encodeURIComponent(name)}&type=json&numOfRows=3&pageNo=1`;
+      + `&itemName=${encodeURIComponent(name)}&type=json&numOfRows=5&pageNo=1`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('API 서버 오류');
     const json = await res.json();
-    const items = json?.body?.items;
-    if (!items || !items.length) throw new Error(`"${name}" 정보를 찾을 수 없어요`);
-    return items[0];
+    // 응답 구조: body.items.item (단건 = object, 복수 = array)
+    const raw = json?.body?.items?.item;
+    if (!raw) throw new Error(`"${name}" 정보를 찾을 수 없어요`);
+    return Array.isArray(raw) ? raw[0] : raw;
   };
 
   const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
