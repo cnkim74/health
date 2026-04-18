@@ -1145,10 +1145,7 @@
         setIsSearching(true);
         try {
           const res = await fetch(`${EDGE_URL}?q=${encodeURIComponent(val.trim())}`, {
-            headers: {
-              'apikey': SUPA_KEY,
-              'Authorization': `Bearer ${SUPA_KEY}`
-            }
+            headers: { 'apikey': SUPA_KEY }
           });
           if (!res.ok) { setSearchErr('❌ 검색 서버 오류 (' + res.status + ')'); setIsSearching(false); return; }
           const data = await res.json();
@@ -1274,6 +1271,14 @@
     const updSlotName = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, slot:val} : s));
     const updSlotIcon = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, icon:val} : s));
     const delSlot = (key) => { if(window.confirm('이 시간대를 삭제할까요?')) setCfg(c => c.filter(s => s.key!==key)); };
+    const moveSlot = (key, dir) => setCfg(c => {
+      const idx = c.findIndex(s => s.key===key);
+      const next = idx + dir;
+      if (next < 0 || next >= c.length) return c;
+      const arr = [...c];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
     const addSlot = () => {
       const key = 'slot_' + Date.now();
       const col = SLOT_COLORS_DEF[cfg.length % SLOT_COLORS_DEF.length];
@@ -1455,6 +1460,8 @@
                   <>
                     <span style={{fontSize:'14px'}}>{slot.icon}</span>
                     <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
+                    <button onClick={()=>moveSlot(slot.key,-1)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'var(--text-mute)',padding:'0 2px'}} title="위로">▲</button>
+                    <button onClick={()=>moveSlot(slot.key,+1)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'var(--text-mute)',padding:'0 2px'}} title="아래로">▼</button>
                     <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--text-sub)'}}>✏️</button>
                     <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--cn-danger)'}}>🗑️</button>
                   </>
