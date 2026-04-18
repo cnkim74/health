@@ -1760,7 +1760,7 @@
             .eq('user_id', userId);
           if (error) throw error;
           const loaded = {};
-          (rows || []).forEach(r => { loaded[r.date] = r.payload; });
+          (rows || []).forEach(r => { if (r.date !== '_user_settings_') loaded[r.date] = r.payload; });
 
           // ✅ 로컬 캐시와 필드 단위 병합
           // - Supabase에 없는 날짜: 캐시 전체 사용
@@ -2006,6 +2006,19 @@
     }, [weekData]);
 
     const isToday = date === todayStr();
+
+    // 체중 트렌드 (IIFE 없이 미리 계산)
+    const _prevDayWt  = data[shiftDate(date, -1)] || emptyDay();
+    const _prevW      = parseFloat(_prevDayWt.weight)  || null;
+    const _prevBf     = parseFloat(_prevDayWt.bodyFat) || null;
+    const _curW       = parseFloat(day.weight)  || null;
+    const _curBf      = parseFloat(day.bodyFat) || null;
+    const _wDiff      = (_prevW && _curW)  ? _curW  - _prevW  : null;
+    const _bfDiff     = (_prevBf && _curBf) ? _curBf - _prevBf : null;
+    const _wArrow     = _wDiff  === null ? null : _wDiff  > 0.04 ? '↑' : _wDiff  < -0.04 ? '↓' : '→';
+    const _bfArrow    = _bfDiff === null ? null : _bfDiff > 0.04 ? '↑' : _bfDiff < -0.04 ? '↓' : '→';
+    const _wArrowClr  = _wDiff  === null ? '#94a3b8' : _wDiff  > 0.04 ? '#ef4444' : _wDiff  < -0.04 ? '#2563eb' : '#94a3b8';
+    const _bfArrowClr = _bfDiff === null ? '#94a3b8' : _bfDiff > 0.04 ? '#ef4444' : _bfDiff < -0.04 ? '#2563eb' : '#94a3b8';
 
     // 인증 로딩 중
     if (!authReady) return (
@@ -2521,37 +2534,26 @@
                 <STitle icon="⚖️" label="체중 · 체지방 기록" />
 
                 {/* 입력 행 */}
-                {(() => {
-                  const prevDay   = data[shiftDate(date, -1)] || emptyDay();
-                  const prevW     = parseFloat(prevDay.weight)  || null;
-                  const prevBf    = parseFloat(prevDay.bodyFat) || null;
-                  const curW      = parseFloat(day.weight)  || null;
-                  const curBf     = parseFloat(day.bodyFat) || null;
-                  const wDiff     = (prevW && curW)  ? curW  - prevW  : null;
-                  const bfDiff    = (prevBf && curBf) ? curBf - prevBf : null;
-                  const arrow     = (diff) => diff === null ? null : diff > 0.04 ? '↑' : diff < -0.04 ? '↓' : '→';
-                  const arrowClr  = (diff) => diff === null ? '#94a3b8' : diff > 0.04 ? '#ef4444' : diff < -0.04 ? '#2563eb' : '#94a3b8';
-                  return (
                 <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap' }}>
                   <div style={{ flex:1, minWidth:'100px' }}>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <input type="text" inputMode="decimal" value={day.weight||''} onChange={e=>upDay({weight:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
                         style={{ width:'82px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
-                      {arrow(wDiff) && <span style={{ fontSize:'20px', fontWeight:'800', color:arrowClr(wDiff), flexShrink:0 }}>{arrow(wDiff)}</span>}
+                      {_wArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_wArrowClr, flexShrink:0 }}>{_wArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>kg</span>
                     </div>
-                    {prevW && curW && <div style={{ fontSize:'11px', color:arrowClr(wDiff), marginTop:'3px' }}>전일 대비 {wDiff > 0 ? '+' : ''}{wDiff?.toFixed(1)}kg</div>}
+                    {_prevW && _curW && <div style={{ fontSize:'11px', color:_wArrowClr, marginTop:'3px' }}>전일 대비 {_wDiff > 0 ? '+' : ''}{_wDiff.toFixed(1)}kg</div>}
                   </div>
                   <div style={{ flex:1, minWidth:'100px' }}>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <input type="text" inputMode="decimal" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
                         style={{ width:'82px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
-                      {arrow(bfDiff) && <span style={{ fontSize:'20px', fontWeight:'800', color:arrowClr(bfDiff), flexShrink:0 }}>{arrow(bfDiff)}</span>}
+                      {_bfArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_bfArrowClr, flexShrink:0 }}>{_bfArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>%</span>
                     </div>
-                    {prevBf && curBf && <div style={{ fontSize:'11px', color:arrowClr(bfDiff), marginTop:'3px' }}>전일 대비 {bfDiff > 0 ? '+' : ''}{bfDiff?.toFixed(1)}%</div>}
+                    {_prevBf && _curBf && <div style={{ fontSize:'11px', color:_bfArrowClr, marginTop:'3px' }}>전일 대비 {_bfDiff > 0 ? '+' : ''}{_bfDiff.toFixed(1)}%</div>}
                   </div>
                   <div style={{ flex:1, minWidth:'80px' }}>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>키</div>
@@ -2562,8 +2564,6 @@
                     </div>
                   </div>
                 </div>
-                  );
-                })()}
 
                 {/* BMI 계산 */}
                 {(() => {
