@@ -1125,6 +1125,7 @@
     const [newEnd, setNewEnd]             = useState('');
     const [newSlotKey, setNewSlotKey]     = useState('');
     const [addMsg, setAddMsg]             = useState('');
+    const [noResults, setNoResults]       = useState(false);
     const searchTimerRef = useRef(null);
 
     // 기본 선택 슬롯
@@ -1148,25 +1149,30 @@
     const handleSearchInput = (val) => {
       setSearchQuery(val);
       setSelectedDrug(null);
+      setNoResults(false);
       clearTimeout(searchTimerRef.current);
       if (val.trim().length < 2) { setSearchResults([]); return; }
       searchTimerRef.current = setTimeout(async () => {
         setIsSearching(true);
         const results = await searchDrugs(val.trim());
         setSearchResults(results);
+        setNoResults(results.length === 0);
         setIsSearching(false);
       }, 500);
     };
 
     const addDrugToSlot = () => {
-      if (!selectedDrug) { setAddMsg('⚠️ 약을 검색 후 선택해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
+      // 선택된 약 or 검색창에 직접 입력한 텍스트 사용
+      const drugName = selectedDrug ? selectedDrug.itemName : searchQuery.trim();
+      if (!drugName) { setAddMsg('⚠️ 약 이름을 입력하거나 검색해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
       if (!newSlotKey) { setAddMsg('⚠️ 시간대를 선택해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
       const id = genId();
       setCfg(c => c.map(s => s.key === newSlotKey
-        ? { ...s, items: [...s.items, { id, name: selectedDrug.itemName, dose: newDose, startDate: newStart, endDate: newEnd }] }
+        ? { ...s, items: [...s.items, { id, name: drugName, dose: newDose, startDate: newStart, endDate: newEnd }] }
         : s));
-      setSelectedDrug(null); setSearchQuery(''); setSearchResults([]); setNewDose(''); setNewStart(''); setNewEnd('');
-      setAddMsg('✅ ' + selectedDrug.itemName + ' 추가됐어요!');
+      setSelectedDrug(null); setSearchQuery(''); setSearchResults([]); setNoResults(false);
+      setNewDose(''); setNewStart(''); setNewEnd('');
+      setAddMsg('✅ ' + drugName + ' 추가됐어요!');
       setTimeout(() => setAddMsg(''), 3000);
     };
 
@@ -1316,36 +1322,46 @@
           <div style={{background:'var(--cn-brand-100)',border:'2px solid var(--cn-brand)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
             <div style={{fontSize:'14px',fontWeight:'800',color:'var(--cn-brand)',marginBottom:'12px'}}>➕ 새 약 추가</div>
 
-            {/* 약 이름 검색 */}
+            {/* 약 이름 검색 + 직접 입력 겸용 */}
+            <div style={{fontSize:'12px',color:'var(--text-sub)',fontWeight:'600',marginBottom:'5px'}}>💊 약 이름 <span style={{fontWeight:'400',color:'var(--text-mute)'}}>검색 또는 직접 입력</span></div>
             <div style={{position:'relative',marginBottom:'8px'}}>
               <input
                 value={searchQuery}
                 onChange={e => handleSearchInput(e.target.value)}
-                placeholder="약 이름으로 검색 (예: 메트포르민, 아토르바)"
-                style={{width:'100%',border:'1px solid var(--cn-brand)',borderRadius:'8px',padding:'10px 12px',
-                        fontSize:'14px',outline:'none',background:'var(--card-bg)',color:'var(--text)',boxSizing:'border-box'}}/>
-              {isSearching && (
-                <div style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:'var(--text-mute)'}}>검색 중…</div>
-              )}
+                placeholder="예: 메트포르민, 아스피린, 리피토…"
+                style={{width:'100%',border:`1px solid ${selectedDrug?'var(--cn-ok)':'var(--cn-brand)'}`,borderRadius:'8px',
+                        padding:'10px 40px 10px 12px',fontSize:'14px',outline:'none',
+                        background:'var(--card-bg)',color:'var(--text)',boxSizing:'border-box'}}/>
+              <div style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:'var(--text-mute)',pointerEvents:'none'}}>
+                {isSearching ? '🔍' : selectedDrug ? '✅' : '🔎'}
+              </div>
             </div>
 
             {/* 검색 결과 목록 */}
             {searchResults.length > 0 && !selectedDrug && (
-              <div style={{background:'var(--card-bg)',border:'1px solid var(--card-border)',borderRadius:'8px',marginBottom:'8px',maxHeight:'180px',overflowY:'auto'}}>
+              <div style={{background:'var(--card-bg)',border:'1px solid var(--card-border)',borderRadius:'8px',marginBottom:'8px',maxHeight:'200px',overflowY:'auto',boxShadow:'0 4px 16px rgba(0,0,0,0.10)'}}>
                 {searchResults.map((drug, idx) => (
-                  <button key={idx} onClick={() => { setSelectedDrug(drug); setSearchQuery(drug.itemName); setSearchResults([]); }}
-                    style={{width:'100%',display:'block',padding:'9px 12px',background:'transparent',border:'none',
+                  <button key={idx} onClick={() => { setSelectedDrug(drug); setSearchQuery(drug.itemName); setSearchResults([]); setNoResults(false); }}
+                    style={{width:'100%',display:'block',padding:'10px 12px',background:'transparent',border:'none',
                             borderBottom: idx < searchResults.length-1 ? '1px solid var(--divider)' : 'none',
                             cursor:'pointer',textAlign:'left'}}>
                     <div style={{fontSize:'13px',fontWeight:'700',color:'var(--text)'}}>{drug.itemName}</div>
                     {drug.efcyQesitm && (
                       <div style={{fontSize:'11px',color:'var(--text-mute)',marginTop:'2px',
-                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>
-                        {drug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,60)}…
+                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {drug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,70)}
                       </div>
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* 검색 결과 없음 → 직접 입력 안내 */}
+            {noResults && !selectedDrug && searchQuery.trim().length >= 2 && (
+              <div style={{background:'var(--cn-warn-100)',border:'1px solid var(--cn-warn)',borderRadius:'8px',
+                           padding:'8px 12px',marginBottom:'8px',fontSize:'12px',color:'#92400e'}}>
+                🔍 검색 결과가 없어요. 입력한 이름 <strong>"{searchQuery.trim()}"</strong>으로 바로 추가할 수 있어요.
               </div>
             )}
 
@@ -1356,13 +1372,13 @@
                 <div style={{flex:1}}>
                   <div style={{fontSize:'13px',fontWeight:'700',color:'var(--cn-ok)'}}>✅ {selectedDrug.itemName}</div>
                   {selectedDrug.efcyQesitm && (
-                    <div style={{fontSize:'11px',color:'var(--text-sub)',marginTop:'2px'}}>
-                      {selectedDrug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,80)}
+                    <div style={{fontSize:'11px',color:'var(--text-sub)',marginTop:'2px',lineHeight:'1.4'}}>
+                      {selectedDrug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,100)}
                     </div>
                   )}
                 </div>
-                <button onClick={()=>{setSelectedDrug(null);setSearchQuery('');}}
-                  style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-mute)'}}>✕</button>
+                <button onClick={()=>{setSelectedDrug(null);setSearchQuery('');setNoResults(false);}}
+                  style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-mute)',flexShrink:0}}>✕</button>
               </div>
             )}
 
@@ -1493,8 +1509,21 @@
             </div>
           ))}
 
-          {/* ── 레거시 UUID (보조) ── */}
-          <div style={{marginBottom:'10px'}}>
+          {/* ── 시간대 추가 — 슬롯 목록 바로 아래 ── */}
+          <button onClick={addSlot}
+            style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed var(--card-border)',
+                    color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700',marginBottom:'14px'}}>
+            ＋ 시간대 추가 <span style={{fontSize:'11px',fontWeight:'400',color:'var(--text-mute)'}}>(아침·점심·저녁·취침전 외 추가)</span>
+          </button>
+
+          {/* ── 저장 / 전체삭제 ── */}
+          <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:'1px solid var(--card-border)',color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'13px'}}>🗑️ 전체 삭제</button>
+            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800'}}>저장</button>
+          </div>
+
+          {/* ── 레거시 UUID (맨 아래, 거의 안 쓰는 기능) ── */}
+          <div>
             <button onClick={()=>setShowLegacy(v=>!v)}
               style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'var(--text-mute)',padding:'0',textDecoration:'underline'}}>
               {showLegacy ? '▲ 이전 동기화 코드 숨기기' : '▼ 이전 동기화 코드(UUID)가 있으신가요?'}
@@ -1512,19 +1541,6 @@
                 </button>
               </div>
             )}
-          </div>
-
-          {/* ── 시간대 추가 (보조) ── */}
-          <button onClick={addSlot}
-            style={{width:'100%',padding:'9px',background:'var(--input-bg)',border:'1px dashed var(--text-mute)',
-                    color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700',marginBottom:'10px'}}>
-            ＋ 시간대 추가
-          </button>
-
-          {/* ── 저장 / 전체삭제 ── */}
-          <div style={{display:'flex',gap:'8px'}}>
-            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:'1px solid var(--card-border)',color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'13px'}}>🗑️ 전체 삭제</button>
-            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800'}}>저장</button>
           </div>
         </div>
       </div>
