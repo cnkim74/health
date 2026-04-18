@@ -185,16 +185,46 @@
   /* ── e약은요 의약품 정보 API ───────────────────────────────── */
   const DRUG_API_KEY = '12c113eddc12643698f9d49c82bc7ac526c33cc339906c4964299ef4b258ff9d';
   const fetchDrugInfo = async (name) => {
-    const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
-      + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}`
-      + `&itemName=${encodeURIComponent(name)}&type=json&numOfRows=5&pageNo=1`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('API 서버 오류');
-    const json = await res.json();
-    // 응답 구조: body.items.item (단건 = object, 복수 = array)
-    const raw = json?.body?.items?.item;
-    if (!raw) throw new Error(`"${name}" 정보를 찾을 수 없어요`);
-    return Array.isArray(raw) ? raw[0] : raw;
+    const trySearch = async (query) => {
+      const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
+        + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}`
+        + `&itemName=${encodeURIComponent(query)}&type=json&numOfRows=5&pageNo=1`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('API 서버 오류');
+      const json = await res.json();
+      const raw = json?.body?.items?.item;
+      if (!raw) return null;
+      return Array.isArray(raw) ? raw[0] : raw;
+    };
+
+    // 1차: 전체 이름으로 검색
+    let result = await trySearch(name);
+    if (result) return result;
+
+    // 2차: 뒤쪽 제형·용량 접미어 제거 후 재검색
+    const stripped = name
+      .replace(/\s*(솔로스타|에이취알정|에치알정|이알정|서방형캡슐|서방정|연질캡슐|캡슐|정[0-9]*|주사|주\s*\d*단위|주\b).*$/i, '')
+      .trim();
+    if (stripped && stripped !== name && stripped.length >= 2) {
+      result = await trySearch(stripped);
+      if (result) return result;
+    }
+
+    // 3차: 앞 4글자(공백 제거)로 검색
+    const short = name.replace(/\s+/g, '').slice(0, 4);
+    if (short.length >= 3 && short !== stripped.replace(/\s+/g,'')) {
+      result = await trySearch(short);
+      if (result) return result;
+    }
+
+    // 모두 실패 — 주사제 여부 판단해서 메시지 분기
+    const isInjectable = /주사|인슐린|솔로스타|단위\s*주|주사제/.test(name);
+    if (isInjectable) {
+      const err = new Error(`주사제·인슐린은 e약은요 DB 미수록 약품입니다`);
+      err.isInjectable = true;
+      throw err;
+    }
+    throw new Error(`식약처 e약은요 DB에서 찾을 수 없는 약품입니다`);
   };
 
   const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -832,14 +862,18 @@
 
   /* ── 의약품 정보 팝업 ──────────────────────────────────── */
   const DrugInfoModal = ({ medName, onClose }) => {
-    const [info,    setInfo]    = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error,   setError]   = useState('');
+    const [info,       setInfo]       = useState(null);
+    const [loading,    setLoading]    = useState(true);
+    const [error,      setError]      = useState('');
+    const [injectable, setInjectable] = useState(false);
 
     useEffect(() => {
       (async () => {
         try { setInfo(await fetchDrugInfo(medName)); }
-        catch(e) { setError(e.message); }
+        catch(e) {
+          setError(e.message);
+          if (e.isInjectable) setInjectable(true);
+        }
         setLoading(false);
       })();
     }, [medName]);
@@ -870,10 +904,20 @@
             </div>
           )}
           {error && (
-            <div style={{ textAlign:'center', padding:'36px 0', color:'#94a3b8' }}>
-              <div style={{ fontSize:'28px', marginBottom:'10px' }}>😔</div>
-              <div style={{ fontSize:'14px' }}>{error}</div>
-              <div style={{ fontSize:'12px', marginTop:'6px', color:'#cbd5e1' }}>약 이름이 정확한지 확인해 주세요</div>
+            <div style={{ textAlign:'center', padding:'30px 0', color:'#94a3b8' }}>
+              <div style={{ fontSize:'30px', marginBottom:'10px' }}>{injectable ? '💉' : '🔍'}</div>
+              <div style={{ fontSize:'14px', color:'#475569', fontWeight:'600' }}>{error}</div>
+              {injectable ? (
+                <div style={{ fontSize:'12px', marginTop:'10px', color:'#94a3b8', lineHeight:'1.7', background:'#f8fafc', borderRadius:'10px', padding:'12px 16px', textAlign:'left' }}>
+                  <b>이유:</b> 식약처 e약은요 서비스는 일반 소비자용 경구약 정보를 제공하며,
+                  인슐린·주사제 등 전문 주사약은 수록 대상에서 제외됩니다.<br/>
+                  <span style={{ color:'#2563eb' }}>→ 처방전·약사·제조사 자료를 참고하세요.</span>
+                </div>
+              ) : (
+                <div style={{ fontSize:'12px', marginTop:'8px', color:'#cbd5e1' }}>
+                  약품명 철자를 확인하거나 복약설정에서 이름을 수정해 보세요
+                </div>
+              )}
             </div>
           )}
           {info && !loading && (
