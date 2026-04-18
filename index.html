@@ -681,7 +681,7 @@
     });
     Object.entries(weightByDay).forEach(([day, weight]) => {
       result[day] = result[day] || emptyDay();
-      result[day].weight = String(weight);
+      result[day].weight = String(Math.round(weight * 10) / 10);
     });
     Object.entries(bodyFatByDay).forEach(([day, bodyFat]) => {
       result[day] = result[day] || emptyDay();
@@ -2720,7 +2720,7 @@
           <div className="dash-metric-card">
             <div className="dash-metric-label">체중</div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
-              <span className="dash-metric-val cn-num">{lastW||'---'}</span>
+              <span className="dash-metric-val cn-num">{lastW ? (isNaN(parseFloat(lastW)) ? lastW : parseFloat(lastW).toFixed(1)) : '---'}</span>
               <span className="dash-metric-unit">kg</span>
             </div>
             <TrendBadge vals={weightVals}/>
@@ -3785,7 +3785,7 @@
                   <div style={{ flex:1, minWidth:'100px' }}>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                      <input type="text" inputMode="decimal" value={day.weight||''} onChange={e=>upDay({weight:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
+                      <input type="text" inputMode="decimal" value={day.weight ? (day.weight.includes('.') && day.weight.split('.')[1]?.length > 2 ? parseFloat(day.weight).toFixed(1) : day.weight) : ''} onChange={e=>upDay({weight:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
                         style={{ width:'82px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
                       {_wArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_wArrowClr, flexShrink:0 }}>{_wArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>kg</span>
@@ -3795,7 +3795,7 @@
                   <div style={{ flex:1, minWidth:'100px' }}>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                      <input type="text" inputMode="decimal" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
+                      <input type="text" inputMode="decimal" value={day.bodyFat ? (day.bodyFat.includes('.') && day.bodyFat.split('.')[1]?.length > 2 ? parseFloat(day.bodyFat).toFixed(1) : day.bodyFat) : ''} onChange={e=>upDay({bodyFat:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
                         style={{ width:'82px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--cn-low)', outline:'none', textAlign:'center' }} />
                       {_bfArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_bfArrowClr, flexShrink:0 }}>{_bfArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>%</span>
