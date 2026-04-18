@@ -1086,7 +1086,27 @@
   /* ── 복약 설정 모달 ──────────────────────────────────── */
   const MedSettingsModal = ({ meds, onSave, onClose, userId }) => {
     const dm = _dm;
-    const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(meds)));
+    const SLOT_COLORS_DEF = [
+      { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
+      { color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)' },
+      { color:'var(--cn-low)', bg:'var(--cn-low-100)', border:'var(--cn-low)' },
+      { color:'var(--cn-danger)', bg:'var(--cn-danger-100)', border:'var(--cn-danger)' },
+      { color:'var(--cn-warn)', bg:'var(--cn-warn-100)', border:'var(--cn-warn)' },
+    ];
+    const DEFAULT_SLOTS = [
+      { slot:'아침', icon:'🌅' }, { slot:'점심', icon:'☀️' },
+      { slot:'저녁', icon:'🌇' }, { slot:'취침전', icon:'🌙' },
+    ];
+    const [cfg, setCfg] = useState(() => {
+      const base = JSON.parse(JSON.stringify(meds));
+      if (base.length === 0) {
+        return DEFAULT_SLOTS.map((d, i) => ({
+          slot: d.slot, key: 'slot_def_' + i, icon: d.icon,
+          ...SLOT_COLORS_DEF[i % SLOT_COLORS_DEF.length], items: []
+        }));
+      }
+      return base;
+    });
     const [editingSlot, setEditingSlot] = useState(null);
     const [editingMed,  setEditingMed]  = useState(null);
     const nameInputRef = useRef(null);
@@ -1094,6 +1114,59 @@
     const [loadMsg, setLoadMsg] = useState('');
     const [legacyInput, setLegacyInput] = useState(() => localStorage.getItem('dm_user_id') || '');
     const [showLegacy, setShowLegacy] = useState(false);
+
+    /* ── 새 약 추가 패널 상태 ── */
+    const [searchQuery, setSearchQuery]   = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching]   = useState(false);
+    const [selectedDrug, setSelectedDrug] = useState(null); // { itemName, efcyQesitm }
+    const [newDose, setNewDose]           = useState('');
+    const [newSlotKey, setNewSlotKey]     = useState('');
+    const [addMsg, setAddMsg]             = useState('');
+    const searchTimerRef = useRef(null);
+
+    // 기본 선택 슬롯
+    useEffect(() => {
+      if (cfg.length > 0 && !newSlotKey) setNewSlotKey(cfg[0].key);
+    }, []);
+
+    /* 약 검색 (최대 10개) */
+    const searchDrugs = async (query) => {
+      try {
+        const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
+          + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}`
+          + `&itemName=${encodeURIComponent(query)}&type=json&numOfRows=10&pageNo=1`;
+        const res = await fetch(url);
+        const json = await res.json();
+        const raw = json?.body?.items?.item;
+        return raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+      } catch { return []; }
+    };
+
+    const handleSearchInput = (val) => {
+      setSearchQuery(val);
+      setSelectedDrug(null);
+      clearTimeout(searchTimerRef.current);
+      if (val.trim().length < 2) { setSearchResults([]); return; }
+      searchTimerRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        const results = await searchDrugs(val.trim());
+        setSearchResults(results);
+        setIsSearching(false);
+      }, 500);
+    };
+
+    const addDrugToSlot = () => {
+      if (!selectedDrug) { setAddMsg('⚠️ 약을 검색 후 선택해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
+      if (!newSlotKey) { setAddMsg('⚠️ 시간대를 선택해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
+      const id = genId();
+      setCfg(c => c.map(s => s.key === newSlotKey
+        ? { ...s, items: [...s.items, { id, name: selectedDrug.itemName, dose: newDose, startDate: '', endDate: '' }] }
+        : s));
+      setSelectedDrug(null); setSearchQuery(''); setSearchResults([]); setNewDose('');
+      setAddMsg('✅ ' + selectedDrug.itemName + ' 추가됐어요!');
+      setTimeout(() => setAddMsg(''), 3000);
+    };
 
     // 복약 설정 불러오기 — 4단계 폴백
     // ① 현재 Supabase 계정(authUser.id) → ② localStorage(authUser.id 키)
@@ -1155,16 +1228,9 @@
             if (r.payload?.meds) Object.keys(r.payload.meds).forEach(id => medIdSet.add(id));
           });
           if (medIdSet.size > 0) {
-            const SLOT_COLORS = [
-              { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
-              { color:'var(--cn-ok)',    bg:'var(--cn-ok-100)',    border:'var(--cn-ok)'    },
-              { color:'var(--cn-low)',   bg:'var(--cn-low-100)',   border:'var(--cn-low)'   },
-              { color:'var(--cn-danger)',bg:'var(--cn-danger-100)',border:'var(--cn-danger)'},
-              { color:'var(--cn-warn)',  bg:'var(--cn-warn-100)',  border:'var(--cn-warn)'  },
-            ];
-            const recovered = [{
+              const recovered = [{
               slot: '복구된 복약 목록', key: 'recovered_' + Date.now(), icon: '💊',
-              ...SLOT_COLORS[0],
+              ...SLOT_COLORS_DEF[0],
               items: Array.from(medIdSet).map(id => ({ id, name: '약 이름 입력 필요', dose: '', startDate: '', endDate: '' }))
             }];
             setCfg(recovered);
@@ -1181,14 +1247,6 @@
       setTimeout(()=>setLoadMsg(''), 4000);
     };
 
-    const SLOT_COLORS = [
-      { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
-      { color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)' },
-      { color:'var(--cn-low)', bg:'var(--cn-low-100)', border:'var(--cn-low)' },
-      { color:'var(--cn-danger)', bg:'var(--cn-danger-100)', border:'var(--cn-danger)' },
-      { color:'var(--cn-warn)', bg:'var(--cn-warn-100)', border:'var(--cn-warn)' },
-    ];
-
     // 편집 시작 시 이름 input 자동 포커스 + 전체 선택
     useEffect(() => {
       if (editingMed && nameInputRef.current) {
@@ -1204,7 +1262,7 @@
     const delSlot = (key) => { if(window.confirm('이 시간대를 삭제할까요?')) setCfg(c => c.filter(s => s.key!==key)); };
     const addSlot = () => {
       const key = 'slot_' + Date.now();
-      const col = SLOT_COLORS[cfg.length % SLOT_COLORS.length];
+      const col = SLOT_COLORS_DEF[cfg.length % SLOT_COLORS_DEF.length];
       setCfg(c => [...c, { slot:'새 시간대', key, icon:'💊', items:[], ...col }]);
       setEditingSlot(key);
     };
@@ -1222,34 +1280,207 @@
     const inpSt = { border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'6px', padding:'6px 10px', fontSize:'16px', width:'100%', outline:'none' };
 
     return (
-      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
+      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'16px'}}
            onClick={e=>e.target===e.currentTarget&&onClose()}>
-        <div style={{background:'var(--card-bg)',borderRadius:'18px',padding:'24px',maxWidth:'520px',width:'100%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.25)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-            <div style={{fontSize:'14px',fontWeight:'800',color:'var(--text)'}}>⚙️ 복약 설정</div>
+        <div style={{background:'var(--card-bg)',borderRadius:'18px',padding:'20px',maxWidth:'520px',width:'100%',maxHeight:'92vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.25)'}}>
+
+          {/* ── 헤더 ── */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+            <div style={{fontSize:'15px',fontWeight:'800',color:'var(--text)'}}>💊 복약 설정</div>
             <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
               <button onClick={loadFromCloud} disabled={loadingCloud}
                 style={{background:loadingCloud?'var(--divider)':'var(--cn-brand-100)',border:'1px solid var(--cn-brand)',
                         borderRadius:'8px',padding:'5px 10px',cursor:loadingCloud?'default':'pointer',
-                        fontSize:'12px',fontWeight:'700',color:'var(--cn-brand)',whiteSpace:'nowrap'}}>
-                {loadingCloud ? '⏳ 불러오는 중...' : '☁️ 저장된 데이터 불러오기'}
+                        fontSize:'11px',fontWeight:'700',color:'var(--cn-brand)',whiteSpace:'nowrap'}}>
+                {loadingCloud ? '⏳' : '☁️ 불러오기'}
               </button>
               <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'14px'}}>✕</button>
             </div>
           </div>
+
+          {/* ── 클라우드 로드 메시지 ── */}
           {loadMsg && (
-            <div style={{background: loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok-100)': loadMsg.startsWith('❌')?'var(--cn-danger-100)':'var(--cn-warn-100)',
+            <div style={{background: loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok-100)':loadMsg.startsWith('❌')?'var(--cn-danger-100)':'var(--cn-warn-100)',
                          border:`1px solid ${loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'var(--cn-warn)'}`,
-                         borderRadius:'8px',padding:'8px 12px',marginBottom:'8px',
-                         fontSize:'13px',fontWeight:'600',
-                         color: loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'#92400e'}}>
+                         borderRadius:'8px',padding:'8px 12px',marginBottom:'10px',fontSize:'13px',fontWeight:'600',
+                         color:loadMsg.startsWith('✅')||loadMsg.startsWith('🔍')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'#92400e'}}>
               {loadMsg}
             </div>
           )}
-          {/* 레거시 UUID 직접 입력 */}
-          <div style={{marginBottom:'14px'}}>
+
+          {/* ════════════════════════════════════════
+              ➕  새 약 추가 패널 (PRIMARY ACTION)
+          ════════════════════════════════════════ */}
+          <div style={{background:'var(--cn-brand-100)',border:'2px solid var(--cn-brand)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
+            <div style={{fontSize:'14px',fontWeight:'800',color:'var(--cn-brand)',marginBottom:'12px'}}>➕ 새 약 추가</div>
+
+            {/* 약 이름 검색 */}
+            <div style={{position:'relative',marginBottom:'8px'}}>
+              <input
+                value={searchQuery}
+                onChange={e => handleSearchInput(e.target.value)}
+                placeholder="약 이름으로 검색 (예: 메트포르민, 아토르바)"
+                style={{width:'100%',border:'1px solid var(--cn-brand)',borderRadius:'8px',padding:'10px 12px',
+                        fontSize:'14px',outline:'none',background:'var(--card-bg)',color:'var(--text)',boxSizing:'border-box'}}/>
+              {isSearching && (
+                <div style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:'var(--text-mute)'}}>검색 중…</div>
+              )}
+            </div>
+
+            {/* 검색 결과 목록 */}
+            {searchResults.length > 0 && !selectedDrug && (
+              <div style={{background:'var(--card-bg)',border:'1px solid var(--card-border)',borderRadius:'8px',marginBottom:'8px',maxHeight:'180px',overflowY:'auto'}}>
+                {searchResults.map((drug, idx) => (
+                  <button key={idx} onClick={() => { setSelectedDrug(drug); setSearchQuery(drug.itemName); setSearchResults([]); }}
+                    style={{width:'100%',display:'block',padding:'9px 12px',background:'transparent',border:'none',
+                            borderBottom: idx < searchResults.length-1 ? '1px solid var(--divider)' : 'none',
+                            cursor:'pointer',textAlign:'left'}}>
+                    <div style={{fontSize:'13px',fontWeight:'700',color:'var(--text)'}}>{drug.itemName}</div>
+                    {drug.efcyQesitm && (
+                      <div style={{fontSize:'11px',color:'var(--text-mute)',marginTop:'2px',
+                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>
+                        {drug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,60)}…
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 선택된 약 확인 배너 */}
+            {selectedDrug && (
+              <div style={{background:'var(--cn-ok-100)',border:'1px solid var(--cn-ok)',borderRadius:'8px',
+                           padding:'8px 12px',marginBottom:'8px',display:'flex',alignItems:'center',gap:'8px'}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:'13px',fontWeight:'700',color:'var(--cn-ok)'}}>✅ {selectedDrug.itemName}</div>
+                  {selectedDrug.efcyQesitm && (
+                    <div style={{fontSize:'11px',color:'var(--text-sub)',marginTop:'2px'}}>
+                      {selectedDrug.efcyQesitm.replace(/<[^>]*>/g,'').slice(0,80)}
+                    </div>
+                  )}
+                </div>
+                <button onClick={()=>{setSelectedDrug(null);setSearchQuery('');}}
+                  style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-mute)'}}>✕</button>
+              </div>
+            )}
+
+            {/* 용량 + 시간대 선택 */}
+            <div style={{display:'flex',gap:'8px',marginBottom:'8px',flexWrap:'wrap'}}>
+              <input value={newDose} onChange={e=>setNewDose(e.target.value)}
+                placeholder="용량 (예: 500mg 1정)"
+                style={{flex:'1 1 160px',border:'1px solid var(--card-border)',borderRadius:'8px',padding:'8px 10px',
+                        fontSize:'13px',outline:'none',background:'var(--card-bg)',color:'var(--text)'}}/>
+            </div>
+
+            {/* 시간대 선택 버튼 */}
+            <div style={{marginBottom:'10px'}}>
+              <div style={{fontSize:'12px',color:'var(--text-sub)',marginBottom:'6px',fontWeight:'600'}}>복약 시간대</div>
+              <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                {cfg.map(slot => (
+                  <button key={slot.key} onClick={()=>setNewSlotKey(slot.key)}
+                    style={{padding:'6px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:'700',cursor:'pointer',
+                            border:`2px solid ${newSlotKey===slot.key?slot.color:'var(--card-border)'}`,
+                            background:newSlotKey===slot.key?slot.bg:'var(--card-bg)',
+                            color:newSlotKey===slot.key?slot.color:'var(--text-sub)'}}>
+                    {slot.icon} {slot.slot}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 추가 버튼 & 피드백 */}
+            {addMsg && (
+              <div style={{fontSize:'12px',fontWeight:'700',color:addMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-warn)',
+                           marginBottom:'6px',padding:'4px 8px',background:addMsg.startsWith('✅')?'var(--cn-ok-100)':'var(--cn-warn-100)',
+                           borderRadius:'6px'}}>
+                {addMsg}
+              </div>
+            )}
+            <button onClick={addDrugToSlot}
+              style={{width:'100%',padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',
+                      borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800',letterSpacing:'-0.3px'}}>
+              💊 추가하기
+            </button>
+          </div>
+
+          {/* ── 현재 복약 목록 ── */}
+          <div style={{fontSize:'13px',fontWeight:'700',color:'var(--text-sub)',marginBottom:'8px'}}>📋 현재 복약 목록</div>
+
+          {cfg.map(slot => (
+            <div key={slot.key} style={{background:slot.bg,border:`1px solid ${slot.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'10px'}}>
+              {/* 슬롯 헤더 */}
+              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
+                {editingSlot===slot.key ? (
+                  <>
+                    <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
+                      style={{width:'44px',border:'1px solid var(--card-border)',borderRadius:'6px',padding:'4px',fontSize:'14px',textAlign:'center'}}/>
+                    <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)} autoFocus
+                      style={{flex:1,border:'1px solid var(--card-border)',borderRadius:'6px',padding:'6px 10px',fontSize:'16px',fontWeight:'700'}}/>
+                    <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'14px'}}>완료</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{fontSize:'14px'}}>{slot.icon}</span>
+                    <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
+                    <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--text-sub)'}}>✏️</button>
+                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--cn-danger)'}}>🗑️</button>
+                  </>
+                )}
+              </div>
+
+              {slot.items.length === 0 && (
+                <div style={{fontSize:'12px',color:'var(--text-mute)',padding:'4px 0 4px 2px',fontStyle:'italic'}}>등록된 약 없음</div>
+              )}
+
+              {/* 약 목록 */}
+              {slot.items.map(med => (
+                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:'1px solid var(--card-border)'}}>
+                  {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      <input ref={nameInputRef} value={med.name}
+                        onChange={e=>updMedField(slot.key,med.id,'name',e.target.value)}
+                        onFocus={e=>e.target.select()}
+                        placeholder="약 이름" style={inpSt}/>
+                      <input value={med.dose} onChange={e=>updMedField(slot.key,med.id,'dose',e.target.value)}
+                        placeholder="용량 (예: 10mg 1정)" style={inpSt}/>
+                      <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:'12px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
+                          <input type="date" value={med.startDate||''} onChange={e=>updMedField(slot.key,med.id,'startDate',e.target.value)} style={inpSt}/>
+                        </div>
+                        <div style={{color:'var(--text-mute)',marginTop:'14px'}}>~</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:'12px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 종료일</div>
+                          <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
+                        </div>
+                      </div>
+                      <div style={{fontSize:'11px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 항상 표시</div>
+                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>완료</button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:'14px',fontWeight:'600',color:'var(--text)'}}>{med.name||'(이름 없음)'}</div>
+                        {med.dose && <div style={{fontSize:'12px',color:'var(--text-sub)'}}>{med.dose}</div>}
+                        {(med.startDate||med.endDate) && (
+                          <div style={{fontSize:'11px',color:'var(--cn-brand)',marginTop:'2px'}}>
+                            📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px'}}>✏️</button>
+                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--cn-danger)'}}>🗑️</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* ── 레거시 UUID (보조) ── */}
+          <div style={{marginBottom:'10px'}}>
             <button onClick={()=>setShowLegacy(v=>!v)}
-              style={{background:'none',border:'none',cursor:'pointer',fontSize:'12px',color:'var(--text-mute)',padding:'0',textDecoration:'underline'}}>
+              style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'var(--text-mute)',padding:'0',textDecoration:'underline'}}>
               {showLegacy ? '▲ 이전 동기화 코드 숨기기' : '▼ 이전 동기화 코드(UUID)가 있으신가요?'}
             </button>
             {showLegacy && (
@@ -1267,84 +1498,17 @@
             )}
           </div>
 
-          {cfg.map(slot => (
-            <div key={slot.key} style={{background:slot.bg,border:`1px solid ${slot.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'10px'}}>
-              {/* 슬롯 헤더 */}
-              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
-                {editingSlot===slot.key ? (
-                  <>
-                    <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
-                      style={{width:'44px',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,borderRadius:'6px',padding:'4px',fontSize:'14px',textAlign:'center'}}/>
-                    <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)} autoFocus
-                      style={{flex:1,border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,borderRadius:'6px',padding:'6px 10px',fontSize:'16px',fontWeight:'700'}}/>
-                    <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'14px'}}>완료</button>
-                  </>
-                ) : (
-                  <>
-                    <span style={{fontSize:'14px'}}>{slot.icon}</span>
-                    <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
-                    <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--text-sub)'}}>✏️</button>
-                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--cn-danger)'}}>🗑️</button>
-                  </>
-                )}
-              </div>
-
-              {/* 약 목록 */}
-              {slot.items.map(med => (
-                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`}}>
-                  {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
-                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-                      <input ref={nameInputRef} value={med.name}
-                        onChange={e=>updMedField(slot.key,med.id,'name',e.target.value)}
-                        onFocus={e=>e.target.select()}
-                        placeholder="약 이름" style={inpSt}/>
-                      <input value={med.dose} onChange={e=>updMedField(slot.key,med.id,'dose',e.target.value)}
-                        placeholder="용량 (예: 10mg 1정)" style={inpSt}/>
-                      {/* 투약 기간 */}
-                      <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
-                          <input type="date" value={med.startDate||''} onChange={e=>updMedField(slot.key,med.id,'startDate',e.target.value)} style={inpSt}/>
-                        </div>
-                        <div style={{color:dm?'var(--text-sub)':'var(--text-mute)',marginTop:'16px'}}>~</div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 종료일</div>
-                          <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
-                        </div>
-                      </div>
-                      <div style={{fontSize:'16px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 항상 표시</div>
-                      <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>완료</button>
-                    </div>
-                  ) : (
-                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:'16px',fontWeight:'600',color:'var(--text)'}}>{med.name||'(이름 없음)'}</div>
-                        <div style={{fontSize:'16px',color:'var(--text-sub)'}}>{med.dose}</div>
-                        {(med.startDate||med.endDate) && (
-                          <div style={{fontSize:'14px',color:'var(--cn-brand)',marginTop:'2px'}}>
-                            📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
-                          </div>
-                        )}
-                      </div>
-                      <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-sub)'}}>✏️</button>
-                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--cn-danger)'}}>🗑️</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <button onClick={()=>addMed(slot.key)} style={{width:'100%',padding:'7px',background:'transparent',border:`1px dashed ${slot.border}`,color:slot.color,borderRadius:'8px',cursor:'pointer',fontSize:'14px',fontWeight:'700',marginTop:'4px'}}>
-                + 약 추가
-              </button>
-            </div>
-          ))}
-
-          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed var(--text-mute)',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px',fontWeight:'700',marginBottom:'12px'}}>
-            + 시간대 추가
+          {/* ── 시간대 추가 (보조) ── */}
+          <button onClick={addSlot}
+            style={{width:'100%',padding:'9px',background:'var(--input-bg)',border:'1px dashed var(--text-mute)',
+                    color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700',marginBottom:'10px'}}>
+            ＋ 시간대 추가
           </button>
 
+          {/* ── 저장 / 전체삭제 ── */}
           <div style={{display:'flex',gap:'8px'}}>
-            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>🗑️ 전체 삭제</button>
-            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>저장</button>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:'1px solid var(--card-border)',color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'13px'}}>🗑️ 전체 삭제</button>
+            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800'}}>저장</button>
           </div>
         </div>
       </div>
