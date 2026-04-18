@@ -2454,6 +2454,7 @@
         setLoading(true);
         setSyncing(true);
         try {
+          // 1차: 현재 Supabase 로그인 계정(authUser.id)으로 조회
           const { data: rows, error } = await supa
             .from('diabetes_data')
             .select('date, payload')
@@ -2461,6 +2462,18 @@
           if (error) throw error;
           const loaded = {};
           (rows || []).forEach(r => { if (r.date !== '_user_settings_') loaded[r.date] = r.payload; });
+
+          // 2차 폴백: 데이터가 없고, 예전 dm_user_id UUID가 있으면 그걸로도 조회
+          if (Object.keys(loaded).length === 0) {
+            const legacyId = localStorage.getItem('dm_user_id');
+            if (legacyId && legacyId !== userId) {
+              const { data: legacyRows } = await supa
+                .from('diabetes_data')
+                .select('date, payload')
+                .eq('user_id', legacyId);
+              (legacyRows || []).forEach(r => { if (r.date !== '_user_settings_') loaded[r.date] = r.payload; });
+            }
+          }
 
           // ✅ 로컬 캐시와 필드 단위 병합
           // - Supabase에 없는 날짜: 캐시 전체 사용
