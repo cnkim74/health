@@ -1601,12 +1601,36 @@
   /* ── 관리자 배너 설정 모달 ───────────────────────────── */
   const ADMIN_EMAIL = 'cnkim74@gmail.com';
   const AdminModal = ({ onClose, userEmail }) => {
-    // 관리자 권한 이중 검증 — 이메일이 일치하지 않으면 모달 자체를 렌더링하지 않음
     if (userEmail !== ADMIN_EMAIL) return null;
     const dm = _dm;
+    const [activeTab, setActiveTab] = useState('banners'); // 'banners' | 'feedback'
     const [banners, setBanners] = useState(loadBanners);
-    const [editing, setEditing] = useState(null); // slotId
+    const [editing, setEditing] = useState(null);
     const [draft, setDraft] = useState({});
+
+    // 피드백 상태
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [fbLoading, setFbLoading] = useState(false);
+    const [fbError, setFbError] = useState('');
+
+    const loadFeedbacks = async () => {
+      setFbLoading(true); setFbError('');
+      try {
+        const { data, error } = await supa.from('cn_feedback').select('*').order('created_at', { ascending: false }).limit(50);
+        if (error) throw error;
+        setFeedbacks(data || []);
+      } catch(e) {
+        setFbError('피드백 불러오기 실패: ' + e.message);
+      }
+      setFbLoading(false);
+    };
+
+    const deleteFeedback = async (id) => {
+      await supa.from('cn_feedback').delete().eq('id', id);
+      setFeedbacks(f => f.filter(x => x.id !== id));
+    };
+
+    useEffect(() => { if (activeTab === 'feedback') loadFeedbacks(); }, [activeTab]);
 
     const startEdit = (slotId) => {
       setEditing(slotId);
@@ -1637,13 +1661,55 @@
         <div style={{ background:cardBg, borderRadius:'20px', padding:'26px', maxWidth:'520px', width:'100%',
                       maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
 
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
-            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🛠️ 관리자 배너 설정</div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🛠️ 관리자</div>
             <button onClick={onClose} style={{ background:'var(--input-bg)', border:'none', borderRadius:'8px',
               width:'32px', height:'32px', cursor:'pointer', fontSize:'16px', color:'var(--text-sub)' }}>✕</button>
           </div>
 
-          {editing ? (
+          {/* 탭 전환 */}
+          <div style={{ display:'flex', gap:'6px', marginBottom:'18px' }}>
+            {[['banners','🖼️ 배너 설정'],['feedback','💬 피드백']].map(([id,label]) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                style={{ flex:1, padding:'8px', border:`2px solid ${activeTab===id?'var(--cn-brand)':'var(--card-border)'}`, borderRadius:'8px', background: activeTab===id?'var(--cn-brand-100)':'var(--card-bg)', color: activeTab===id?'var(--cn-brand)':'var(--text-sub)', cursor:'pointer', fontSize:'13px', fontWeight:'700', fontFamily:'inherit' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'feedback' ? (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+                <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>최근 50건</div>
+                <button onClick={loadFeedbacks} style={{ background:'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', borderRadius:'6px', padding:'4px 10px', cursor:'pointer', fontSize:'12px', color:'var(--cn-brand)', fontWeight:'700', fontFamily:'inherit' }}>새로고침</button>
+              </div>
+              {fbLoading && <div style={{ textAlign:'center', padding:'24px', color:'var(--text-mute)' }}>⏳ 불러오는 중…</div>}
+              {fbError && <div style={{ color:'var(--cn-danger)', fontSize:'13px', padding:'12px', background:'var(--cn-danger-100)', borderRadius:'8px', marginBottom:'10px' }}>{fbError}</div>}
+              {!fbLoading && !fbError && feedbacks.length === 0 && (
+                <div style={{ textAlign:'center', padding:'32px', color:'var(--text-mute)', fontSize:'13px' }}>피드백이 없습니다</div>
+              )}
+              {feedbacks.map(fb => (
+                <div key={fb.id} style={{ background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'10px', padding:'12px 14px', marginBottom:'8px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px', marginBottom:'6px' }}>
+                    <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
+                      <span style={{ fontSize:'11px', fontWeight:'700', padding:'2px 8px', borderRadius:'20px',
+                        background: fb.type==='버그신고'?'var(--cn-danger-100)': fb.type==='기능제안'?'var(--cn-brand-100)':'var(--bg-soft)',
+                        color: fb.type==='버그신고'?'var(--cn-danger)': fb.type==='기능제안'?'var(--cn-brand)':'var(--text-sub)' }}>
+                        {fb.type}
+                      </span>
+                      <span style={{ fontSize:'11px', color:'var(--text-mute)' }}>{fb.user_email}</span>
+                    </div>
+                    <button onClick={() => deleteFeedback(fb.id)}
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:'14px', color:'var(--text-mute)', padding:'0 2px', flexShrink:0 }} title="삭제">🗑</button>
+                  </div>
+                  <div style={{ fontSize:'13px', color:'var(--text)', lineHeight:'1.6', whiteSpace:'pre-wrap', wordBreak:'break-all' }}>{fb.content}</div>
+                  <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'6px' }}>
+                    {fb.created_at ? new Date(fb.created_at).toLocaleString('ko-KR') : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : editing ? (
             <div>
               <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)', marginBottom:'14px' }}>
                 📍 {BANNER_SLOTS.find(s=>s.id===editing)?.label} 설정
