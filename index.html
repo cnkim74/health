@@ -946,10 +946,7 @@
     const [showImport, setShowImport] = useState(false);
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
-    const [medsConfig, setMedsConfig] = useState(() => {
-      try { const s = localStorage.getItem('hcd_meds_config'); return s ? JSON.parse(s) : DEFAULT_MEDS; }
-      catch { return DEFAULT_MEDS; }
-    });
+    const [medsConfig, setMedsConfig] = useState(DEFAULT_MEDS);
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(true);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -1182,7 +1179,20 @@
     };
 
     /* medsConfig 저장 */
-    useEffect(() => { localStorage.setItem('hcd_meds_config', JSON.stringify(medsConfig)); }, [medsConfig]);
+    // 복약 설정: 유저별 로드 (userId 확정 후)
+    useEffect(() => {
+      if (!userId) return;
+      try {
+        const s = localStorage.getItem(`hcd_meds_config_${userId}`);
+        setMedsConfig(s ? JSON.parse(s) : DEFAULT_MEDS);
+      } catch { setMedsConfig(DEFAULT_MEDS); }
+    }, [userId]);
+
+    // 복약 설정: 유저별 저장
+    useEffect(() => {
+      if (!userId) return;
+      localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(medsConfig));
+    }, [medsConfig, userId]);
     const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
 
     /* Stats */
