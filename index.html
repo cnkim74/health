@@ -332,11 +332,15 @@
     const glucoseByDay = {};
     const weightByDay  = {};
     const bodyFatByDay = {};
+    const bpSysByDay   = {}; // 수축기 혈압
+    const bpDiaByDay   = {}; // 이완기 혈압
 
     const TARGET_KEYS = {
-      'HKQuantityTypeIdentifierBloodGlucose':     'glucose',
-      'HKQuantityTypeIdentifierBodyMass':          'weight',
-      'HKQuantityTypeIdentifierBodyFatPercentage': 'fat'
+      'HKQuantityTypeIdentifierBloodGlucose':           'glucose',
+      'HKQuantityTypeIdentifierBodyMass':                'weight',
+      'HKQuantityTypeIdentifierBodyFatPercentage':       'fat',
+      'HKQuantityTypeIdentifierBloodPressureSystolic':   'bp_sys',
+      'HKQuantityTypeIdentifierBloodPressureDiastolic':  'bp_dia',
     };
 
     const processRecord = (rec) => {
@@ -360,6 +364,13 @@
         weightByDay[dayKey] = kg;
       } else if (type === 'fat') {
         bodyFatByDay[dayKey] = val <= 1 ? Math.round(val * 100 * 10) / 10 : Math.round(val * 10) / 10;
+      } else if (type === 'bp_sys') {
+        // 같은 날 여러 번 측정 시 가장 마지막(hour 기준) 값 사용
+        if (!bpSysByDay[dayKey] || hour > bpSysByDay[dayKey].hour)
+          bpSysByDay[dayKey] = { hour, value: Math.round(val) };
+      } else if (type === 'bp_dia') {
+        if (!bpDiaByDay[dayKey] || hour > bpDiaByDay[dayKey].hour)
+          bpDiaByDay[dayKey] = { hour, value: Math.round(val) };
       }
     };
 
@@ -397,8 +408,16 @@
       }
     }
 
+    // 수축기/이완기 쌍이 모두 있는 날만 혈압으로 저장
+    const bpByDay = {};
+    Object.keys(bpSysByDay).forEach(d => {
+      if (bpDiaByDay[d]) {
+        bpByDay[d] = { sys: String(bpSysByDay[d].value), dia: String(bpDiaByDay[d].value) };
+      }
+    });
+
     if (onProgress) onProgress(100);
-    return { glucoseByDay, weightByDay, bodyFatByDay };
+    return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay };
   };
 
   /* ── 삼성 헬스 ZIP 파싱 (체중·체지방) ─────────────────── */
@@ -410,58 +429,81 @@
 
     // 삼성 헬스는 com.samsung.shealth.weight.{timestamp}.csv 형태
     const weightFile = allFiles.find(n => /com\.samsung\.(shealth|health)\.weight/i.test(n) && n.endsWith('.csv'));
-    if (!weightFile) {
-      // 어떤 파일이 있는지 알려줌
+    // 혈압 파일: com.samsung.health.blood_pressure.*.csv
+    const bpFile = allFiles.find(n => /com\.samsung\.(shealth|health)\.blood_pressure/i.test(n) && n.endsWith('.csv'));
+
+    if (!weightFile && !bpFile) {
       const csvFiles = allFiles.filter(n => n.endsWith('.csv')).slice(0, 8).join('\n');
-      throw new Error(`삼성 헬스 체중 파일을 찾을 수 없어요.\n발견된 CSV 파일:\n${csvFiles || '없음'}\n\n삼성 헬스 → 설정 → 개인 데이터 다운로드에서 내보낸 ZIP인지 확인해 주세요.`);
+      throw new Error(`삼성 헬스 체중/혈압 파일을 찾을 수 없어요.\n발견된 CSV 파일:\n${csvFiles || '없음'}\n\n삼성 헬스 → 설정 → 개인 데이터 다운로드에서 내보낸 ZIP인지 확인해 주세요.`);
     }
-
-    onProgress && onProgress('체중 데이터 분석 중...');
-    const csvText = await zip.files[weightFile].async('string');
-    const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
-
-    // 헤더 찾기 (# 주석 제외)
-    const headerIdx = lines.findIndex(l => !l.startsWith('#') && (l.includes('weight') || l.includes('start_time')));
-    if (headerIdx < 0) throw new Error('삼성 헬스 CSV 형식을 인식할 수 없어요.');
-    const headers = lines[headerIdx].split(',').map(h => h.trim().replace(/"/g, ''));
 
     const weightByDay  = {};
     const bodyFatByDay = {};
+    const bpByDay      = {};
 
-    // 컬럼 인덱스 찾기
-    const iWeight  = headers.findIndex(h => /weight\.weight$|^weight$/i.test(h));
-    const iFat     = headers.findIndex(h => /body_fat|fat_percent|fat$/i.test(h));
-    const iTime    = headers.findIndex(h => /start_time|create_time|time/i.test(h));
-
-    for (let i = headerIdx + 1; i < lines.length; i++) {
-      if (lines[i].startsWith('#')) continue;
-      const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''));
-      if (cols.length < 2) continue;
-
-      // 날짜 파싱 (YYYY-MM-DD HH:MM:SS.mmm 또는 YYYY-MM-DDTHH:MM:SS 형태)
-      const timeStr = iTime >= 0 ? cols[iTime] : '';
-      const dayKey  = timeStr ? timeStr.slice(0, 10) : null;
-      if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
-
-      // 체중 (kg)
-      if (iWeight >= 0) {
-        const w = parseFloat(cols[iWeight]);
-        if (!isNaN(w) && w > 20 && w < 300) weightByDay[dayKey] = w;
+    // ── 체중/체지방 파싱
+    if (weightFile) {
+      onProgress && onProgress('체중 데이터 분석 중...');
+      const csvText = await zip.files[weightFile].async('string');
+      const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
+      const headerIdx = lines.findIndex(l => !l.startsWith('#') && (l.includes('weight') || l.includes('start_time')));
+      if (headerIdx >= 0) {
+        const headers = lines[headerIdx].split(',').map(h => h.trim().replace(/"/g, ''));
+        const iWeight  = headers.findIndex(h => /weight\.weight$|^weight$/i.test(h));
+        const iFat     = headers.findIndex(h => /body_fat|fat_percent|fat$/i.test(h));
+        const iTime    = headers.findIndex(h => /start_time|create_time|time/i.test(h));
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+          if (lines[i].startsWith('#')) continue;
+          const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''));
+          if (cols.length < 2) continue;
+          const timeStr = iTime >= 0 ? cols[iTime] : '';
+          const dayKey  = timeStr ? timeStr.slice(0, 10) : null;
+          if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+          if (iWeight >= 0) {
+            const w = parseFloat(cols[iWeight]);
+            if (!isNaN(w) && w > 20 && w < 300) weightByDay[dayKey] = w;
+          }
+          if (iFat >= 0) {
+            const f = parseFloat(cols[iFat]);
+            if (!isNaN(f) && f > 0)
+              bodyFatByDay[dayKey] = f <= 1 ? Math.round(f * 100 * 10) / 10 : Math.round(f * 10) / 10;
+          }
+        }
       }
-      // 체지방 (%) — 삼성은 0~100 범위
-      if (iFat >= 0) {
-        const f = parseFloat(cols[iFat]);
-        if (!isNaN(f) && f > 0) {
-          bodyFatByDay[dayKey] = f <= 1 ? Math.round(f * 100 * 10) / 10 : Math.round(f * 10) / 10;
+    }
+
+    // ── 혈압 파싱
+    if (bpFile) {
+      onProgress && onProgress('혈압 데이터 분석 중...');
+      const bpText = await zip.files[bpFile].async('string');
+      const bpLines = bpText.split('\n').map(l => l.trim()).filter(Boolean);
+      const bpHdrIdx = bpLines.findIndex(l => !l.startsWith('#') && (l.includes('systolic') || l.includes('diastolic') || l.includes('start_time')));
+      if (bpHdrIdx >= 0) {
+        const bpHeaders = bpLines[bpHdrIdx].split(',').map(h => h.trim().replace(/"/g,''));
+        const iSys  = bpHeaders.findIndex(h => /systolic/i.test(h));
+        const iDia  = bpHeaders.findIndex(h => /diastolic/i.test(h));
+        const iTime2 = bpHeaders.findIndex(h => /start_time|create_time|time/i.test(h));
+        for (let i = bpHdrIdx + 1; i < bpLines.length; i++) {
+          if (bpLines[i].startsWith('#')) continue;
+          const cols = bpLines[i].split(',').map(c => c.trim().replace(/"/g,''));
+          if (cols.length < 2) continue;
+          const timeStr = iTime2 >= 0 ? cols[iTime2] : '';
+          const dayKey  = timeStr ? timeStr.slice(0, 10) : null;
+          if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+          const sys = iSys >= 0 ? parseInt(cols[iSys]) : NaN;
+          const dia = iDia >= 0 ? parseInt(cols[iDia]) : NaN;
+          if (!isNaN(sys) && !isNaN(dia) && sys > 50 && dia > 30) {
+            bpByDay[dayKey] = { sys: String(sys), dia: String(dia) };
+          }
         }
       }
     }
 
     onProgress && onProgress('완료');
-    return { weightByDay, bodyFatByDay };
+    return { weightByDay, bodyFatByDay, bpByDay };
   };
 
-  const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {} }) => {
+  const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {}, bpByDay = {} }) => {
     const result = {};
     Object.entries(glucoseByDay).forEach(([day, readings]) => {
       const bs = {};
@@ -479,6 +521,10 @@
     Object.entries(bodyFatByDay).forEach(([day, bodyFat]) => {
       result[day] = result[day] || emptyDay();
       result[day].bodyFat = String(bodyFat);
+    });
+    Object.entries(bpByDay).forEach(([day, bp]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].bp = bp;
     });
     return result;
   };
@@ -1635,16 +1681,21 @@
         }
 
         setWeightImportMsg('데이터 분석 중... 0%');
-        const { weightByDay, bodyFatByDay } = await parseAppleHealthXML(getChunks, totalBytes, (pct) => {
+        const { weightByDay, bodyFatByDay, bpByDay = {} } = await parseAppleHealthXML(getChunks, totalBytes, (pct) => {
           setWeightImportMsg(`데이터 분석 중... ${pct}%`);
         });
-        const wDays = Object.keys(weightByDay).length;
+        const wDays  = Object.keys(weightByDay).length;
         const bfDays = Object.keys(bodyFatByDay).length;
-        if (!wDays && !bfDays) throw new Error('체중·체지방 데이터를 찾을 수 없어요.\n체성분 앱이 건강앱과 연동되어 있는지 확인해 주세요.');
+        const bpDays = Object.keys(bpByDay).length;
+        if (!wDays && !bfDays && !bpDays) throw new Error('체중·체지방·혈압 데이터를 찾을 수 없어요.\n건강앱과 연동된 체성분/혈압 앱이 있는지 확인해 주세요.');
         // 가져온 데이터 병합
-        const importedData = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay });
+        const importedData = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay, bpByDay });
         await handleImport(importedData);
-        setWeightImportMsg(`✅ 체중 ${wDays}일 · 체지방 ${bfDays}일 가져오기 완료!`);
+        const parts = [];
+        if (wDays)  parts.push(`체중 ${wDays}일`);
+        if (bfDays) parts.push(`체지방 ${bfDays}일`);
+        if (bpDays) parts.push(`혈압 ${bpDays}일`);
+        setWeightImportMsg(`✅ ${parts.join(' · ')} 가져오기 완료!`);
         setTimeout(() => { setWeightImportMsg(''); setWeightImporting(false); }, 3000);
       } catch(e) {
         setWeightImportMsg('❌ ' + (e.message || '가져오기 실패'));
@@ -1659,15 +1710,20 @@
       setAndroidImporting(true);
       setAndroidImportMsg('파일 처리 중...');
       try {
-        const { weightByDay, bodyFatByDay } = await parseSamsungHealthZip(file, (msg) => {
+        const { weightByDay, bodyFatByDay, bpByDay = {} } = await parseSamsungHealthZip(file, (msg) => {
           setAndroidImportMsg(msg);
         });
         const wDays  = Object.keys(weightByDay).length;
         const bfDays = Object.keys(bodyFatByDay).length;
-        if (!wDays && !bfDays) throw new Error('체중·체지방 데이터를 찾을 수 없어요.\n삼성 헬스에 체성분 데이터가 있는지 확인해 주세요.');
-        const importedData = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay });
+        const bpDays = Object.keys(bpByDay).length;
+        if (!wDays && !bfDays && !bpDays) throw new Error('체중·체지방·혈압 데이터를 찾을 수 없어요.\n삼성 헬스에 데이터가 있는지 확인해 주세요.');
+        const importedData = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay, bpByDay });
         await handleImport(importedData);
-        setAndroidImportMsg(`✅ 체중 ${wDays}일 · 체지방 ${bfDays}일 가져오기 완료!`);
+        const parts2 = [];
+        if (wDays)  parts2.push(`체중 ${wDays}일`);
+        if (bfDays) parts2.push(`체지방 ${bfDays}일`);
+        if (bpDays) parts2.push(`혈압 ${bpDays}일`);
+        setAndroidImportMsg(`✅ ${parts2.join(' · ')} 가져오기 완료!`);
         setTimeout(() => { setAndroidImportMsg(''); setAndroidImporting(false); }, 3000);
       } catch(e) {
         setAndroidImportMsg('❌ ' + (e.message || '가져오기 실패'));
@@ -1733,6 +1789,9 @@
               } else {
                 if (!loaded[d].weight  && imported[d]?.weight)  loaded[d] = { ...loaded[d], weight:  imported[d].weight  };
                 if (!loaded[d].bodyFat && imported[d]?.bodyFat) loaded[d] = { ...loaded[d], bodyFat: imported[d].bodyFat };
+                // 혈압도 복구
+                if (!(loaded[d].bp?.sys && loaded[d].bp?.dia) && imported[d]?.bp?.sys)
+                  loaded[d] = { ...loaded[d], bp: imported[d].bp };
               }
             });
           } catch {}
@@ -1818,7 +1877,9 @@
               ...ex,
               bs: { ...imported.bs, ...ex.bs },
               weight:  ex.weight  || imported.weight  || '',
-              bodyFat: ex.bodyFat || imported.bodyFat || ''
+              bodyFat: ex.bodyFat || imported.bodyFat || '',
+              // 혈압: 기존 수동 입력 우선, 없으면 가져온 값 사용
+              bp: (ex.bp?.sys && ex.bp?.dia) ? ex.bp : (imported.bp || ex.bp || {sys:'',dia:''})
             };
           }
           merged[d] = next[d];
@@ -1836,6 +1897,7 @@
               ...updated[d],
               weight:  updated[d].weight  || imp.weight  || '',
               bodyFat: updated[d].bodyFat || imp.bodyFat || '',
+              bp: (updated[d].bp?.sys && updated[d].bp?.dia) ? updated[d].bp : (imp.bp || updated[d].bp),
             };
           }
         });
@@ -2096,7 +2158,7 @@
                             value={v} onChange={e => { const n = e.target.value.replace(/[^0-9]/g,''); updBS(f.id, n); }}
                             placeholder="---"
                             size={v ? Math.max(2, v.length) : 3}
-                            style={{ width:'auto', minWidth:0, border:'none', background:'transparent', fontSize:'40px', fontWeight:'900', color:v?c:'#cbd5e1', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
+                            style={{ width:'auto', minWidth:0, border:'none', background:'transparent', fontSize:'40px', fontWeight:'900', color:v?c:'#cbd5e1', outline:'none', padding:0, paddingRight:'8px', lineHeight:1.1, letterSpacing:'-1px' }}
                           />
                           <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'4px' }}>
                             <span style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'500', lineHeight:1 }}>mg/dL</span>
@@ -2206,6 +2268,36 @@
                             <span style={{ fontSize:'11px', color:'var(--text-sub)', whiteSpace:'nowrap' }}>{sys}/{dia} mmHg</span>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* 건강앱 가져오기 */}
+                    <div style={{ marginBottom:'14px' }}>
+                      <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>📲 건강앱에서 혈압 가져오기</div>
+                      <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                        {/* iOS */}
+                        <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
+                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                            background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #93c5fd', borderRadius:'10px',
+                            padding:'9px 12px', cursor:'pointer', color:'#2563eb', fontWeight:'700', fontSize:'13px',
+                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
+                          <span style={{ fontSize:'16px' }}></span> iOS 건강앱
+                        </button>
+                        {/* Android */}
+                        <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
+                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                            background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px',
+                            padding:'9px 12px', cursor:'pointer', color:'#16a34a', fontWeight:'700', fontSize:'13px',
+                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
+                          <span style={{ fontSize:'16px' }}>🤖</span> 삼성 헬스
+                        </button>
+                      </div>
+                      {weightImporting  && <div style={{ fontSize:'12px', color:'#2563eb', marginTop:'6px', fontWeight:'600' }}>⏳ {weightImportMsg}</div>}
+                      {androidImporting && <div style={{ fontSize:'12px', color:'#16a34a', marginTop:'6px', fontWeight:'600' }}>⏳ {androidImportMsg}</div>}
+                      {!weightImporting  && weightImportMsg  && <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'#16a34a':'#dc2626', marginTop:'6px', fontWeight:'600' }}>{weightImportMsg}</div>}
+                      {!androidImporting && androidImportMsg && <div style={{ fontSize:'12px', color: androidImportMsg.startsWith('✅')?'#16a34a':'#dc2626', marginTop:'6px', fontWeight:'600' }}>{androidImportMsg}</div>}
+                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'5px' }}>
+                        iOS: 건강앱 → 내보내기 .zip · Android: 삼성 헬스 → 설정 → 개인 데이터 다운로드 .zip
                       </div>
                     </div>
 
