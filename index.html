@@ -87,21 +87,6 @@
 </head>
 <body>
 <div id="root"></div>
-<script>
-  window.onerror = function(msg, src, line, col, err) {
-    var box = document.getElementById('root');
-    box.style.cssText = 'padding:30px;font-family:monospace;background:#fef2f2;min-height:100vh';
-    box.innerHTML =
-      '<h2 style="color:#dc2626;margin:0 0 16px">JS 오류 발생</h2>' +
-      '<pre style="background:#fff;padding:16px;border-radius:8px;border:1px solid #fca5a5;white-space:pre-wrap;word-break:break-all;font-size:12px;color:#1e293b">' +
-      msg + '\n' +
-      'File: ' + src + '\n' +
-      'Line: ' + line + ', Col: ' + col + '\n\n' +
-      (err && err.stack ? err.stack : '') +
-      '</pre>';
-    return false;
-  };
-</script>
 <script type="text/babel">
   const { useState, useEffect, useRef, useMemo } = React;
 
@@ -1959,10 +1944,14 @@
       if (!userId || medsReadyFor !== userId) return;
       localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(medsConfig));
       // Supabase에도 저장 (_user_settings_ 특수 row)
-      supa.from('diabetes_data').upsert(
-        { user_id: userId, date: '_user_settings_', payload: { medsConfig }, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id,date' }
-      ).catch(e => console.error('복약 설정 Supabase 저장 오류:', e));
+      (async () => {
+        try {
+          await supa.from('diabetes_data').upsert(
+            { user_id: userId, date: '_user_settings_', payload: { medsConfig }, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,date' }
+          );
+        } catch(e) { console.error('복약 설정 Supabase 저장 오류:', e); }
+      })();
     }, [medsConfig, userId, medsReadyFor]);
     const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
 
@@ -2855,35 +2844,7 @@
   /* inpSt는 App 안에서 dm 없이 쓰이므로 CSS 오버라이드로 처리됨 */
   const inpSt    = { width:'100%', border:'1px solid var(--input-border)', borderRadius:'8px', padding:'8px 12px', fontSize:'14px', outline:'none', background:'var(--input-bg)', color:'var(--text)' };
 
-  class ErrorBoundary extends React.Component {
-    constructor(props) { super(props); this.state = { error: null }; }
-    static getDerivedStateFromError(e) { return { error: e }; }
-    render() {
-      if (this.state.error) {
-        return (
-          <div style={{ padding:'40px', fontFamily:'monospace', background:'#fef2f2', minHeight:'100vh' }}>
-            <h2 style={{ color:'#dc2626' }}>❌ React 렌더링 오류</h2>
-            <pre style={{ background:'#fff', padding:'20px', borderRadius:'8px', border:'1px solid #fca5a5', whiteSpace:'pre-wrap', wordBreak:'break-all', fontSize:'13px', color:'#1e293b' }}>
-              {this.state.error.toString()}{'\n\n'}{this.state.error.stack}
-            </pre>
-          </div>
-        );
-      }
-      return this.props.children;
-    }
-  }
-
-  try {
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      <ErrorBoundary><App /></ErrorBoundary>
-    );
-  } catch(e) {
-    document.getElementById('root').innerHTML =
-      '<div style="padding:40px;font-family:monospace;background:#fef2f2">' +
-      '<h2 style="color:#dc2626">❌ 초기화 오류</h2>' +
-      '<pre style="background:#fff;padding:20px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:13px">' +
-      e.toString() + '\n\n' + (e.stack||'') + '</pre></div>';
-  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
