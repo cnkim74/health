@@ -1126,26 +1126,39 @@
     const [suggestions, setSuggestions] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const searchTimer = useRef(null);
+    const slotListEndRef = useRef(null);
 
     // 기본 선택 슬롯
     useEffect(() => {
       if (cfg.length > 0 && !newSlotKey) setNewSlotKey(cfg[0].key);
     }, []);
 
+    const [searchErr, setSearchErr] = useState('');
+
     const handleNameInput = (val) => {
       setNewName(val);
       setSuggestions([]);
+      setSearchErr('');
       clearTimeout(searchTimer.current);
       if (val.trim().length < 2) return;
       searchTimer.current = setTimeout(async () => {
         setIsSearching(true);
         try {
           const res = await fetch(`${EDGE_URL}?q=${encodeURIComponent(val.trim())}`, {
-            headers: { 'apikey': SUPA_KEY }
+            headers: {
+              'apikey': SUPA_KEY,
+              'Authorization': `Bearer ${SUPA_KEY}`
+            }
           });
+          if (!res.ok) { setSearchErr('❌ 검색 서버 오류 (' + res.status + ')'); setIsSearching(false); return; }
           const data = await res.json();
-          if (Array.isArray(data)) setSuggestions(data);
-        } catch {}
+          if (Array.isArray(data)) {
+            setSuggestions(data);
+            if (data.length === 0) setSearchErr('검색 결과 없음 — 직접 입력 후 추가하기를 누르세요');
+          }
+        } catch(e) {
+          setSearchErr('❌ 연결 실패: ' + e.message);
+        }
         setIsSearching(false);
       }, 400);
     };
@@ -1153,6 +1166,7 @@
     const selectSuggestion = (drug) => {
       setNewName(drug.itemName);
       setSuggestions([]);
+      setSearchErr('');
     };
 
     const addDrugToSlot = () => {
@@ -1265,6 +1279,7 @@
       const col = SLOT_COLORS_DEF[cfg.length % SLOT_COLORS_DEF.length];
       setCfg(c => [...c, { slot:'새 시간대', key, icon:'💊', items:[], ...col }]);
       setEditingSlot(key);
+      setTimeout(() => slotListEndRef.current?.scrollIntoView({ behavior:'smooth', block:'center' }), 150);
     };
     const updMedField = (slotKey, medId, field, val) =>
       setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.map(m => m.id===medId ? {...m, [field]:val} : m)} : s));
@@ -1352,6 +1367,12 @@
                   <div style={{padding:'6px 14px',fontSize:'11px',color:'var(--text-mute)',borderTop:'1px solid var(--divider)'}}>
                     목록에 없으면 직접 입력 후 추가하기 누르세요
                   </div>
+                </div>
+              )}
+              {/* 검색 에러/결과없음 메시지 */}
+              {searchErr && suggestions.length === 0 && (
+                <div style={{fontSize:'12px',color:'var(--text-mute)',marginTop:'4px',padding:'4px 2px'}}>
+                  {searchErr}
                 </div>
               )}
             </div>
@@ -1489,6 +1510,7 @@
             </div>
           ))}
 
+          <div ref={slotListEndRef}/>
           {/* ── 시간대 추가 — 슬롯 목록 바로 아래 ── */}
           <button onClick={addSlot}
             style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed var(--card-border)',
