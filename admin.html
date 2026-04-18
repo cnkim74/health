@@ -216,12 +216,12 @@ document.getElementById('login-btn').addEventListener('click',async()=>{
   const errEl=document.getElementById('login-error');
   const btn=document.getElementById('login-btn');
   errEl.textContent='';
-  if(\!email||\!pw){errEl.textContent='이메일과 비밀번호를 입력해 주세요.';return;}
+  if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력해 주세요.';return;}
   btn.disabled=true;btn.textContent='로그인 중…';
   const{data,error}=await supa.auth.signInWithPassword({email,password:pw});
   btn.disabled=false;btn.textContent='로그인';
   if(error){errEl.textContent=error.message;return;}
-  if(data.user.email\!==ADMIN_EMAIL){await supa.auth.signOut();errEl.textContent='관리자 계정이 아닙니다.';return;}
+  if(data.user.email!==ADMIN_EMAIL){await supa.auth.signOut();errEl.textContent='관리자 계정이 아닙니다.';return;}
   currentUser=data.user;showApp();
 });
 document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-btn').click();});
@@ -256,7 +256,7 @@ async function loadStats(){
   document.getElementById('s-notices').textContent=ncRes.count??ncRes.data?.length??0;
   const{data:recent}=await supa.from('cn_feedback').select('*').order('created_at',{ascending:false}).limit(5);
   const listEl=document.getElementById('stats-recent-list');
-  if(\!recent?.length){listEl.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
+  if(!recent?.length){listEl.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
   listEl.innerHTML='<div class="fb-list">'+recent.map(fb=>renderFbItem(fb,false)).join('')+'</div>';
 }
 
@@ -274,13 +274,13 @@ async function loadFeedbacks(){
 function renderFbList(){
   const list=document.getElementById('fb-list');
   const filtered=currentFbFilter==='all'?allFeedbacks:allFeedbacks.filter(f=>f.type===currentFbFilter);
-  if(\!filtered.length){list.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
+  if(!filtered.length){list.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
   list.innerHTML='<div class="fb-list">'+filtered.map(fb=>renderFbItem(fb,true)).join('')+'</div>';
   list.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
-      if(\!confirm('정말 삭제할까요?'))return;
+      if(!confirm('정말 삭제할까요?'))return;
       await supa.from('cn_feedback').delete().eq('id',btn.dataset.del);
-      allFeedbacks=allFeedbacks.filter(f=>f.id\!==btn.dataset.del);
+      allFeedbacks=allFeedbacks.filter(f=>f.id!==btn.dataset.del);
       renderFbList();loadStats();
     });
   });
@@ -304,18 +304,18 @@ async function loadNotices(){
 
 function renderNotices(){
   const el=document.getElementById('notice-list');
-  if(\!notices.length){el.innerHTML='<div class="empty-msg">공지사항이 없습니다</div>';return;}
+  if(!notices.length){el.innerHTML='<div class="empty-msg">공지사항이 없습니다</div>';return;}
   el.innerHTML='<div class="notice-list">'+notices.map(n=>`<div class="notice-item"><div class="notice-body"><div class="notice-title-text">${esc(n.title||'(제목 없음)')}</div><div class="notice-content-text">${esc(n.content||'')}</div><div class="notice-meta"><span class="pub-badge ${n.is_published?'pub-on':'pub-off'}">${n.is_published?'게시됨':'비공개'}</span> · ${n.created_at?new Date(n.created_at).toLocaleString('ko-KR'):''}</div></div><div class="notice-actions"><button class="btn-pub ${n.is_published?'unpub':''}" data-nid="${esc(n.id)}" data-pub="${n.is_published}">${n.is_published?'내리기':'게시'}</button><button class="btn-del" data-ndel="${esc(n.id)}">삭제</button></div></div>`).join('')+'</div>';
   el.querySelectorAll('[data-nid]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
       const pub=btn.dataset.pub==='true';
-      await supa.from('cn_notices').update({is_published:\!pub}).eq('id',btn.dataset.nid);
+      await supa.from('cn_notices').update({is_published:!pub}).eq('id',btn.dataset.nid);
       await loadNotices();loadStats();
     });
   });
   el.querySelectorAll('[data-ndel]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
-      if(\!confirm('삭제할까요?'))return;
+      if(!confirm('삭제할까요?'))return;
       await supa.from('cn_notices').delete().eq('id',btn.dataset.ndel);
       await loadNotices();loadStats();
     });
@@ -327,7 +327,7 @@ document.getElementById('n-draft-btn').addEventListener('click',()=>saveNotice(f
 async function saveNotice(publish){
   const title=document.getElementById('n-title').value.trim();
   const content=document.getElementById('n-content').value.trim();
-  if(\!title){alert('제목을 입력해 주세요.');return;}
+  if(!title){alert('제목을 입력해 주세요.');return;}
   const{error}=await supa.from('cn_notices').insert({title,content,is_published:publish});
   if(error){alert('저장 실패: '+error.message);return;}
   document.getElementById('n-title').value='';
@@ -339,14 +339,14 @@ function renderBanners(){
   banners={};try{banners=JSON.parse(localStorage.getItem(BANNER_KEY)||'{}')}catch(e){}
   const slotsEl=document.getElementById('banner-slots');
   slotsEl.innerHTML=BANNER_SLOTS.map(slot=>{
-    const b=banners[slot.id]||{};const isOn=\!\!(b.enabled&&b.url);
+    const b=banners[slot.id]||{};const isOn=!!(b.enabled&&b.url);
     return`<div class="banner-slot-card"><div class="banner-slot-header"><span class="banner-slot-name">${slot.label}</span><button class="toggle ${isOn?'on':''}" data-slot-toggle="${slot.id}"></button></div><div class="banner-url-preview">${esc(b.url||'URL 없음')}</div><button class="btn-edit" data-slot-edit="${slot.id}">✏️ 편집</button></div>`;
   }).join('');
   slotsEl.querySelectorAll('[data-slot-toggle]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const sid=btn.dataset.slotToggle;
-      if(\!banners[sid])banners[sid]={};
-      banners[sid].enabled=\!banners[sid].enabled;
+      if(!banners[sid])banners[sid]={};
+      banners[sid].enabled=!banners[sid].enabled;
       localStorage.setItem(BANNER_KEY,JSON.stringify(banners));
       renderBanners();
     });
@@ -395,7 +395,7 @@ function startBannerEdit(slotId){
   });
   document.getElementById('b-save-btn').addEventListener('click',()=>{
     const t=document.getElementById('b-type').value;
-    if(\!banners[editingSlot])banners[editingSlot]={};
+    if(!banners[editingSlot])banners[editingSlot]={};
     Object.assign(banners[editingSlot],{
       type:t,
       url:document.getElementById('b-url').value.trim(),
