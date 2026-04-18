@@ -1,1768 +1,1397 @@
-<\!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>CARENOTE – 내 몸을 기록하는 노트</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <style>
-    :root {
-      --bg: #f0f4f8; --card-bg: #ffffff; --card-border: #e2e8f0;
-      --card-shadow: 0 1px 8px rgba(0,0,0,0.07); --text: #1e293b;
-      --text-sub: #64748b; --input-bg: #f8fafc; --input-border: #e2e8f0;
-      --divider: #f1f5f9; --accent: #2563eb; --accent-light: #eff6ff;
-      --nav-h: 64px;
-    }
-    body.dark {
-      --bg: #0d1117; --card-bg: #161b22; --card-border: #30363d;
-      --card-shadow: 0 1px 8px rgba(0,0,0,0.4); --text: #e6edf3;
-      --text-sub: #8b949e; --input-bg: #0d1117; --input-border: #30363d;
-      --divider: #21262d; --accent-light: #1e3a5f;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-      font-size: 15px; line-height: 1.5; background: var(--bg);
-      color: var(--text); min-height: 100vh; word-break: keep-all;
-      transition: background 0.25s, color 0.25s; overflow-x: hidden;
-    }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
-    input, textarea, select, button { font-family: inherit; font-size: inherit; }
-    body.dark input, body.dark textarea, body.dark select {
-      background: var(--input-bg) \!important; color: var(--text) \!important;
-      border-color: var(--input-border) \!important; color-scheme: dark;
-    }
-    body.dark input::placeholder, body.dark textarea::placeholder { color: var(--text-sub) \!important; opacity: 1 \!important; }
-    .cn-card {
-      background: var(--card-bg); border: 1px solid var(--card-border);
-      border-radius: 16px; padding: 16px; box-shadow: var(--card-shadow);
-      transition: background 0.25s, border-color 0.25s;
-    }
-    /* Bottom nav */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
-      background: var(--card-bg); border-top: 1px solid var(--card-border);
-      display: flex; z-index: 100;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
-    }
-    .nav-btn {
-      flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 3px; border: none; background: none;
-      cursor: pointer; color: var(--text-sub); transition: color 0.2s; padding-bottom: 4px;
-    }
-    .nav-btn.active { color: var(--accent); }
-    .nav-btn-icon { font-size: 22px; }
-    .nav-btn-label { font-size: 11px; font-weight: 600; }
-    .screen { min-height: 100vh; padding-bottom: calc(var(--nav-h) + 16px); }
-    /* Input styles */
-    .inp {
-      width: 100%; border: 1px solid var(--input-border); border-radius: 10px;
-      padding: 10px 12px; background: var(--input-bg); color: var(--text);
-      outline: none; transition: border-color 0.2s;
-    }
-    .inp:focus { border-color: var(--accent); }
-    .btn-primary {
-      background: var(--accent); color: #fff; border: none; border-radius: 10px;
-      padding: 10px 18px; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
-    }
-    .btn-primary:hover { opacity: 0.88; }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-    /* Metric card */
-    .metric-card {
-      background: var(--card-bg); border: 1px solid var(--card-border);
-      border-radius: 14px; padding: 14px 14px 10px; transition: background 0.25s;
-    }
-    /* Scrollable screen content */
-    .page-scroll { overflow-y: auto; padding: 0 14px; }
-    /* Med checkbox */
-    .med-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
-    /* Spin removal for blood sugar input */
-    .bs-inp::-webkit-inner-spin-button, .bs-inp::-webkit-outer-spin-button { -webkit-appearance: none; }
-    .bs-inp { -moz-appearance: textfield; }
-    /* Fade-in */
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-    .fade-in { animation: fadeIn 0.25s ease; }
-    /* Modal overlay */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(15,23,42,0.6);
-      display: flex; align-items: flex-end; justify-content: center;
-      z-index: 2000; padding: 0;
-    }
-    .modal-sheet {
-      background: var(--card-bg); border-radius: 20px 20px 0 0;
-      padding: 20px; width: 100%; max-height: 92vh; overflow-y: auto;
-      box-shadow: 0 -8px 40px rgba(0,0,0,0.2);
-    }
-    @media (min-width: 480px) {
-      .modal-overlay { align-items: center; padding: 20px; }
-      .modal-sheet { border-radius: 20px; max-width: 520px; }
-    }
-    /* AI insight card gradient */
-    .insight-card {
-      background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
-      border-radius: 16px; padding: 16px; color: #e2e8f0;
-    }
-    body.dark .insight-card { background: linear-gradient(135deg, #0f2744 0%, #0d1117 100%); }
-    /* Score gauge text */
-    .gauge-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>CARENOTE v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg:#0f1117; --bg2:#1a1d27; --bg3:#252836; --card:#1e2130; --border:#2e3347;
+  --accent:#6c63ff; --accent2:#ff6584; --green:#43e97b; --yellow:#f7971e;
+  --red:#ff4757; --blue:#4facfe; --text:#e8eaf0; --text2:#9499b0; --text3:#5c6180;
+  --radius:16px; --radius-sm:10px; --shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden}
+#root{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative}
+.screen{flex:1;overflow-y:auto;padding-bottom:80px}
+.screen::-webkit-scrollbar{display:none}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 14px;gap:4px;background:none;border:none;color:var(--text3);cursor:pointer;transition:color 0.2s;font-size:11px}
+.nav-btn.active{color:var(--accent)}
+.nav-btn svg{width:22px;height:22px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--border)}
+.card-sm{background:var(--card);border-radius:var(--radius-sm);padding:12px;border:1px solid var(--border)}
+.home-header{padding:20px 16px 0;display:flex;align-items:center;justify-content:space-between}
+.logo-text{font-size:20px;font-weight:700;letter-spacing:-0.5px}
+.logo-text span{color:var(--accent)}
+.header-actions{display:flex;gap:8px}
+.icon-btn{background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2)}
+.section{padding:16px 16px 0}
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric-card{background:var(--card);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.metric-label{font-size:11px;color:var(--text2);font-weight:500}
+.metric-value{font-size:22px;font-weight:700;line-height:1}
+.metric-unit{font-size:11px;color:var(--text3);font-weight:400}
+.metric-sub{font-size:11px;color:var(--text2)}
+.metric-chart{height:32px;margin-top:4px}
+.score-card{background:linear-gradient(135deg,#1e2130 0%,#252836 100%);border-radius:var(--radius);padding:20px;border:1px solid var(--border);display:flex;align-items:center;gap:20px}
+.score-info{flex:1}
+.score-title{font-size:13px;color:var(--text2);font-weight:500;margin-bottom:4px}
+.score-breakdown{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.score-row{display:flex;justify-content:space-between;align-items:center}
+.score-bar-wrap{flex:1;height:4px;background:var(--bg3);border-radius:2px;margin:0 8px}
+.score-bar{height:100%;border-radius:2px;transition:width 0.5s}
+.trend-badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px}
+.trend-up{background:rgba(255,71,87,0.15);color:var(--red)}
+.trend-down{background:rgba(67,233,123,0.15);color:var(--green)}
+.trend-stable{background:rgba(108,99,255,0.15);color:var(--accent)}
+.chart-labels{display:flex;justify-content:space-between;padding:0 2px;margin-top:4px}
+.chart-label{font-size:10px;color:var(--text3)}
+.meds-grid{display:flex;flex-direction:column;gap:8px}
+.med-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:var(--radius-sm)}
+.med-name{font-size:13px;font-weight:500}
+.med-time{font-size:11px;color:var(--text2)}
+.med-status{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
+.med-done{background:rgba(67,233,123,0.15);color:var(--green)}
+.med-miss{background:rgba(255,71,87,0.1);color:var(--text3)}
+.steps-bars{display:flex;align-items:flex-end;gap:4px;height:60px}
+.step-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.step-bar{width:100%;border-radius:4px 4px 0 0;transition:height 0.4s;min-height:3px}
+.step-day{font-size:9px;color:var(--text3)}
+.insight-card{background:linear-gradient(135deg,rgba(108,99,255,0.1),rgba(79,172,254,0.1));border:1px solid rgba(108,99,255,0.2);border-radius:var(--radius);padding:14px}
+.insight-icon{font-size:18px;margin-bottom:6px}
+.insight-text{font-size:13px;line-height:1.6;color:var(--text)}
+.record-header{padding:20px 16px 0}
+.record-title{font-size:22px;font-weight:700}
+.date-nav{display:flex;align-items:center;gap:12px;margin-top:8px}
+.date-nav-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:16px}
+.date-display{font-size:14px;font-weight:600;color:var(--text);flex:1;text-align:center}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:block}
+.form-row{display:flex;gap:8px}
+.input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:14px;width:100%;outline:none;transition:border-color 0.2s}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:var(--text3)}
+.bs-tabs{display:flex;gap:4px;margin-bottom:10px;overflow-x:auto}
+.bs-tab{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.bs-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.meds-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.med-check-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s}
+.med-check-btn.checked{background:rgba(67,233,123,0.1);border-color:rgba(67,233,123,0.3)}
+.med-check-box{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;transition:all 0.2s}
+.med-check-btn.checked .med-check-box{background:var(--green);border-color:var(--green);color:#fff}
+.med-check-name{font-size:12px;font-weight:500;flex:1}
+.meal-slot{display:flex;flex-direction:column;align-items:center;gap:6px}
+.meal-slot-btn{width:70px;height:70px;border-radius:var(--radius-sm);background:var(--bg3);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative}
+.meal-slot-btn img{width:100%;height:100%;object-fit:cover}
+.meal-slot-label{font-size:10px;color:var(--text2)}
+.meals-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.save-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--blue));border:none;border-radius:50px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px}
+.settings-header{padding:20px 16px 0}
+.settings-title{font-size:22px;font-weight:700}
+.settings-section{padding:16px 16px 0}
+.settings-group{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+.settings-row:last-child{border-bottom:none}
+.settings-row-left{display:flex;align-items:center;gap:12px}
+.settings-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.settings-label{font-size:14px;font-weight:500}
+.settings-value{font-size:13px;color:var(--text2)}
+.settings-arrow{color:var(--text3);font-size:16px}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);position:relative;cursor:pointer;transition:background 0.3s}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left 0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.toggle.on .toggle-thumb{left:22px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-val{font-size:20px;font-weight:700}
+.stat-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:flex-end;justify-content:center;z-index:200}
+.modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;padding:20px}
+.modal-sheet::-webkit-scrollbar{display:none}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px}
+.modal-close{float:right;background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px}
+.import-option{display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;margin-bottom:10px}
+.import-option-icon{font-size:24px}
+.import-option-label{font-size:14px;font-weight:600}
+.import-option-sub{font-size:12px;color:var(--text2)}
+.loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:300}
+.loading-box{background:var(--bg2);border-radius:var(--radius);padding:24px 32px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:10px 20px;font-size:13px;font-weight:500;z-index:500;animation:toastIn 0.3s ease}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.drug-info-card{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px}
+.drug-name{font-size:15px;font-weight:700;margin-bottom:6px}
+.drug-detail{font-size:12px;color:var(--text2);line-height:1.6}
+.sync-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.sync-row:last-child{border-bottom:none}
+.sync-label{font-size:13px}
+.sync-val{font-size:13px;color:var(--text2)}
+.input-group{position:relative}
+.input-unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none}
+.analysis-result{background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.2);border-radius:var(--radius-sm);padding:12px;margin-top:8px;font-size:12px;line-height:1.7;color:var(--text)}
+</style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef, useMemo, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-/* ── 자격증명 ─────────────────────────────────────────────── */
-const SUPA_URL  = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
-const SUPA_KEY  = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+const SUPA_URL   = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
+const SUPA_KEY   = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
 const GEMINI_KEY = 'AIzaSyDsRv6gCfI2JrMYORkz8NJuuf9hy7acQYk';
 const DRUG_API_KEY = '12c113eddc12643698f9d49c82bc7ac526c33cc339906c4964299ef4b258ff9d';
-const ADMIN_EMAIL  = 'cnkim74@gmail.com';
+const ADMIN_EMAIL = 'cnkim74@gmail.com';
+const LS_KEY = 'dm_dash_v2';
+
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-/* ── 다크모드 초기화 ──────────────────────────────────────── */
-let _dm = localStorage.getItem('cn_dark') === '1';
-if (_dm) document.body.classList.add('dark');
-
-/* ── 기본 복약 데이터 ─────────────────────────────────────── */
 const DEFAULT_MEDS = [
-  { slot:'아침 식전',      key:'morn_pre',  color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
-    items:[{ id:'fiasp_am',     name:'피아스포',            dose:'4단위 주사' }] },
-  { slot:'아침 식후 30분', key:'morn_post', color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
-    items:[{ id:'teneliaam_am', name:'테넬리아앰서방정',    dose:'10/500mg 1정' },
-           { id:'thioctacid',   name:'치옥타시드에이취알정', dose:'600mg 1정' }] },
-  { slot:'점심 식전',      key:'lunch_pre', color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
-    items:[{ id:'fiasp_lunch',  name:'피아스포',            dose:'4단위 주사' }] },
-  { slot:'저녁 식전',      key:'din_pre',   color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
-    items:[{ id:'fiasp_din',    name:'피아스포',            dose:'4단위 주사' }] },
-  { slot:'저녁 식후 30분', key:'din_post',  color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
-    items:[{ id:'lipitor',      name:'리피토정',            dose:'10mg 1정' },
-           { id:'teneliaam_pm', name:'테넬리아앰서방정',    dose:'10/500mg 1정' },
-           { id:'lyrica',       name:'리리카캡슐',          dose:'75mg 1캡슐' }] },
-  { slot:'취침 전',        key:'bed',       color:'#7c3aed', bg:'#faf5ff', border:'#c4b5fd', icon:'💉',
-    items:[{ id:'toujeo',       name:'투제오 솔로스타',     dose:'14단위 주사' }] }
+  { id:'m1', name:'메트포르민', time:'아침', dose:'500mg' },
+  { id:'m2', name:'자누비아', time:'아침', dose:'100mg' },
+  { id:'m3', name:'암로디핀', time:'아침', dose:'5mg' },
+  { id:'m4', name:'로수바스타틴', time:'저녁', dose:'10mg' }
 ];
-const genId = () => 'med_' + Math.random().toString(36).slice(2,9);
 
 const BS_FIELDS = [
-  { id:'bs_bf_am', label:'아침 식전',       icon:'🌅', target:'70–130' },
-  { id:'bs_af_am', label:'아침 식후 2시간', icon:'☀️',  target:'<180'  },
-  { id:'bs_bf_lu', label:'점심 식전',       icon:'🕛', target:'70–130' },
-  { id:'bs_af_lu', label:'점심 식후 2시간', icon:'🌤',  target:'<180'  },
-  { id:'bs_bf_di', label:'저녁 식전',       icon:'🌆', target:'70–130' },
-  { id:'bs_af_di', label:'저녁 식후 2시간', icon:'🌙',  target:'<180'  },
-  { id:'bs_bed',   label:'취침 전',         icon:'🌑', target:'100–140'}
+  { key:'fasting', label:'공복' },
+  { key:'before_b', label:'아침전' },
+  { key:'after_b', label:'아침후' },
+  { key:'before_l', label:'점심전' },
+  { key:'after_l', label:'점심후' },
+  { key:'before_d', label:'저녁전' },
+  { key:'after_d', label:'저녁후' }
 ];
 
-const TIME_WINDOWS = [
-  { id:'bs_bf_am', startH:5.5,  endH:8.5  },
-  { id:'bs_af_am', startH:9.0,  endH:11.5 },
-  { id:'bs_bf_lu', startH:11.0, endH:13.0 },
-  { id:'bs_af_lu', startH:13.5, endH:15.5 },
-  { id:'bs_bf_di', startH:17.0, endH:19.5 },
-  { id:'bs_af_di', startH:20.0, endH:22.0 },
-  { id:'bs_bed',   startH:22.0, endH:24.0 }
-];
+const TIME_WINDOWS = ['아침','점심','저녁','간식','야식'];
 
-const MEALS = [
-  { id:'breakfast', label:'아침 식사', icon:'🌅', ph:'예: 현미밥 반공기, 된장국, 두부조림\n→ 탄수화물 약 45g' },
-  { id:'lunch',     label:'점심 식사', icon:'🕛', ph:'예: 닭가슴살 샐러드, 삶은 계란 2개\n→ 탄수화물 약 40g' },
-  { id:'dinner',    label:'저녁 식사', icon:'🌆', ph:'예: 잡곡밥 반공기, 생선구이, 시금치나물\n→ 탄수화물 약 45g' }
-];
+const todayStr = () => new Date().toISOString().slice(0,10);
+const fmtDate = d => { const dt = new Date(d+'T00:00:00'); return (dt.getMonth()+1)+'/'+(dt.getDate()); };
+const shiftDate = (d,n) => { const dt = new Date(d+'T00:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
 
-/* ── 헬퍼 함수 ────────────────────────────────────────────── */
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const bsColor = v => {
+  if (!v) return 'var(--text2)';
+  const n = parseFloat(v);
+  if (n < 70) return 'var(--blue)';
+  if (n <= 140) return 'var(--green)';
+  if (n <= 180) return 'var(--yellow)';
+  return 'var(--red)';
 };
-const fmtDate = (s) => {
-  const d = new Date(s + 'T12:00:00');
-  const DAY = ['일','월','화','수','목','금','토'];
-  return { full:`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`, short:`${d.getMonth()+1}/${d.getDate()}`, day: DAY[d.getDay()] };
-};
-const shiftDate = (s, n) => {
-  const d = new Date(s + 'T12:00:00');
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-};
-const bsColor  = (v) => { const n=parseInt(v); if(\!n) return '#94a3b8'; if(n<70) return '#7c3aed'; if(n<=140) return '#16a34a'; if(n<=180) return '#d97706'; return '#dc2626'; };
-const bsLabel  = (v) => { const n=parseInt(v); if(\!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
-const median   = (arr) => { if(\!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
-const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, exercise:{type:'',mins:''}, weight:'', bodyFat:'', steps:'', sleep:{h:'',m:''}, note:'' });
-
-/* ── Health Score 계산 ────────────────────────────────────── */
-const calcHealthScore = (day, medsConfig, allData, curDate) => {
-  let weighted = 0, totalW = 0;
-  // BP (30%) — 최근 7일 중 가장 최근 측정값
-  let recentBP = null;
-  for (let i = 0; i <= 6; i++) {
-    const d = allData[shiftDate(curDate, -i)];
-    if (d?.bp?.sys && d?.bp?.dia) { recentBP = d.bp; break; }
-  }
-  if (recentBP) {
-    const sys = parseInt(recentBP.sys), dia = parseInt(recentBP.dia);
-    let s = 20;
-    if (sys < 120 && dia < 80) s = 100;
-    else if (sys < 130 && dia < 85) s = 80;
-    else if (sys < 140 && dia < 90) s = 60;
-    else if (sys < 160 && dia < 100) s = 40;
-    weighted += s * 0.30; totalW += 30;
-  }
-  // Glucose (30%) — 오늘 혈당 평균
-  const bsVals = Object.values(day?.bs || {}).filter(v => parseInt(v) > 0).map(v => parseInt(v));
-  if (bsVals.length) {
-    const avg = Math.round(bsVals.reduce((a,b)=>a+b,0)/bsVals.length);
-    let s = 40;
-    if (avg >= 70 && avg <= 130) s = 100;
-    else if (avg <= 150) s = 80;
-    else if (avg <= 180) s = 60;
-    weighted += s * 0.30; totalW += 30;
-  }
-  // Meds (25%)
-  const allMedIds = medsConfig.flatMap(sg => sg.items.map(m => m.id));
-  if (allMedIds.length) {
-    const done = allMedIds.filter(id => day?.meds?.[id]).length;
-    weighted += (done / allMedIds.length * 100) * 0.25; totalW += 25;
-  }
-  // Steps (15%)
-  const steps = parseInt(day?.steps);
-  if (steps > 0) {
-    weighted += Math.min(100, steps / 8000 * 100) * 0.15; totalW += 15;
-  }
-  if (\!totalW) return null;
-  return Math.round(weighted / totalW * 100);
+const bsLabel = v => {
+  if (!v) return '';
+  const n = parseFloat(v);
+  if (n < 70) return '저혈당';
+  if (n <= 140) return '정상';
+  if (n <= 180) return '주의';
+  return '위험';
 };
 
-/* ── AI 인사이트 생성 (규칙 기반) ──────────────────────────── */
-const genInsights = (day, medsConfig, allData, curDate) => {
-  const insights = [];
-  const bsVals = Object.values(day?.bs || {}).filter(v => parseInt(v) > 0).map(v => parseInt(v));
-  if (bsVals.length) {
-    const avg = Math.round(bsVals.reduce((a,b)=>a+b,0)/bsVals.length);
-    if (avg > 180) insights.push({ icon:'🩸', color:'#ef4444', text:`오늘 평균 혈당이 ${avg}mg/dL로 높아요. 수분 섭취를 늘리고 담당 의사와 상담하세요.` });
-    else if (avg < 70) insights.push({ icon:'⚠️', color:'#f59e0b', text:`저혈당 위험\! 평균 ${avg}mg/dL. 즉시 당분을 섭취하고 패턴을 확인하세요.` });
-    else insights.push({ icon:'✅', color:'#22c55e', text:`오늘 평균 혈당 ${avg}mg/dL — 목표 범위 내에 잘 유지되고 있어요.` });
-  }
-  const allMedIds = medsConfig.flatMap(sg => sg.items.map(m => m.id));
-  if (allMedIds.length) {
-    const done = allMedIds.filter(id => day?.meds?.[id]).length;
-    const pct = Math.round(done / allMedIds.length * 100);
-    if (pct < 100) insights.push({ icon:'💊', color:'#f59e0b', text:`복약 완료율 ${pct}%. 빠진 약이 있어요 — 놓친 약을 확인해 주세요.` });
-    else insights.push({ icon:'💊', color:'#22c55e', text:`오늘 복약을 모두 완료했어요\! 꾸준한 복약이 혈당 조절의 핵심이에요.` });
-  }
-  const steps = parseInt(day?.steps);
-  if (steps > 0) {
-    if (steps < 5000) insights.push({ icon:'🚶', color:'#f59e0b', text:`오늘 걸음수 ${steps.toLocaleString()}보 — 목표 8,000보까지 ${(8000-steps).toLocaleString()}보 남았어요.` });
-    else insights.push({ icon:'🏃', color:'#22c55e', text:`오늘 ${steps.toLocaleString()}보 달성\! 규칙적인 걷기가 인슐린 감수성을 높여줘요.` });
-  }
-  const bpSys = parseInt(day?.bp?.sys);
-  if (bpSys && \!bsVals.length && \!steps) {
-    if (bpSys >= 140) insights.push({ icon:'❤️', color:'#ef4444', text:`혈압 ${day.bp.sys}/${day.bp.dia}mmHg — 고혈압 주의 범위입니다. 저염식과 스트레스 관리가 필요해요.` });
-    else insights.push({ icon:'❤️', color:'#22c55e', text:`혈압 ${day.bp.sys}/${day.bp.dia}mmHg — 양호한 범위예요.` });
-  }
-  if (\!insights.length) insights.push({ icon:'📋', color:'#94a3b8', text:'오늘 데이터를 기록하면 AI 인사이트가 표시됩니다.' });
-  return insights.slice(0, 3);
+const median = arr => {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
 };
 
-/* ── UUID / userId ────────────────────────────────────────── */
-const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-  const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+const emptyDay = () => ({
+  meds:{}, bs:{}, bp:{sys:'',dia:''},
+  meals:{}, exercise:{type:'',mins:''},
+  weight:'', bodyFat:'',
+  steps:'', sleep:{h:'',m:''},
+  note:''
 });
+
+const genUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  const r = Math.random()*16|0;
+  return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+});
+
 const getOrCreateUserId = () => {
-  let id = localStorage.getItem('dm_user_id');
-  if (\!id) { id = genUUID(); localStorage.setItem('dm_user_id', id); }
+  let id = localStorage.getItem('carenote_uid');
+  if (!id) { id = genUUID(); localStorage.setItem('carenote_uid', id); }
   return id;
 };
 
-/* ── 공통 컴포넌트 ─────────────────────────────────────────── */
-const CareNoteLogo = ({ size=34 }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="10" y="20" width="80" height="72" rx="12" fill="rgba(147,197,253,0.18)" stroke="#7ec8f0" strokeWidth="4.5"/>
-    {[18,31,44,57,70].map((x,i) => <rect key={i} x={x} y="11" width="9" height="15" rx="3.5" fill="none" stroke="#7ec8f0" strokeWidth="3.5"/>)}
-    <path d="M73 20 L90 37 L73 37 Z" fill="#7ec8f0" opacity="0.45"/>
-    <rect x="14" y="34" width="22" height="8" rx="2.5" fill="#4ade80"/>
-    <rect x="21" y="27" width="8" height="22" rx="2.5" fill="#4ade80"/>
-    <rect x="42" y="35" width="26" height="4.5" rx="2" fill="#7ec8f0"/>
-    <rect x="42" y="43" width="19" height="4.5" rx="2" fill="#7ec8f0"/>
-    <rect x="14" y="70" width="11" height="16" rx="2" fill="#93c5fd" opacity="0.75"/>
-    <rect x="29" y="61" width="11" height="25" rx="2" fill="#93c5fd" opacity="0.75"/>
-    <rect x="44" y="54" width="11" height="32" rx="2" fill="#93c5fd" opacity="0.75"/>
-    <rect x="59" y="47" width="11" height="39" rx="2" fill="#93c5fd" opacity="0.75"/>
-    <rect x="74" y="40" width="11" height="46" rx="2" fill="#93c5fd" opacity="0.75"/>
-    <path d="M14 78 C28 64 42 57 57 52 S75 46 86 40" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round"/>
-    <path d="M62 56 L72 68 L87 47" stroke="#4ade80" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+const calcHealthScore = (data) => {
+  const dates = Object.keys(data).filter(k => k !== '_user_settings_').sort().slice(-14);
+  if (!dates.length) return { total:0, bp:0, glucose:0, meds:0, steps:0 };
 
-/* CircleGauge */
-const CircleGauge = ({ value, size=90, strokeW=9 }) => {
-  const r = (size - strokeW) / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = value \!== null ? (value / 100) * circ : 0;
-  const cx = size/2, cy = size/2;
-  const col = value === null ? '#94a3b8' : value >= 80 ? '#22c55e' : value >= 60 ? '#f59e0b' : '#ef4444';
-  return (
-    <div style={{ position:'relative', width:size, height:size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform:'rotate(-90deg)' }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--card-border)" strokeWidth={strokeW}/>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={strokeW}
-          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-          style={{ transition:'stroke-dasharray 0.7s ease, stroke 0.4s' }}/>
-      </svg>
-      <div className="gauge-text">
-        <span style={{ fontSize: size > 80 ? '20px' : '14px', fontWeight:'900', color: col, lineHeight:1 }}>
-          {value \!== null ? value : '—'}
-        </span>
-        <span style={{ fontSize:'10px', color:'var(--text-sub)', fontWeight:'600' }}>점</span>
-      </div>
-    </div>
-  );
+  const bpVals = dates.map(d => {
+    const b = data[d] && data[d].bp;
+    if (!b || !b.sys || !b.dia) return null;
+    const sys = parseFloat(b.sys), dia = parseFloat(b.dia);
+    if (sys < 120 && dia < 80) return 100;
+    if (sys < 130 && dia < 80) return 80;
+    if (sys < 140 && dia < 90) return 60;
+    if (sys < 160 && dia < 100) return 40;
+    return 20;
+  }).filter(v => v !== null);
+  const bpScore = bpVals.length ? bpVals.reduce((a,b)=>a+b,0)/bpVals.length : 0;
+
+  const bsAll = dates.flatMap(d => {
+    const bs = (data[d] && data[d].bs) || {};
+    return Object.values(bs).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+  });
+  let glScore = 0;
+  if (bsAll.length) {
+    const med = median(bsAll);
+    if (med < 100) glScore = 100;
+    else if (med < 126) glScore = 85;
+    else if (med < 154) glScore = 65;
+    else if (med < 200) glScore = 40;
+    else glScore = 20;
+  }
+
+  const medDays = dates.filter(d => {
+    const m = data[d] && data[d].meds;
+    return m && Object.keys(m).length > 0;
+  });
+  const medsScore = dates.length ? (medDays.length / dates.length) * 100 : 0;
+
+  const stepsVals = dates.map(d => parseFloat((data[d] && data[d].steps)||0)).filter(v => v > 0);
+  let stepsScore = 0;
+  if (stepsVals.length) {
+    const avg = stepsVals.reduce((a,b)=>a+b,0)/stepsVals.length;
+    if (avg >= 10000) stepsScore = 100;
+    else if (avg >= 7500) stepsScore = 80;
+    else if (avg >= 5000) stepsScore = 60;
+    else if (avg >= 2500) stepsScore = 40;
+    else stepsScore = 20;
+  }
+
+  const total = Math.round(bpScore*0.30 + glScore*0.30 + medsScore*0.25 + stepsScore*0.15);
+  return { total, bp:Math.round(bpScore), glucose:Math.round(glScore), meds:Math.round(medsScore), steps:Math.round(stepsScore) };
 };
 
-/* Sparkline SVG */
-const Sparkline = ({ values, color='#2563eb', h=32, w=72 }) => {
-  const valid = (values||[]).filter(v => v \!== null && v \!== undefined && \!isNaN(v));
-  if (valid.length < 2) return <svg width={w} height={h}/>;
-  const mn = Math.min(...valid), mx = Math.max(...valid);
-  const rng = mx - mn || 1;
-  const pad = 2, step = (w - pad*2) / (values.length - 1);
-  let d = '';
-  values.forEach((v, i) => {
-    if (v === null || v === undefined || isNaN(v)) return;
-    const x = pad + i * step;
-    const y = pad + (1 - (v - mn) / rng) * (h - pad*2);
-    d += d ? ` L${x.toFixed(1)} ${y.toFixed(1)}` : `M${x.toFixed(1)} ${y.toFixed(1)}`;
+const genInsights = (data) => {
+  const dates = Object.keys(data).filter(k => k !== '_user_settings_').sort().slice(-7);
+  if (!dates.length) return ['데이터를 입력하면 AI 인사이트가 생성됩니다.'];
+  const insights = [];
+  const bpVals = dates.map(d => data[d] && data[d].bp).filter(b => b && b.sys).map(b => parseFloat(b.sys));
+  if (bpVals.length >= 3) {
+    const avg = Math.round(bpVals.reduce((a,b)=>a+b,0)/bpVals.length);
+    if (avg > 140) insights.push('최근 7일 평균 수축기 혈압 '+avg+'mmHg — 혈압 관리에 주의가 필요합니다.');
+    else if (avg < 120) insights.push('최근 7일 평균 혈압 '+avg+'mmHg — 혈압이 잘 조절되고 있습니다.');
+    else insights.push('평균 혈압 '+avg+'mmHg — 정상 범위 내에서 관리되고 있습니다.');
+  }
+  const bsAll = dates.flatMap(d => {
+    const bs = (data[d] && data[d].bs) || {};
+    return Object.values(bs).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   });
+  if (bsAll.length) {
+    const avg = Math.round(bsAll.reduce((a,b)=>a+b,0)/bsAll.length);
+    if (avg > 180) insights.push('평균 혈당 '+avg+'mg/dL — 식이 조절이 필요합니다.');
+    else if (avg < 100) insights.push('평균 혈당 '+avg+'mg/dL — 우수한 혈당 관리입니다.');
+    else insights.push('평균 혈당 '+avg+'mg/dL — 목표 범위 내 관리 중입니다.');
+  }
+  const stepsVals = dates.map(d => parseFloat((data[d] && data[d].steps)||0)).filter(v => v > 0);
+  if (stepsVals.length) {
+    const avg = Math.round(stepsVals.reduce((a,b)=>a+b,0)/stepsVals.length);
+    insights.push('최근 평균 '+avg.toLocaleString()+'보 — '+(avg >= 8000 ? '활발한 신체활동을 유지하고 있습니다.' : '일일 8,000보 목표를 향해 조금 더 걸어보세요.'));
+  }
+  if (!insights.length) insights.push('더 많은 데이터를 입력하면 맞춤 인사이트를 제공합니다.');
+  return insights;
+};
+
+const fileToBase64 = file => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = e => resolve(e.target.result.split(',')[1]);
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+const analyzeFood = async (base64, mimeType) => {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_KEY, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[
+        {inlineData:{mimeType,data:base64}},
+        {text:'이 음식 사진을 분석해서 한국어로: 음식 이름, 예상 칼로리, 탄수화물, 단백질, 지방, 혈당 영향(낮음/중간/높음), 당뇨 환자 권고사항을 간결하게 알려주세요.'}
+      ]}]
+    })
+  });
+  const j = await res.json();
+  return (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0] && j.candidates[0].content.parts[0].text) || '분석 실패';
+};
+
+const fetchDrugInfo = async (name) => {
+  const url = 'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList?serviceKey='+DRUG_API_KEY+'&itemName='+encodeURIComponent(name)+'&type=json&numOfRows=3';
+  try {
+    const res = await fetch(url);
+    const j = await res.json();
+    return (j.body && j.body.items) || [];
+  } catch(e) { return []; }
+};
+
+const parseAppleHealthXML = (xmlText) => {
+  const result = {};
+  const addDay = d => { if (!result[d]) result[d] = emptyDay(); };
+  const recordRx = /<Record[^>]+>/g;
+  let m;
+  while ((m = recordRx.exec(xmlText)) !== null) {
+    const tag = m[0];
+    const getAttr = (a) => { const mx = tag.match(new RegExp(a+'="([^"]*)"')); return mx ? mx[1] : ''; };
+    const type = getAttr('type');
+    const val  = getAttr('value');
+    const startDate = getAttr('startDate');
+    if (!startDate) continue;
+    const d = startDate.slice(0,10);
+    if (type === 'HKQuantityTypeIdentifierBloodGlucose') {
+      addDay(d);
+      const mmol = parseFloat(val);
+      if (!isNaN(mmol)) {
+        const mgdl = Math.round(mmol * 18.0182);
+        if (!result[d].bs.fasting) result[d].bs.fasting = String(mgdl);
+      }
+    } else if (type === 'HKQuantityTypeIdentifierBloodPressureSystolic') {
+      addDay(d); result[d].bp.sys = val;
+    } else if (type === 'HKQuantityTypeIdentifierBloodPressureDiastolic') {
+      addDay(d); result[d].bp.dia = val;
+    } else if (type === 'HKQuantityTypeIdentifierBodyMass') {
+      addDay(d); result[d].weight = val;
+    } else if (type === 'HKQuantityTypeIdentifierStepCount') {
+      addDay(d);
+      const steps = parseFloat(val)||0;
+      const cur = parseFloat(result[d].steps)||0;
+      result[d].steps = String(Math.round(cur + steps));
+    } else if (type === 'HKCategoryTypeIdentifierSleepAnalysis') {
+      const endDate = getAttr('endDate');
+      if (endDate && val === 'HKCategoryValueSleepAnalysisAsleep') {
+        addDay(d);
+        const start = new Date(startDate), end = new Date(endDate);
+        const mins = (end - start) / 60000;
+        const curH = parseFloat((result[d].sleep && result[d].sleep.h)||0);
+        const curM = parseFloat((result[d].sleep && result[d].sleep.m)||0);
+        const totalMins = curH*60 + curM + mins;
+        result[d].sleep = { h:String(Math.floor(totalMins/60)), m:String(Math.round(totalMins%60)) };
+      }
+    }
+  }
+  return result;
+};
+
+const parseSamsungHealthZip = async (file) => {
+  const result = {};
+  const addDay = d => { if (!result[d]) result[d] = emptyDay(); };
+  try {
+    const zip = await JSZip.loadAsync(file);
+    for (const [name, zf] of Object.entries(zip.files)) {
+      if (name.includes('com.samsung.shealth.tracker.pedometer') && name.endsWith('.csv')) {
+        const text = await zf.async('string');
+        const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length < 3) continue;
+          const d = (cols[0]||'').trim().slice(0,10);
+          const steps = parseFloat((cols[2]||'').trim())||0;
+          if (d && steps > 0) { addDay(d); result[d].steps = String(steps); }
+        }
+      } else if (name.includes('com.samsung.health.blood_glucose') && name.endsWith('.csv')) {
+        const text = await zf.async('string');
+        const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length < 4) continue;
+          const d = (cols[0]||'').trim().slice(0,10);
+          const glc = parseFloat((cols[3]||'').trim())||0;
+          if (d && glc > 0) { addDay(d); if (!result[d].bs.fasting) result[d].bs.fasting = String(glc); }
+        }
+      } else if (name.includes('com.samsung.health.blood_pressure') && name.endsWith('.csv')) {
+        const text = await zf.async('string');
+        const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length < 5) continue;
+          const d = (cols[0]||'').trim().slice(0,10);
+          const sys = parseFloat((cols[3]||'').trim())||0;
+          const dia = parseFloat((cols[4]||'').trim())||0;
+          if (d && sys > 0) { addDay(d); result[d].bp = {sys:String(sys),dia:String(dia)}; }
+        }
+      }
+    }
+  } catch(e) { console.error('Samsung parse error',e); }
+  return result;
+};
+
+const parseLibreViewCSV = (text) => {
+  const result = {};
+  const addDay = d => { if (!result[d]) result[d] = emptyDay(); };
+  const lines = text.split('\n');
+  const dataStart = lines.findIndex(l => l.includes('Device Timestamp') || l.includes('기기 타임스탬프'));
+  if (dataStart < 0) return result;
+  for (let i = dataStart+1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 5) continue;
+    const ts = (cols[1]||'').trim();
+    if (!ts) continue;
+    const d = ts.slice(0,10).replace(/\//g,'-');
+    const historic = parseFloat((cols[4]||'').replace(/[^0-9.]/g,''))||0;
+    const scan = parseFloat((cols[5]||'').replace(/[^0-9.]/g,''))||0;
+    const val = scan || historic;
+    if (d && val > 0) { addDay(d); if (!result[d].bs.fasting) result[d].bs.fasting = String(Math.round(val)); }
+  }
+  return result;
+};
+
+const buildDashboardData = (imported, existing) => {
+  const merged = Object.assign({}, existing);
+  for (const [d, v] of Object.entries(imported)) {
+    if (!merged[d]) merged[d] = emptyDay();
+    if (v.bp && v.bp.sys && !(merged[d].bp && merged[d].bp.sys)) merged[d].bp = v.bp;
+    if (v.bs && v.bs.fasting && !(merged[d].bs && merged[d].bs.fasting)) merged[d].bs = Object.assign({}, merged[d].bs, v.bs);
+    if (v.weight && !merged[d].weight) merged[d].weight = v.weight;
+    if (v.steps && !merged[d].steps) merged[d].steps = v.steps;
+    if (v.sleep && v.sleep.h && !(merged[d].sleep && merged[d].sleep.h)) merged[d].sleep = v.sleep;
+  }
+  return merged;
+};
+
+/* SVG Components */
+const CircleGauge = ({ value, size=100, stroke=8 }) => {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (value / 100) * circ;
+  const label = value >= 80 ? '우수' : value >= 60 ? '양호' : value >= 40 ? '보통' : '주의';
+  const color = value >= 80 ? 'var(--green)' : value >= 60 ? 'var(--blue)' : value >= 40 ? 'var(--yellow)' : 'var(--red)';
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <path d={d} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width={size} height={size} viewBox={'0 0 '+size+' '+size}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round" transform={'rotate(-90 '+(size/2)+' '+(size/2)+')'}
+        style={{transition:'stroke-dashoffset 0.6s ease'}}/>
+      <text x={size/2} y={size/2-6} textAnchor="middle" fill="var(--text)" fontSize="18" fontWeight="700">{value}</text>
+      <text x={size/2} y={size/2+12} textAnchor="middle" fill="var(--text2)" fontSize="10">{label}</text>
     </svg>
   );
 };
 
-/* Trend badge */
-const TrendBadge = ({ cur, prev, unit='', reverse=false }) => {
-  if (cur === null || prev === null) return null;
-  const diff = cur - prev;
-  if (Math.abs(diff) < 0.5) return <span style={{ fontSize:'11px', color:'#94a3b8', fontWeight:'600' }}>→</span>;
-  const up = diff > 0;
-  const good = reverse ? \!up : up;
+const Sparkline = ({ data, color='var(--accent)', height=32 }) => {
+  if (!data || data.length < 2) return React.createElement('div', {style:{height}});
+  const vals = data.map(v => parseFloat(v)||0);
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const range = mx - mn || 1;
+  const w = 100, h = height;
+  const pts = vals.map((v,i) => {
+    const x = (i/(vals.length-1)) * w;
+    const y = h - ((v-mn)/range) * (h-4) - 2;
+    return x+','+y;
+  }).join(' ');
   return (
-    <span style={{ fontSize:'11px', fontWeight:'700', color: good ? '#22c55e' : '#ef4444' }}>
-      {up ? '↑' : '↓'} {Math.abs(diff).toFixed(unit==='%'?1:0)}{unit}
-    </span>
+    <svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+    </svg>
   );
 };
 
-
-/* ── Gemini 식사 사진 분석 ────────────────────────────────── */
-const fileToBase64 = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload  = () => resolve(reader.result.split(',')[1]);
-  reader.onerror = reject;
-});
-
-const analyzeFood = async (imageBase64, mimeType) => {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-    { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{ parts:[
-        { inline_data:{ mime_type:mimeType, data:imageBase64 } },
-        { text:`이 음식 사진을 분석해 주세요. 인슐린을 맞고 있는 2형 당뇨 환자의 식단 기록입니다.\n아래 형식으로 한국어로 정확하게 답해 주세요:\n\n🍽️ 음식 목록 (항목별 칼로리)\n- 음식명 추정량: XXX kcal, 탄수화물 XXg\n\n📊 총 영양 정보\n칼로리: XXX kcal\n탄수화물: XX g ← 한 끼 목표 45~60g\n단백질: XX g\n지방: XX g\n당류: XX g\n\n🩸 혈당 영향 분석\n혈당 상승 속도: 빠름 / 보통 / 느림\n예상 혈당 영향: 높음 / 중간 / 낮음\n\n✅ 당뇨식 적합성 평가\n적합도: ⭐⭐⭐⭐⭐ (5점 만점)\n판정: 적합 / 주의 / 부적합\n이유: (구체적인 이유 2~3줄)\n\n💡 개선 제안\n(이 식단을 더 당뇨 친화적으로 바꾸는 구체적인 방법 2~3가지)` }
-      ]}] })
-    }
-  );
-  if (\!res.ok) throw new Error(`API 오류: ${res.status}`);
-  const json = await res.json();
-  return json.candidates?.[0]?.content?.parts?.[0]?.text || '분석 결과를 가져올 수 없어요.';
+const TrendBadge = ({ vals }) => {
+  if (!vals || vals.length < 2) return null;
+  const recent = vals.slice(-3).map(v => parseFloat(v)||0);
+  const prev = vals.slice(-6,-3).map(v => parseFloat(v)||0);
+  if (!recent.length || !prev.length) return null;
+  const rAvg = recent.reduce((a,b)=>a+b,0)/recent.length;
+  const pAvg = prev.reduce((a,b)=>a+b,0)/prev.length;
+  const diff = rAvg - pAvg;
+  if (Math.abs(diff) < 2) return <span className="trend-badge trend-stable">— 안정</span>;
+  if (diff > 0) return <span className="trend-badge trend-up">▲ +{Math.round(diff)}</span>;
+  return <span className="trend-badge trend-down">▼ {Math.round(diff)}</span>;
 };
 
-/* ── e약은요 의약품 정보 ──────────────────────────────────── */
-const fetchDrugInfo = async (name) => {
-  const trySearch = async (query) => {
-    const url = `https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList`
-      + `?serviceKey=${encodeURIComponent(DRUG_API_KEY)}&itemName=${encodeURIComponent(query)}&type=json&numOfRows=5&pageNo=1`;
-    const res = await fetch(url);
-    if (\!res.ok) throw new Error('API 서버 오류');
-    const json = await res.json();
-    const raw = json?.body?.items?.item;
-    if (\!raw) return null;
-    return Array.isArray(raw) ? raw[0] : raw;
-  };
-  let result = await trySearch(name);
-  if (result) return result;
-  const stripped = name.replace(/\s*(솔로스타|에이취알정|에치알정|이알정|서방형캡슐|서방정|연질캡슐|캡슐|정[0-9]*|주사|주\s*\d*단위|주\b).*$/i,'').trim();
-  if (stripped && stripped \!== name && stripped.length >= 2) {
-    result = await trySearch(stripped);
-    if (result) return result;
-  }
-  const short = name.replace(/\s+/g,'').slice(0,4);
-  if (short.length >= 3 && short \!== stripped.replace(/\s+/g,'')) {
-    result = await trySearch(short);
-    if (result) return result;
-  }
-  const isInjectable = /주사|인슐린|솔로스타|단위\s*주|주사제/.test(name);
-  if (isInjectable) { const err = new Error('주사제·인슐린은 e약은요 DB 미수록 약품입니다'); err.isInjectable=true; throw err; }
-  throw new Error('식약처 e약은요 DB에서 찾을 수 없는 약품입니다');
-};
-
-/* ── 애플 건강 XML 파싱 (걸음수·수면 포함) ─────────────────── */
-const parseAppleHealthXML = async (getChunks, totalBytes, onProgress) => {
-  const glucoseByDay={}, weightByDay={}, bodyFatByDay={}, bpSysByDay={}, bpDiaByDay={}, stepsByDay={}, sleepByDay={};
-  const KEYS = {
-    'HKQuantityTypeIdentifierBloodGlucose':'glucose',
-    'HKQuantityTypeIdentifierBodyMass':'weight',
-    'HKQuantityTypeIdentifierBodyFatPercentage':'fat',
-    'HKQuantityTypeIdentifierBloodPressureSystolic':'bp_sys',
-    'HKQuantityTypeIdentifierBloodPressureDiastolic':'bp_dia',
-    'HKQuantityTypeIdentifierStepCount':'steps',
-  };
-  const SLEEP_ASLEEP = ['HKCategoryValueSleepAnalysisAsleepUnspecified','HKCategoryValueSleepAnalysisAsleepCore','HKCategoryValueSleepAnalysisAsleepDeep','HKCategoryValueSleepAnalysisAsleepREM','HKCategoryValueSleepAnalysisAsleep'];
-
-  const processRecord = (rec) => {
-    // 수면 처리
-    if (rec.includes('HKCategoryTypeIdentifierSleepAnalysis')) {
-      const valM = rec.match(/\bvalue="([^"]+)"/);
-      if (\!valM || \!SLEEP_ASLEEP.some(v => valM[1].includes(v))) return;
-      const sdM = rec.match(/\bstartDate="(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
-      const edM = rec.match(/\bendDate="(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
-      if (\!sdM || \!edM) return;
-      const startMs = new Date(`${sdM[1]}T${sdM[2]}:${sdM[3]}:00`).getTime();
-      const endMs   = new Date(`${edM[1]}T${edM[2]}:${edM[3]}:00`).getTime();
-      const mins = Math.max(0, Math.round((endMs - startMs) / 60000));
-      const dayKey = sdM[1];
-      sleepByDay[dayKey] = (sleepByDay[dayKey] || 0) + mins;
-      return;
-    }
-    // 수치형 레코드
-    let type = null;
-    for (const [k,t] of Object.entries(KEYS)) { if (rec.includes(k)) { type=t; break; } }
-    if (\!type) return;
-    const val  = parseFloat((rec.match(/\bvalue="([^"]+)"/) || [])[1]);
-    const unit = (rec.match(/\bunit="([^"]+)"/) || [])[1] || '';
-    const dm   = rec.match(/\bstartDate="(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
-    if (\!dm || isNaN(val)) return;
-    const dayKey = dm[1], hour = parseInt(dm[2]) + parseInt(dm[3])/60;
-    if (type === 'glucose') {
-      const mgdl = unit==='mmol/L' ? Math.round(val*18.015) : Math.round(val);
-      if (\!glucoseByDay[dayKey]) glucoseByDay[dayKey]=[];
-      glucoseByDay[dayKey].push({ hour, value:mgdl });
-    } else if (type === 'weight') {
-      const kg = unit==='lb' ? Math.round(val*0.453592*10)/10 : Math.round(val*10)/10;
-      weightByDay[dayKey] = kg;
-    } else if (type === 'fat') {
-      bodyFatByDay[dayKey] = val<=1 ? Math.round(val*100*10)/10 : Math.round(val*10)/10;
-    } else if (type === 'bp_sys') {
-      if (\!bpSysByDay[dayKey] || hour > bpSysByDay[dayKey].hour) bpSysByDay[dayKey]={hour,value:Math.round(val)};
-    } else if (type === 'bp_dia') {
-      if (\!bpDiaByDay[dayKey] || hour > bpDiaByDay[dayKey].hour) bpDiaByDay[dayKey]={hour,value:Math.round(val)};
-    } else if (type === 'steps') {
-      stepsByDay[dayKey] = (stepsByDay[dayKey]||0) + Math.round(val);
-    }
-  };
-
-  let tail='', bytesProcessed=0, recCount=0;
-  for await (const chunk of getChunks()) {
-    const text = tail + chunk;
-    let pos=0, lastEnd=0;
-    while (true) {
-      const rs = text.indexOf('<Record', pos); if (rs===-1) break;
-      const re = text.indexOf('/>', rs);       if (re===-1) break;
-      const rec = text.substring(rs, re+2);
-      if (Object.keys(KEYS).some(k=>rec.includes(k)) || rec.includes('SleepAnalysis')) processRecord(rec);
-      lastEnd=re+2; pos=lastEnd; recCount++;
-      if (recCount%50===0) await new Promise(r=>setTimeout(r,0));
-    }
-    tail = text.substring(lastEnd);
-    if (tail.length>30000) tail=tail.slice(-30000);
-    bytesProcessed += chunk.length;
-    if (onProgress && totalBytes) onProgress(Math.min(99,Math.round(bytesProcessed/totalBytes*100)));
-  }
-  const bpByDay={};
-  Object.keys(bpSysByDay).forEach(d => {
-    if (bpDiaByDay[d]) bpByDay[d]={sys:String(bpSysByDay[d].value),dia:String(bpDiaByDay[d].value)};
-  });
-  if (onProgress) onProgress(100);
-  return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay, stepsByDay, sleepByDay };
-};
-
-/* ── 삼성 헬스 ZIP 파싱 ─────────────────────────────────── */
-const parseSamsungHealthZip = async (file, onProgress) => {
-  if (typeof JSZip==='undefined') throw new Error('ZIP 라이브러리 로드 실패');
-  onProgress&&onProgress('ZIP 압축 해제 중...');
-  const zip = await JSZip.loadAsync(file);
-  const allFiles = Object.keys(zip.files);
-  const weightFile = allFiles.find(n => /com\.samsung\.(shealth|health)\.weight/i.test(n) && n.endsWith('.csv'));
-  const bpFile     = allFiles.find(n => /com\.samsung\.(shealth|health)\.blood_pressure/i.test(n) && n.endsWith('.csv'));
-  const stepFile   = allFiles.find(n => /com\.samsung\.(shealth|health)\.step_count\.day/i.test(n) && n.endsWith('.csv'));
-  if (\!weightFile && \!bpFile && \!stepFile) {
-    const csvFiles = allFiles.filter(n=>n.endsWith('.csv')).slice(0,8).join('\n');
-    throw new Error(`삼성 헬스 데이터 파일을 찾을 수 없어요.\n발견된 파일:\n${csvFiles||'없음'}`);
-  }
-  const weightByDay={}, bodyFatByDay={}, bpByDay={}, stepsByDay={};
-  if (weightFile) {
-    onProgress&&onProgress('체중 데이터 분석 중...');
-    const csvText = await zip.files[weightFile].async('string');
-    const lines = csvText.split('\n').map(l=>l.trim()).filter(Boolean);
-    const hi = lines.findIndex(l=>\!l.startsWith('#')&&(l.includes('weight')||l.includes('start_time')));
-    if (hi>=0) {
-      const headers = lines[hi].split(',').map(h=>h.trim().replace(/"/g,''));
-      const iW=headers.findIndex(h=>/weight\.weight$|^weight$/i.test(h));
-      const iF=headers.findIndex(h=>/body_fat|fat_percent|fat$/i.test(h));
-      const iT=headers.findIndex(h=>/start_time|create_time|time/i.test(h));
-      for (let i=hi+1; i<lines.length; i++) {
-        if (lines[i].startsWith('#')) continue;
-        const cols=lines[i].split(',').map(c=>c.trim().replace(/"/g,''));
-        const dayKey=(iT>=0?cols[iT]:'').slice(0,10);
-        if (\!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
-        if (iW>=0){const w=parseFloat(cols[iW]);if(\!isNaN(w)&&w>20&&w<300)weightByDay[dayKey]=w;}
-        if (iF>=0){const f=parseFloat(cols[iF]);if(\!isNaN(f)&&f>0)bodyFatByDay[dayKey]=f<=1?Math.round(f*100*10)/10:Math.round(f*10)/10;}
-      }
-    }
-  }
-  if (bpFile) {
-    onProgress&&onProgress('혈압 데이터 분석 중...');
-    const bpText=await zip.files[bpFile].async('string');
-    const bpLines=bpText.split('\n').map(l=>l.trim()).filter(Boolean);
-    const bhi=bpLines.findIndex(l=>\!l.startsWith('#')&&(l.includes('systolic')||l.includes('start_time')));
-    if (bhi>=0) {
-      const bh=bpLines[bhi].split(',').map(h=>h.trim().replace(/"/g,''));
-      const iS=bh.findIndex(h=>/systolic/i.test(h)),iD=bh.findIndex(h=>/diastolic/i.test(h)),iT=bh.findIndex(h=>/start_time|time/i.test(h));
-      for (let i=bhi+1;i<bpLines.length;i++){
-        if(bpLines[i].startsWith('#'))continue;
-        const cols=bpLines[i].split(',').map(c=>c.trim().replace(/"/g,''));
-        const dk=(iT>=0?cols[iT]:'').slice(0,10);
-        if(\!/^\d{4}-\d{2}-\d{2}$/.test(dk))continue;
-        const sys=parseInt(cols[iS]),dia=parseInt(cols[iD]);
-        if(\!isNaN(sys)&&\!isNaN(dia)&&sys>50&&dia>30)bpByDay[dk]={sys:String(sys),dia:String(dia)};
-      }
-    }
-  }
-  if (stepFile) {
-    onProgress&&onProgress('걸음수 데이터 분석 중...');
-    const sText=await zip.files[stepFile].async('string');
-    const sLines=sText.split('\n').map(l=>l.trim()).filter(Boolean);
-    const shi=sLines.findIndex(l=>\!l.startsWith('#')&&(l.includes('count')||l.includes('start_time')));
-    if (shi>=0) {
-      const sh=sLines[shi].split(',').map(h=>h.trim().replace(/"/g,''));
-      const iC=sh.findIndex(h=>/step_count|count$/i.test(h)),iT=sh.findIndex(h=>/start_time|time/i.test(h));
-      for (let i=shi+1;i<sLines.length;i++){
-        if(sLines[i].startsWith('#'))continue;
-        const cols=sLines[i].split(',').map(c=>c.trim().replace(/"/g,''));
-        const dk=(iT>=0?cols[iT]:'').slice(0,10);
-        if(\!/^\d{4}-\d{2}-\d{2}$/.test(dk))continue;
-        const cnt=parseInt(cols[iC]);
-        if(\!isNaN(cnt)&&cnt>0)stepsByDay[dk]=(stepsByDay[dk]||0)+cnt;
-      }
-    }
-  }
-  onProgress&&onProgress('완료');
-  return { weightByDay, bodyFatByDay, bpByDay, stepsByDay };
-};
-
-/* ── buildDashboardData ────────────────────────────────────── */
-const buildDashboardData = ({ glucoseByDay={}, weightByDay={}, bodyFatByDay={}, bpByDay={}, stepsByDay={}, sleepByDay={} }) => {
-  const result = {};
-  const ens = (d) => { if (\!result[d]) result[d]=emptyDay(); };
-  Object.entries(glucoseByDay).forEach(([day,readings]) => {
-    const bs={};
-    TIME_WINDOWS.forEach(w => {
-      const med=median(readings.filter(r=>r.hour>=w.startH&&r.hour<w.endH).map(r=>r.value));
-      if (med) bs[w.id]=String(med);
-    });
-    if (Object.keys(bs).length){ens(day);result[day].bs=bs;}
-  });
-  Object.entries(weightByDay).forEach(([d,w])=>{ens(d);result[d].weight=String(w);});
-  Object.entries(bodyFatByDay).forEach(([d,bf])=>{ens(d);result[d].bodyFat=String(bf);});
-  Object.entries(bpByDay).forEach(([d,bp])=>{ens(d);result[d].bp=bp;});
-  Object.entries(stepsByDay).forEach(([d,s])=>{ens(d);result[d].steps=String(s);});
-  Object.entries(sleepByDay).forEach(([d,mins])=>{
-    ens(d);
-    result[d].sleep={h:String(Math.floor(mins/60)),m:String(mins%60)};
-  });
-  return result;
-};
-
-/* ── LibreView CSV ─────────────────────────────────────────── */
-const parseCSVRow = (line) => {
-  const out=[];let inQ=false,cur='';
-  for(const ch of line){if(ch==='"'){inQ=\!inQ;}else if(ch===','&&\!inQ){out.push(cur.trim());cur='';}else{cur+=ch;}}
-  out.push(cur.trim());return out;
-};
-const parseLVTimestamp = (s) => {
-  s=s.replace(/"/g,'').trim();
-  let m=s.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM|오전|오후)/i);
-  if(m){const[,p1,p2,yyyy,hh,min,ap]=m;let h=parseInt(hh);if(/PM|오후/i.test(ap)&&h\!==12)h+=12;if(/AM|오전/i.test(ap)&&h===12)h=0;return{dayKey:`${yyyy}-${String(p1).padStart(2,'0')}-${String(p2).padStart(2,'0')}`,hour:h+parseInt(min)/60};}
-  m=s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
-  if(m){const[,yyyy,mm,dd,hh,min]=m;return{dayKey:`${yyyy}-${mm}-${dd}`,hour:parseInt(hh)+parseInt(min)/60};}
-  return null;
-};
-const parseLibreViewCSV = (csvText) => {
-  const lines=csvText.split(/\r?\n/);let headerIdx=-1;
-  for(let i=0;i<Math.min(lines.length,20);i++){if(/timestamp|타임스탬프|장치.?타임스탬프/i.test(lines[i])){headerIdx=i;break;}}
-  if(headerIdx===-1)return null;
-  const headers=parseCSVRow(lines[headerIdx]);
-  const tsIdx=headers.findIndex(h=>/timestamp|타임스탬프|장치.?타임스탬프/i.test(h));
-  const typeIdx=headers.findIndex(h=>/record.?type|레코드|기록.?유형/i.test(h));
-  const histIdx=headers.findIndex(h=>/historic.?glucose|히스토리.*포도당|과거.?혈당/i.test(h));
-  const scanIdx=headers.findIndex(h=>/scan.?glucose|스캔.*포도당|혈당.?스캔/i.test(h));
-  if(tsIdx===-1)return null;
-  const glucoseByDay={};
-  for(let i=headerIdx+1;i<lines.length;i++){
-    const row=parseCSVRow(lines[i]);if(row.length<=tsIdx||\!row[tsIdx])continue;
-    const recType=(row[typeIdx]||'').replace(/"/g,'').trim();
-    if(recType\!=='0'&&recType\!=='1')continue;
-    const rawVal=recType==='0'?parseFloat((row[histIdx]||'').replace(/"/g,'')):parseFloat((row[scanIdx]||'').replace(/"/g,''));
-    if(isNaN(rawVal)||rawVal<=0)continue;
-    const parsed=parseLVTimestamp(row[tsIdx]);if(\!parsed)continue;
-    const{dayKey,hour}=parsed;
-    if(\!glucoseByDay[dayKey])glucoseByDay[dayKey]=[];
-    glucoseByDay[dayKey].push({hour,value:Math.round(rawVal)});
-  }
-  return glucoseByDay;
-};
-
-
-/* ── 가져오기 모달 ─────────────────────────────────────────── */
+/* ImportModal */
 const ImportModal = ({ onClose, onImport }) => {
-  const [tab,setTab]=useState('libreview');
-  const [status,setStatus]=useState('idle');
-  const [preview,setPreview]=useState(null);
-  const [errMsg,setErrMsg]=useState('');
-  const [progress,setProgress]=useState('');
-  const fileRef=useRef(null);
-  const reset=()=>{setStatus('idle');setErrMsg('');setPreview(null);};
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
+  const appleRef = useRef();
+  const samsungRef = useRef();
+  const libreRef = useRef();
 
-  const processFile = async (file) => {
-    setStatus('loading');setErrMsg('');
+  const handleApple = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setLoading(true); setStatus('Apple Health 파싱 중...');
     try {
-      if (tab==='android') {
-        const res=await parseSamsungHealthZip(file,(msg)=>setProgress(msg));
-        const wDays=Object.keys(res.weightByDay||{}).length,bfDays=Object.keys(res.bodyFatByDay||{}).length,bpDays=Object.keys(res.bpByDay||{}).length,sDays=Object.keys(res.stepsByDay||{}).length;
-        if(\!wDays&&\!bfDays&&\!bpDays&&\!sDays)throw new Error('데이터를 찾을 수 없어요.');
-        const mapped=buildDashboardData(res);
-        setPreview({mapped,wDays,bfDays,bpDays,stepDays:sDays,source:'android'});setStatus('preview');return;
-      }
-      if (file.name.endsWith('.csv')) {
-        setProgress('CSV 분석 중...');await new Promise(r=>setTimeout(r,30));
-        const glucoseByDay=parseLibreViewCSV(await file.text());
-        if(\!glucoseByDay)throw new Error('LibreView CSV 형식을 인식할 수 없어요.');
-        const gDays=Object.keys(glucoseByDay).length;
-        if(\!gDays)throw new Error('혈당 데이터를 찾을 수 없어요.');
-        const mapped=buildDashboardData({glucoseByDay});
-        setPreview({mapped,gDays,wDays:0,totalReadings:Object.values(glucoseByDay).reduce((a,b)=>a+b.length,0),source:'libreview'});
-        setStatus('preview');return;
-      }
-      const CHUNK=2*1024*1024;let getChunks,totalBytes;
-      if (file.name.endsWith('.zip')) {
-        setProgress('ZIP 압축 해제 중...');
-        if(typeof JSZip==='undefined')throw new Error('ZIP 라이브러리 로드 실패');
-        const zip=await JSZip.loadAsync(file);
-        const allFiles=Object.keys(zip.files);
-        const xmlFile=allFiles.find(n=>/export\.xml$/i.test(n)&&\!/cda/i.test(n))||allFiles.find(n=>/\.xml$/i.test(n)&&\!/cda/i.test(n));
-        if(\!xmlFile)throw new Error('ZIP 안에서 export.xml을 찾을 수 없어요.');
-        setProgress('XML 추출 중...');
-        const xmlBlob=await zip.files[xmlFile].async('blob');
-        totalBytes=xmlBlob.size;
-        getChunks=async function*(){const dec=new TextDecoder('utf-8');let off=0;while(off<totalBytes){const sl=xmlBlob.slice(off,off+CHUNK);yield dec.decode(new Uint8Array(await sl.arrayBuffer()),{stream:off+CHUNK<totalBytes});off+=CHUNK;await new Promise(r=>setTimeout(r,0));}};
-      } else if(file.name.endsWith('.xml')){
-        totalBytes=file.size;
-        getChunks=async function*(){const dec=new TextDecoder('utf-8');let off=0;while(off<totalBytes){const sl=file.slice(off,off+CHUNK);yield dec.decode(new Uint8Array(await sl.arrayBuffer()),{stream:off+CHUNK<totalBytes});off+=CHUNK;await new Promise(r=>setTimeout(r,0));}};
-      } else throw new Error('.csv / .zip / .xml 파일만 지원해요.');
-      setProgress('데이터 추출 중... 0%');
-      const parsed=await parseAppleHealthXML(getChunks,totalBytes,(pct)=>setProgress(`데이터 분석 중... ${pct}%`));
-      const mapped=buildDashboardData(parsed);
-      const{glucoseByDay,weightByDay,bodyFatByDay,stepsByDay,sleepByDay}=parsed;
-      const gDays=Object.keys(glucoseByDay).length,wDays=Object.keys(weightByDay).length;
-      const stepDays=Object.keys(stepsByDay||{}).length,sleepDays=Object.keys(sleepByDay||{}).length;
-      if(\!gDays&&\!wDays&&\!stepDays)throw new Error('데이터를 찾을 수 없어요. 리브레2가 애플 건강과 연동되어 있는지 확인해 주세요.');
-      setPreview({mapped,gDays,wDays,stepDays,sleepDays,totalReadings:Object.values(glucoseByDay).reduce((a,b)=>a+b.length,0)});
-      setStatus('preview');
-    } catch(e){setErrMsg(e.message||'파일 처리 중 오류');setStatus('error');}
+      const text = await file.text();
+      const parsed = parseAppleHealthXML(text);
+      const cnt = Object.keys(parsed).length;
+      setStatus(cnt+'일 데이터 파싱 완료');
+      onImport(parsed);
+      setTimeout(onClose, 1500);
+    } catch(e) { setStatus('파싱 오류: '+e.message); }
+    setLoading(false);
+  };
+  const handleSamsung = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setLoading(true); setStatus('Samsung Health 파싱 중...');
+    try {
+      const parsed = await parseSamsungHealthZip(file);
+      setStatus(Object.keys(parsed).length+'일 데이터 파싱 완료');
+      onImport(parsed); setTimeout(onClose, 1500);
+    } catch(e) { setStatus('파싱 오류: '+e.message); }
+    setLoading(false);
+  };
+  const handleLibre = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setLoading(true); setStatus('LibreView CSV 파싱 중...');
+    try {
+      const text = await file.text();
+      const parsed = parseLibreViewCSV(text);
+      setStatus(Object.keys(parsed).length+'일 데이터 파싱 완료');
+      onImport(parsed); setTimeout(onClose, 1500);
+    } catch(e) { setStatus('파싱 오류: '+e.message); }
+    setLoading(false);
   };
 
-  const confirm=()=>{onImport(preview.mapped);setStatus('done');};
-  const accent=tab==='libreview'?'#7c3aed':tab==='android'?'#16a34a':'#2563eb';
-
   return (
-    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal-sheet">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontWeight:800,fontSize:16}}>데이터 가져오기</div>
-          <button onClick={onClose} style={{border:'none',background:'var(--input-bg)',borderRadius:8,width:30,height:30,cursor:'pointer',color:'var(--text-sub)',fontSize:14}}>✕</button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div className="modal-title" style={{marginBottom:0}}>건강 데이터 가져오기</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div style={{display:'flex',gap:6,marginBottom:16,background:'var(--input-bg)',borderRadius:10,padding:4}}>
-          {[{key:'libreview',label:'📊 LibreView'},{key:'apple',label:'🍎 iOS'},{key:'android',label:'🤖 Android'}].map(t=>(
-            <button key={t.key} onClick={()=>{setTab(t.key);reset();}} style={{flex:1,padding:'9px 6px',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,background:tab===t.key?'var(--card-bg)':'transparent',color:tab===t.key?accent:'#94a3b8',boxShadow:tab===t.key?'0 1px 4px rgba(0,0,0,0.08)':'none'}}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {(status==='idle'||status==='error')&&(
+        {loading && <div style={{textAlign:'center',padding:'20px 0',color:'var(--text2)'}}><div className="spinner" style={{margin:'0 auto 10px'}}/>{status}</div>}
+        {!loading && status && <div style={{textAlign:'center',padding:'10px',color:'var(--green)',marginBottom:10}}>{status}</div>}
+        {!loading && (
           <>
-            {tab==='libreview'&&<div style={{fontSize:13,color:'var(--text-sub)',marginBottom:12,lineHeight:1.8}}>libreview.com → 보고서 → 데이터 내보내기 → CSV 다운로드</div>}
-            {tab==='apple'&&<div style={{fontSize:13,color:'var(--text-sub)',marginBottom:12,lineHeight:1.8}}>건강 앱 → 프로필 → 건강 데이터 내보내기 → export.zip<br/>리브레2 + 걸음수 + 수면 데이터가 자동으로 가져와집니다</div>}
-            {tab==='android'&&<div style={{fontSize:13,color:'var(--text-sub)',marginBottom:12,lineHeight:1.8}}>삼성 헬스 → 설정(⚙️) → 개인 데이터 다운로드 → ZIP</div>}
-            <div onClick={()=>fileRef.current?.click()} style={{border:`2px dashed ${accent}`,borderRadius:12,padding:'24px 20px',textAlign:'center',cursor:'pointer',background:'var(--input-bg)'}}>
-              <div style={{fontSize:28,marginBottom:6}}>{tab==='libreview'?'📄':tab==='apple'?'🍎':'🤖'}</div>
-              <div style={{fontWeight:700,color:accent,fontSize:15}}>파일 선택</div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginTop:4}}>{tab==='libreview'?'.csv':tab==='android'?'.zip':'.zip 또는 .xml'}</div>
+            <input ref={appleRef} type="file" accept=".xml" style={{display:'none'}} onChange={handleApple}/>
+            <div className="import-option" onClick={()=>appleRef.current && appleRef.current.click()}>
+              <div className="import-option-icon">🍎</div>
+              <div><div className="import-option-label">Apple Health</div><div className="import-option-sub">export.xml 파일 선택</div></div>
             </div>
-            <input ref={fileRef} type="file" accept=".csv,.zip,.xml" onChange={e=>e.target.files[0]&&processFile(e.target.files[0])} style={{display:'none'}}/>
-            {status==='error'&&<div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,padding:'10px 12px',marginTop:10,fontSize:13,color:'#dc2626',whiteSpace:'pre-line'}}>⚠️ {errMsg}</div>}
+            <input ref={samsungRef} type="file" accept=".zip" style={{display:'none'}} onChange={handleSamsung}/>
+            <div className="import-option" onClick={()=>samsungRef.current && samsungRef.current.click()}>
+              <div className="import-option-icon">📱</div>
+              <div><div className="import-option-label">Samsung Health</div><div className="import-option-sub">내보내기 ZIP 파일 선택</div></div>
+            </div>
+            <input ref={libreRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleLibre}/>
+            <div className="import-option" onClick={()=>libreRef.current && libreRef.current.click()}>
+              <div className="import-option-icon">📊</div>
+              <div><div className="import-option-label">LibreView / FreeStyle</div><div className="import-option-sub">CSV 파일 선택</div></div>
+            </div>
           </>
         )}
-        {status==='loading'&&<div style={{textAlign:'center',padding:'32px 0',color:'var(--text-sub)'}}><div style={{fontSize:24,marginBottom:8}}>⏳</div><div>{progress||'처리 중...'}</div></div>}
-        {status==='preview'&&preview&&(
-          <div style={{fadeIn:true}}>
-            <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,padding:14,marginBottom:14}}>
-              <div style={{fontWeight:700,color:'#16a34a',marginBottom:8}}>✅ 가져오기 준비 완료</div>
-              {preview.gDays>0&&<div style={{fontSize:14,color:'var(--text)'}}>혈당: {preview.gDays}일 ({preview.totalReadings}건)</div>}
-              {preview.wDays>0&&<div style={{fontSize:14,color:'var(--text)'}}>체중: {preview.wDays}일</div>}
-              {preview.stepDays>0&&<div style={{fontSize:14,color:'var(--text)'}}>걸음수: {preview.stepDays}일</div>}
-              {preview.sleepDays>0&&<div style={{fontSize:14,color:'var(--text)'}}>수면: {preview.sleepDays}일</div>}
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>reset()} style={{flex:1,padding:'10px',border:'1px solid var(--card-border)',borderRadius:10,background:'var(--input-bg)',cursor:'pointer',fontWeight:600,color:'var(--text-sub)'}}>취소</button>
-              <button onClick={confirm} className="btn-primary" style={{flex:2}}>적용하기</button>
-            </div>
-          </div>
-        )}
-        {status==='done'&&<div style={{textAlign:'center',padding:'28px 0'}}><div style={{fontSize:36,marginBottom:8}}>🎉</div><div style={{fontWeight:700,fontSize:16,color:'#16a34a'}}>가져오기 완료\!</div><button onClick={onClose} style={{marginTop:16,padding:'10px 24px',border:'none',borderRadius:10,background:'var(--accent)',color:'#fff',fontWeight:700,cursor:'pointer'}}>닫기</button></div>}
       </div>
     </div>
   );
 };
 
-/* ── 복약 설정 모달 ─────────────────────────────────────────── */
-const MedSettingsModal = ({ medsConfig, onSave, onClose }) => {
-  const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(medsConfig.length?medsConfig:DEFAULT_MEDS)));
-  const addSlot=()=>setCfg(c=>[...c,{slot:'새 슬롯',key:genId(),color:'#2563eb',bg:'#eff6ff',border:'#93c5fd',icon:'💊',items:[]}]);
-  const delSlot=(i)=>setCfg(c=>c.filter((_,j)=>j\!==i));
-  const updSlot=(i,k,v)=>setCfg(c=>c.map((s,j)=>j===i?{...s,[k]:v}:s));
-  const addItem=(si)=>setCfg(c=>c.map((s,j)=>j===si?{...s,items:[...s.items,{id:genId(),name:'',dose:''}]}:s));
-  const delItem=(si,ii)=>setCfg(c=>c.map((s,j)=>j===si?{...s,items:s.items.filter((_,k)=>k\!==ii)}:s));
-  const updItem=(si,ii,k,v)=>setCfg(c=>c.map((s,j)=>j===si?{...s,items:s.items.map((it,k2)=>k2===ii?{...it,[k]:v}:it)}:s));
+/* MedSettingsModal */
+const MedSettingsModal = ({ medsConfig, onChange, onClose }) => {
+  const [localMeds, setLocalMeds] = useState([...medsConfig]);
+  const times = ['아침','점심','저녁','취침전','필요시'];
+  const update = (i, field, val) => setLocalMeds(localMeds.map((m,j) => j===i ? Object.assign({},m,{[field]:val}) : m));
+  const addMed = () => setLocalMeds([...localMeds, {id:genUUID(),name:'',time:'아침',dose:''}]);
+  const removeMed = (i) => setLocalMeds(localMeds.filter((_,j)=>j!==i));
+  const save = () => { onChange(localMeds); onClose(); };
   return (
-    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal-sheet">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontWeight:800,fontSize:16}}>💊 복약 설정</div>
-          <button onClick={onClose} style={{border:'none',background:'var(--input-bg)',borderRadius:8,width:30,height:30,cursor:'pointer',color:'var(--text-sub)'}}>✕</button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div className="modal-title" style={{marginBottom:0}}>복약 설정</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        {cfg.map((slot,si)=>(
-          <div key={slot.key||si} style={{border:`1px solid ${slot.border||'#e2e8f0'}`,borderRadius:12,padding:12,marginBottom:10,background:slot.bg||'var(--input-bg)'}}>
-            <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:8}}>
-              <input value={slot.slot} onChange={e=>updSlot(si,'slot',e.target.value)} style={{flex:1,border:'none',background:'transparent',fontWeight:700,fontSize:14,color:slot.color,outline:'none'}}/>
-              <button onClick={()=>delSlot(si)} style={{border:'none',background:'rgba(220,38,38,0.1)',color:'#dc2626',borderRadius:6,padding:'2px 8px',cursor:'pointer',fontSize:12}}>삭제</button>
+        {localMeds.map((med,i) => (
+          <div key={med.id} style={{background:'var(--bg3)',borderRadius:10,padding:12,marginBottom:8}}>
+            <div style={{display:'flex',gap:6,marginBottom:6}}>
+              <input className="input" style={{flex:1}} placeholder="약 이름" value={med.name} onChange={e=>update(i,'name',e.target.value)}/>
+              <input className="input" style={{width:80}} placeholder="용량" value={med.dose} onChange={e=>update(i,'dose',e.target.value)}/>
             </div>
-            {slot.items.map((item,ii)=>(
-              <div key={item.id||ii} style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
-                <input value={item.name} onChange={e=>updItem(si,ii,'name',e.target.value)} placeholder="약품명" style={{flex:2,border:'1px solid var(--input-border)',borderRadius:7,padding:'6px 8px',background:'var(--card-bg)',color:'var(--text)',fontSize:13,outline:'none'}}/>
-                <input value={item.dose} onChange={e=>updItem(si,ii,'dose',e.target.value)} placeholder="용량" style={{flex:1.5,border:'1px solid var(--input-border)',borderRadius:7,padding:'6px 8px',background:'var(--card-bg)',color:'var(--text)',fontSize:13,outline:'none'}}/>
-                <button onClick={()=>delItem(si,ii)} style={{border:'none',background:'transparent',color:'#94a3b8',cursor:'pointer',fontSize:16,padding:'0 2px'}}>✕</button>
-              </div>
-            ))}
-            <button onClick={()=>addItem(si)} style={{border:'1px dashed var(--card-border)',borderRadius:7,padding:'5px 10px',background:'transparent',color:'var(--text-sub)',cursor:'pointer',fontSize:12,width:'100%'}}>+ 약품 추가</button>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <select className="input" style={{flex:1}} value={med.time} onChange={e=>update(i,'time',e.target.value)}>
+                {times.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+              <button onClick={()=>removeMed(i)} style={{background:'rgba(255,71,87,0.1)',border:'none',borderRadius:8,color:'var(--red)',padding:'8px 12px',cursor:'pointer'}}>삭제</button>
+            </div>
           </div>
         ))}
-        <button onClick={addSlot} style={{width:'100%',border:'2px dashed var(--card-border)',borderRadius:10,padding:'10px',background:'transparent',color:'var(--text-sub)',cursor:'pointer',fontSize:14,marginBottom:12}}>+ 시간대 추가</button>
-        <div style={{display:'flex',gap:8}}>
-          <button onClick={onClose} style={{flex:1,padding:10,border:'1px solid var(--card-border)',borderRadius:10,background:'var(--input-bg)',cursor:'pointer',fontWeight:600,color:'var(--text-sub)'}}>취소</button>
-          <button onClick={()=>onSave(cfg)} className="btn-primary" style={{flex:2}}>저장</button>
-        </div>
+        <button onClick={addMed} style={{width:'100%',padding:'10px',background:'var(--bg3)',border:'1px dashed var(--border)',borderRadius:10,color:'var(--text2)',cursor:'pointer',marginBottom:12}}>+ 약 추가</button>
+        <button className="save-btn" onClick={save}>저장</button>
       </div>
     </div>
   );
 };
 
-/* ── 약품 정보 모달 ─────────────────────────────────────────── */
-const DrugInfoModal = ({ medsConfig, onClose }) => {
-  const [query,setQuery]=useState('');
-  const [result,setResult]=useState(null);
-  const [loading,setLoading]=useState(false);
-  const [err,setErr]=useState('');
-  const allMeds=medsConfig.flatMap(s=>s.items.map(m=>m.name)).filter(Boolean);
-  const search=async(name)=>{
-    if(\!name.trim())return;
-    setLoading(true);setResult(null);setErr('');setQuery(name);
-    try{const r=await fetchDrugInfo(name);setResult(r);}
-    catch(e){setErr(e.message);}
+/* DrugInfoModal */
+const DrugInfoModal = ({ onClose }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const search = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    const items = await fetchDrugInfo(query.trim());
+    setResults(items);
     setLoading(false);
   };
   return (
-    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal-sheet">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontWeight:800,fontSize:16}}>🔍 약품 정보 조회</div>
-          <button onClick={onClose} style={{border:'none',background:'var(--input-bg)',borderRadius:8,width:30,height:30,cursor:'pointer',color:'var(--text-sub)'}}>✕</button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div className="modal-title" style={{marginBottom:0}}>의약품 정보 검색</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div style={{display:'flex',gap:8,marginBottom:12}}>
-          <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search(query)} placeholder="약품명 검색" className="inp" style={{flex:1}}/>
-          <button onClick={()=>search(query)} className="btn-primary" style={{padding:'10px 16px'}}>검색</button>
+        <div style={{display:'flex',gap:8,marginBottom:14}}>
+          <input className="input" style={{flex:1}} placeholder="약품명 입력" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()}/>
+          <button onClick={search} style={{background:'var(--accent)',border:'none',borderRadius:10,color:'#fff',padding:'0 16px',cursor:'pointer',fontWeight:600}}>검색</button>
         </div>
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
-          {allMeds.slice(0,8).map(m=>(
-            <button key={m} onClick={()=>search(m)} style={{border:'1px solid var(--card-border)',borderRadius:20,padding:'4px 10px',background:'var(--input-bg)',cursor:'pointer',fontSize:12,color:'var(--text-sub)'}}>
-              {m}
-            </button>
-          ))}
-        </div>
-        {loading&&<div style={{textAlign:'center',padding:20,color:'var(--text-sub)'}}>검색 중...</div>}
-        {err&&<div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,padding:12,fontSize:13,color:'#dc2626'}}>{err}</div>}
-        {result&&(
-          <div style={{background:'var(--input-bg)',borderRadius:12,padding:14}}>
-            <div style={{fontWeight:800,fontSize:16,marginBottom:10}}>{result.itemName}</div>
-            {result.efcyQesitm&&<div style={{marginBottom:8}}><span style={{fontWeight:700,color:'#2563eb'}}>효능·효과</span><p style={{marginTop:4,fontSize:13,lineHeight:1.7,color:'var(--text)'}}>{result.efcyQesitm}</p></div>}
-            {result.useMethodQesitm&&<div style={{marginBottom:8}}><span style={{fontWeight:700,color:'#059669'}}>용법·용량</span><p style={{marginTop:4,fontSize:13,lineHeight:1.7,color:'var(--text)'}}>{result.useMethodQesitm}</p></div>}
-            {result.atpnQesitm&&<div style={{marginBottom:8}}><span style={{fontWeight:700,color:'#d97706'}}>주의사항</span><p style={{marginTop:4,fontSize:13,lineHeight:1.7,color:'var(--text)'}}>{result.atpnQesitm}</p></div>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/* ── 동기화 모달 ────────────────────────────────────────────── */
-const SyncModal = ({ userId, data, onClose }) => {
-  const [status,setStatus]=useState('idle');
-  const doSync=async()=>{
-    setStatus('syncing');
-    try{
-      const rows=Object.entries(data).map(([d,payload])=>({user_id:userId,date:d,payload,updated_at:new Date().toISOString()}));
-      for(let i=0;i<rows.length;i+=50){
-        await supa.from('diabetes_data').upsert(rows.slice(i,i+50),{onConflict:'user_id,date'});
-      }
-      setStatus('done');
-    }catch(e){setStatus('error');}
-  };
-  return (
-    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal-sheet">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontWeight:800,fontSize:16}}>☁️ Supabase 동기화</div>
-          <button onClick={onClose} style={{border:'none',background:'var(--input-bg)',borderRadius:8,width:30,height:30,cursor:'pointer',color:'var(--text-sub)'}}>✕</button>
-        </div>
-        <div style={{background:'var(--input-bg)',borderRadius:10,padding:12,marginBottom:14,fontSize:13}}>
-          <div style={{color:'var(--text-sub)',marginBottom:4}}>사용자 ID</div>
-          <div style={{fontFamily:'monospace',fontSize:11,color:'var(--text)',wordBreak:'break-all'}}>{userId}</div>
-          <div style={{color:'var(--text-sub)',marginTop:8,marginBottom:4}}>로컬 기록 일수</div>
-          <div style={{fontWeight:700,color:'var(--accent)'}}>{Object.keys(data).length}일</div>
-        </div>
-        {status==='idle'&&<button onClick={doSync} className="btn-primary" style={{width:'100%'}}>전체 데이터 동기화</button>}
-        {status==='syncing'&&<div style={{textAlign:'center',padding:16,color:'var(--text-sub)'}}>⏳ 동기화 중...</div>}
-        {status==='done'&&<div style={{textAlign:'center',color:'#16a34a',padding:16,fontWeight:700}}>✅ 동기화 완료\!</div>}
-        {status==='error'&&<div style={{textAlign:'center',color:'#dc2626',padding:16}}>❌ 동기화 실패. 인터넷 연결을 확인하세요.</div>}
-      </div>
-    </div>
-  );
-};
-
-
-/* ── 홈 스크린 (대시보드) ──────────────────────────────────── */
-const HomeScreen = ({ data, date, medsConfig, userId }) => {
-  const day = data[date] || emptyDay();
-  const healthScore = calcHealthScore(day, medsConfig, data, date);
-  const insights    = genInsights(day, medsConfig, data, date);
-
-  // 7일 스파크라인 데이터
-  const last7 = (getter) => Array.from({length:7},(_,i)=>{
-    const d = data[shiftDate(date,i-6)] || emptyDay();
-    return getter(d);
-  });
-
-  const bpSparkSys  = last7(d => parseInt(d.bp?.sys)||null);
-  const bsSparkFast = last7(d => parseInt(d.bs?.bs_bf_am)||parseInt(d.bs?.bs_bf_lu)||parseInt(d.bs?.bs_bf_di)||null);
-  const stepsSpk    = last7(d => parseInt(d.steps)||null);
-  const sleepSpk    = last7(d => { const h=parseInt(d.sleep?.h),m=parseInt(d.sleep?.m); return(h||m)?(h||0)+(m||0)/60:null; });
-
-  // 오늘 값
-  const curBPSys  = parseInt(day.bp?.sys)||null, curBPDia=parseInt(day.bp?.dia)||null;
-  const curBSFast = parseInt(day.bs?.bs_bf_am)||parseInt(day.bs?.bs_bf_lu)||null;
-  const curSteps  = parseInt(day.steps)||null;
-  const sleepH    = parseInt(day.sleep?.h), sleepM=parseInt(day.sleep?.m);
-  const sleepStr  = (sleepH||sleepM) ? `${sleepH||0}시간 ${sleepM||0}분` : null;
-
-  // 전일 값 (트렌드)
-  const prev = data[shiftDate(date,-1)]||emptyDay();
-  const prevBPSys  = parseInt(prev.bp?.sys)||null;
-  const prevBSFast = parseInt(prev.bs?.bs_bf_am)||null;
-  const prevSteps  = parseInt(prev.steps)||null;
-  const prevSleepH = parseInt(prev.sleep?.h), prevSleepM=parseInt(prev.sleep?.m);
-  const prevSleepVal = (prevSleepH||prevSleepM)?(prevSleepH||0)+(prevSleepM||0)/60:null;
-  const curSleepVal  = (sleepH||sleepM)?(sleepH||0)+(sleepM||0)/60:null;
-
-  // 복약 현황
-  const allMedIds = medsConfig.flatMap(s=>s.items.map(m=>m.id));
-  const medDone   = allMedIds.filter(id=>day.meds?.[id]).length;
-  const medPct    = allMedIds.length ? Math.round(medDone/allMedIds.length*100) : 0;
-
-  // 오늘의 할 일 (자동 생성)
-  const todayTasks = useMemo(() => {
-    const tasks = [];
-    const bsVals = Object.values(day.bs||{}).filter(v=>parseInt(v)>0);
-    if (\!bsVals.length) tasks.push({ icon:'🩸', label:'혈당 측정하기', done:false });
-    else tasks.push({ icon:'🩸', label:`혈당 ${bsVals.length}회 측정 완료`, done:true });
-    if (curBPSys) tasks.push({ icon:'❤️', label:`혈압 측정 완료 (${curBPSys}/${curBPDia})`, done:true });
-    else tasks.push({ icon:'❤️', label:'혈압 측정하기', done:false });
-    medsConfig.forEach(slot => {
-      const slotDone = slot.items.every(m=>day.meds?.[m.id]);
-      tasks.push({ icon:slot.icon, label:`${slot.slot} 복약`, done:slotDone });
-    });
-    const exDone = \!\!(day.exercise?.mins && parseInt(day.exercise.mins)>0);
-    if (exDone) tasks.push({ icon:'🏃', label:`운동 ${day.exercise.mins}분 완료`, done:true });
-    else tasks.push({ icon:'🏃', label:'운동 30분 이상', done:false });
-    const mealDone = ['breakfast','lunch','dinner'].filter(m=>day.meals?.[m]?.trim()).length;
-    tasks.push({ icon:'🍱', label:`식사 기록 (${mealDone}/3)`, done:mealDone===3 });
-    return tasks;
-  }, [day, medsConfig, curBPSys, curBPDia]);
-
-  // 주간 걸음수 바 차트 (SVG)
-  const weekSteps = Array.from({length:7},(_,i)=>{
-    const d = shiftDate(date,i-6);
-    return { label:fmtDate(d).short, day:fmtDate(d).day, steps:parseInt((data[d]||emptyDay()).steps)||0 };
-  });
-  const maxSteps = Math.max(...weekSteps.map(x=>x.steps), 1);
-
-  // BP 14일 추이 차트
-  const bpChartRef = useRef(null);
-  const bpChartInst = useRef(null);
-  useEffect(() => {
-    if (\!bpChartRef.current) return;
-    if (bpChartInst.current) { bpChartInst.current.destroy(); bpChartInst.current=null; }
-    const labels=[], sysDat=[], diaDat=[];
-    for (let i=13;i>=0;i--) {
-      const d=shiftDate(date,-i), dd=data[d]||emptyDay();
-      labels.push(fmtDate(d).short);
-      sysDat.push(parseInt(dd.bp?.sys)||null);
-      diaDat.push(parseInt(dd.bp?.dia)||null);
-    }
-    bpChartInst.current = new Chart(bpChartRef.current, {
-      type:'line',
-      data:{ labels, datasets:[
-        { label:'수축기', data:sysDat, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.08)', borderWidth:2, pointRadius:4, fill:true, tension:0.35, spanGaps:true },
-        { label:'이완기', data:diaDat, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.08)', borderWidth:2, pointRadius:4, fill:true, tension:0.35, spanGaps:true }
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
-        plugins:{ legend:{position:'top',labels:{font:{size:11},padding:10}}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y||'—'}mmHg`}} },
-        scales:{
-          x:{ticks:{font:{size:10}},grid:{color:'rgba(148,163,184,0.12)'}},
-          y:{min:40,max:180,ticks:{font:{size:10},stepSize:20},grid:{color:'rgba(148,163,184,0.12)'}}
-        }
-      }
-    });
-    return () => { if(bpChartInst.current){bpChartInst.current.destroy();bpChartInst.current=null;} };
-  }, [data, date]);
-
-  const scoreColor = healthScore===null?'#94a3b8':healthScore>=80?'#22c55e':healthScore>=60?'#f59e0b':'#ef4444';
-  const scoreLabel = healthScore===null?'데이터 부족':healthScore>=80?'매우 좋음':healthScore>=60?'보통':'주의 필요';
-
-  return (
-    <div className="screen page-scroll" style={{paddingTop:0}}>
-      {/* 헤더 */}
-      <div style={{background:'linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)',borderRadius:'0 0 24px 24px',padding:'20px 16px 24px',marginBottom:16,color:'#fff'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-          <div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-              <CareNoteLogo size={28}/>
-              <span style={{fontWeight:900,fontSize:18,letterSpacing:'-0.5px'}}>CARENOTE</span>
-            </div>
-            <div style={{fontSize:13,opacity:0.8}}>{fmtDate(date).full}</div>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-            <CircleGauge value={healthScore} size={80} strokeW={8}/>
-            <span style={{fontSize:11,color: healthScore===null?'rgba(255,255,255,0.5)':'rgba(255,255,255,0.85)',fontWeight:600}}>{scoreLabel}</span>
-          </div>
-        </div>
-        {/* Health Score 분해 */}
-        <div style={{display:'flex',gap:6,marginTop:14,flexWrap:'wrap'}}>
-          {[
-            {label:'혈압',pct:curBPSys?Math.min(100,curBPSys<120?100:curBPSys<130?80:curBPSys<140?60:40):null,color:'#f87171'},
-            {label:'혈당',pct:bsSparkFast.filter(v=>v).length?Math.min(100,curBSFast&&curBSFast<=130?100:curBSFast&&curBSFast<=150?80:curBSFast?60:null):null,color:'#fbbf24'},
-            {label:'복약',pct:allMedIds.length?medPct:null,color:'#34d399'},
-            {label:'활동',pct:curSteps?Math.min(100,Math.round(curSteps/8000*100)):null,color:'#60a5fa'},
-          ].map(item=>(
-            <div key={item.label} style={{background:'rgba(255,255,255,0.15)',borderRadius:8,padding:'4px 10px',display:'flex',alignItems:'center',gap:6}}>
-              <div style={{width:28,height:4,borderRadius:2,background:'rgba(255,255,255,0.3)',overflow:'hidden'}}>
-                {item.pct\!==null&&<div style={{width:`${item.pct}%`,height:'100%',background:item.color,transition:'width 0.5s'}}/>}
-              </div>
-              <span style={{fontSize:11,color:'rgba(255,255,255,0.85)',fontWeight:600}}>{item.label} {item.pct\!==null?`${item.pct}%`:'—'}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 4개 지표 카드 */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14,padding:'0 14px'}}>
-        {/* 혈압 */}
-        <div className="metric-card">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-            <div>
-              <div style={{fontSize:11,color:'var(--text-sub)',fontWeight:600}}>❤️ 혈압</div>
-              <div style={{fontSize:20,fontWeight:900,lineHeight:1.1,marginTop:2,color:curBPSys?(curBPSys<120?'#22c55e':curBPSys<130?'#f59e0b':curBPSys<140?'#f97316':'#ef4444'):'#94a3b8'}}>
-                {curBPSys?`${curBPSys}/${curBPDia}`:'—'}
-              </div>
-              {curBPSys&&<div style={{fontSize:10,color:'var(--text-sub)'}}>mmHg</div>}
-            </div>
-            <Sparkline values={bpSparkSys} color="#ef4444" h={32} w={60}/>
-          </div>
-          <TrendBadge cur={curBPSys} prev={prevBPSys} unit="" reverse={true}/>
-        </div>
-        {/* 공복 혈당 */}
-        <div className="metric-card">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-            <div>
-              <div style={{fontSize:11,color:'var(--text-sub)',fontWeight:600}}>🩸 공복혈당</div>
-              <div style={{fontSize:20,fontWeight:900,lineHeight:1.1,marginTop:2,color:bsColor(curBSFast)}}>
-                {curBSFast||'—'}
-              </div>
-              {curBSFast&&<div style={{fontSize:10,color:'var(--text-sub)'}}>mg/dL</div>}
-            </div>
-            <Sparkline values={bsSparkFast} color="#f59e0b" h={32} w={60}/>
-          </div>
-          <TrendBadge cur={curBSFast} prev={prevBSFast} unit="" reverse={true}/>
-        </div>
-        {/* 걸음수 */}
-        <div className="metric-card">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-            <div>
-              <div style={{fontSize:11,color:'var(--text-sub)',fontWeight:600}}>🚶 걸음수</div>
-              <div style={{fontSize:20,fontWeight:900,lineHeight:1.1,marginTop:2,color:curSteps?(curSteps>=8000?'#22c55e':curSteps>=5000?'#f59e0b':'#ef4444'):'#94a3b8'}}>
-                {curSteps?curSteps.toLocaleString():'—'}
-              </div>
-              {curSteps&&<div style={{fontSize:10,color:'var(--text-sub)'}}>목표 8,000보</div>}
-            </div>
-            <Sparkline values={stepsSpk} color="#22c55e" h={32} w={60}/>
-          </div>
-          <TrendBadge cur={curSteps} prev={prevSteps} unit="" reverse={false}/>
-        </div>
-        {/* 수면 */}
-        <div className="metric-card">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-            <div>
-              <div style={{fontSize:11,color:'var(--text-sub)',fontWeight:600}}>😴 수면</div>
-              <div style={{fontSize:curSleepVal?16:20,fontWeight:900,lineHeight:1.1,marginTop:2,color:curSleepVal?(curSleepVal>=7?'#22c55e':curSleepVal>=6?'#f59e0b':'#ef4444'):'#94a3b8'}}>
-                {sleepStr||'—'}
-              </div>
-              {curSleepVal&&<div style={{fontSize:10,color:'var(--text-sub)'}}>목표 7시간</div>}
-            </div>
-            <Sparkline values={sleepSpk} color="#818cf8" h={32} w={60}/>
-          </div>
-          <TrendBadge cur={curSleepVal} prev={prevSleepVal} unit="h" reverse={false}/>
-        </div>
-      </div>
-
-      {/* BP 추이 차트 */}
-      <div className="cn-card" style={{margin:'0 14px 14px'}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>❤️ 혈압 14일 추이</div>
-        <div style={{position:'relative',height:160}}><canvas ref={bpChartRef}/></div>
-        <div style={{display:'flex',gap:10,marginTop:8,fontSize:11,color:'var(--text-sub)'}}>
-          <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:3,background:'#ef4444',display:'inline-block',borderRadius:2}}/>수축기</span>
-          <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:3,background:'#3b82f6',display:'inline-block',borderRadius:2}}/>이완기</span>
-          <span style={{marginLeft:'auto'}}>정상: &lt;120/80</span>
-        </div>
-      </div>
-
-      {/* 오늘의 할 일 */}
-      <div className="cn-card" style={{margin:'0 14px 14px'}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>✅ 오늘의 할 일</div>
-        <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {todayTasks.map((task,i)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,background:task.done?'#f0fdf4':'var(--input-bg)',border:`1px solid ${task.done?'#86efac':'var(--card-border)'}`}}>
-              <span style={{fontSize:16}}>{task.icon}</span>
-              <span style={{fontSize:13,color:'var(--text)',flex:1,textDecoration:task.done?'none':'none'}}>{task.label}</span>
-              <span style={{fontSize:14}}>{task.done?'✓':'○'}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 주간 활동 */}
-      <div className="cn-card" style={{margin:'0 14px 14px'}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>📊 주간 걸음수</div>
-        <div style={{display:'flex',gap:4,alignItems:'flex-end',height:70}}>
-          {weekSteps.map((d,i)=>{
-            const h = d.steps ? Math.max(8, Math.round((d.steps/maxSteps)*60)) : 4;
-            const isToday = i===6;
-            const col = isToday?'#2563eb':d.steps>=8000?'#22c55e':d.steps>=5000?'#f59e0b':'#94a3b8';
-            return (
-              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                <div style={{fontSize:9,color:'var(--text-sub)',fontWeight:600}}>{d.steps>0?Math.round(d.steps/1000*10)/10+'k':''}</div>
-                <div style={{width:'100%',height:`${h}px`,background:col,borderRadius:'4px 4px 0 0',transition:'height 0.3s'}}/>
-                <div style={{fontSize:9,color:isToday?'var(--accent)':'var(--text-sub)',fontWeight:isToday?700:500}}>{d.day}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{textAlign:'center',marginTop:6,fontSize:12,color:'var(--text-sub)'}}>
-          이번 주 총 {weekSteps.reduce((a,b)=>a+b.steps,0).toLocaleString()}보 · 목표 56,000보
-        </div>
-      </div>
-
-      {/* 복약 현황 */}
-      <div className="cn-card" style={{margin:'0 14px 14px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-          <div style={{fontSize:14,fontWeight:700}}>💊 오늘 복약 현황</div>
-          <div style={{fontSize:13,fontWeight:800,color:medPct===100?'#22c55e':'#2563eb'}}>{medDone}/{allMedIds.length} 완료</div>
-        </div>
-        <div style={{height:6,background:'var(--card-border)',borderRadius:3,overflow:'hidden',marginBottom:10}}>
-          <div style={{height:'100%',width:`${medPct}%`,background:medPct===100?'#22c55e':'#2563eb',borderRadius:3,transition:'width 0.5s'}}/>
-        </div>
-        {medsConfig.map(slot=>{
-          const slotDone=slot.items.every(m=>day.meds?.[m.id]);
-          const doneCnt=slot.items.filter(m=>day.meds?.[m.id]).length;
-          return (
-            <div key={slot.key||slot.slot} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,marginBottom:5,background:slotDone?'#f0fdf4':'var(--input-bg)',border:`1px solid ${slotDone?'#86efac':'var(--card-border)'}`}}>
-              <span style={{fontSize:16}}>{slot.icon}</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{slot.slot}</div>
-                <div style={{fontSize:11,color:'var(--text-sub)'}}>{slot.items.map(m=>m.name).join(', ')}</div>
-              </div>
-              <span style={{fontSize:13,fontWeight:700,color:slotDone?'#22c55e':'#94a3b8'}}>{doneCnt}/{slot.items.length}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* AI 인사이트 */}
-      <div className="insight-card" style={{margin:'0 14px 14px'}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:10,color:'#93c5fd'}}>🤖 AI 인사이트</div>
-        {insights.map((ins,i)=>(
-          <div key={i} style={{display:'flex',gap:8,marginBottom:i<insights.length-1?10:0,alignItems:'flex-start'}}>
-            <span style={{fontSize:18,flexShrink:0}}>{ins.icon}</span>
-            <span style={{fontSize:13,lineHeight:1.6,color:'#cbd5e1'}}>{ins.text}</span>
+        {loading && <div style={{textAlign:'center',padding:20}}><div className="spinner" style={{margin:'0 auto'}}/></div>}
+        {results.map((item,i) => (
+          <div key={i} className="drug-info-card">
+            <div className="drug-name">{item.itemName}</div>
+            {item.efcyQesitm && <div className="drug-detail"><b>효능:</b> {item.efcyQesitm}</div>}
+            {item.useMethodQesitm && <div className="drug-detail"><b>용법:</b> {item.useMethodQesitm}</div>}
+            {item.atpnQesitm && <div className="drug-detail"><b>주의:</b> {item.atpnQesitm}</div>}
           </div>
         ))}
+        {!loading && results.length === 0 && query && <div style={{textAlign:'center',color:'var(--text2)',padding:20}}>검색 결과 없음</div>}
       </div>
     </div>
   );
 };
 
+/* SyncModal */
+const SyncModal = ({ data, userId, onClose }) => {
+  const dates = Object.keys(data).filter(k => k !== '_user_settings_').sort();
+  const lastSync = localStorage.getItem('carenote_last_sync') || '없음';
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div className="modal-title" style={{marginBottom:0}}>동기화 상태</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{background:'var(--bg3)',borderRadius:10,padding:14}}>
+          <div className="sync-row"><div className="sync-label">사용자 ID</div><div className="sync-val" style={{fontSize:11}}>{userId && userId.slice(0,8)}...</div></div>
+          <div className="sync-row"><div className="sync-label">총 기록 일수</div><div className="sync-val">{dates.length}일</div></div>
+          <div className="sync-row"><div className="sync-label">기록 기간</div><div className="sync-val">{dates.length ? dates[0]+' ~ '+dates[dates.length-1] : '-'}</div></div>
+          <div className="sync-row"><div className="sync-label">마지막 동기화</div><div className="sync-val">{lastSync}</div></div>
+          <div className="sync-row"><div className="sync-label">서버</div><div className="sync-val" style={{color:'var(--green)'}}>● Supabase 연결됨</div></div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-/* ── 기록 스크린 ────────────────────────────────────────────── */
-const RecordScreen = ({ data, date, setDate, medsConfig, upDay, day, userId, onShowImport }) => {
-  const [aiLoading,setAiLoading]=useState(false);
-  const [aiResult,setAiResult]=useState({});
-  const [mealPhotoSrc,setMealPhotoSrc]=useState({});
-  const photoRef={breakfast:useRef(null),lunch:useRef(null),dinner:useRef(null)};
-  const dm = _dm;
+/* HomeScreen */
+const HomeScreen = ({ data, medsConfig, onOpenImport, onOpenSync, onOpenDrug }) => {
+  const today = todayStr();
+  const todayData = data[today] || emptyDay();
+  const score = useMemo(() => calcHealthScore(data), [data]);
+  const insights = useMemo(() => genInsights(data), [data]);
 
-  const updBS  = (id,v) => upDay({bs:{...day.bs,[id]:v}});
-  const updBP  = (k,v) => upDay({bp:{...(day.bp||{sys:'',dia:''}),[k]:v}});
-  const updMeal= (id,v) => upDay({meals:{...day.meals,[id]:v}});
-  const updEx  = (k,v) => upDay({exercise:{...day.exercise,[k]:v}});
-  const togMed = (id)  => upDay({meds:{...day.meds,[id]:\!day.meds[id]}});
+  const recent14 = useMemo(() => {
+    const dates = [];
+    for (let i = 13; i >= 0; i--) dates.push(shiftDate(today,-i));
+    return dates;
+  }, [today]);
 
-  const handlePhoto = async (mealId, file) => {
-    if (\!file) return;
-    const src = URL.createObjectURL(file);
-    setMealPhotoSrc(p=>({...p,[mealId]:src}));
-    setAiLoading(true);
-    try {
-      const b64 = await fileToBase64(file);
-      const result = await analyzeFood(b64, file.type);
-      setAiResult(p=>({...p,[mealId]:result}));
-    } catch(e) { setAiResult(p=>({...p,[mealId]:'분석 실패: '+e.message})); }
-    setAiLoading(false);
-  };
+  const bpSysVals = recent14.map(d => data[d] && data[d].bp && data[d].bp.sys).filter(Boolean);
+  const bpDiaVals = recent14.map(d => data[d] && data[d].bp && data[d].bp.dia).filter(Boolean);
+  const bsVals = recent14.map(d => {
+    const bs = (data[d] && data[d].bs) || {};
+    return bs.fasting || bs.after_b || bs.after_l || bs.after_d || null;
+  }).filter(Boolean);
+  const weightVals = recent14.map(d => data[d] && data[d].weight).filter(Boolean);
+  const stepsVals7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const dd = shiftDate(today,-i);
+    stepsVals7.push({ d:dd, v:parseFloat((data[dd] && data[dd].steps)||0) });
+  }
+  const maxSteps = Math.max(...stepsVals7.map(x=>x.v), 1);
 
-  const inpSt = { width:'100%', border:`1px solid var(--input-border)`, borderRadius:10, padding:'10px 12px', background:'var(--input-bg)', color:'var(--text)', outline:'none', fontSize:15 };
+  const bpChartDates = recent14.filter(d => data[d] && data[d].bp && data[d].bp.sys);
+  const bpChartData = bpChartDates.map(d => ({
+    d, sys:parseFloat(data[d].bp.sys)||0, dia:parseFloat(data[d].bp.dia)||0
+  }));
+  const allBpVals = bpChartData.flatMap(x=>[x.sys,x.dia]).filter(v=>v>0);
+  const bpMin = allBpVals.length ? Math.min(...allBpVals)-10 : 60;
+  const bpMax = allBpVals.length ? Math.max(...allBpVals)+10 : 160;
+  const bpRange = bpMax - bpMin || 100;
+  const chartW = 300, chartH = 120;
+  const bpToY = v => chartH - ((v-bpMin)/bpRange)*chartH;
+
+  const lastBP = (todayData.bp && todayData.bp.sys)
+    ? todayData.bp.sys+'/'+todayData.bp.dia
+    : (bpSysVals.length ? bpSysVals[bpSysVals.length-1]+'/'+bpDiaVals[bpDiaVals.length-1] : '--');
+  const lastBS = (todayData.bs && Object.values(todayData.bs)[0]) || (bsVals.length ? bsVals[bsVals.length-1] : '--');
+  const lastWeight = todayData.weight || (weightVals.length ? weightVals[weightVals.length-1] : '--');
+  const todaySteps = todayData.steps || '0';
+  const dayKor = ['일','월','화','수','목','금','토'];
 
   return (
-    <div className="screen page-scroll" style={{paddingTop:0}}>
-      {/* 헤더 */}
-      <div style={{background:'var(--card-bg)',borderBottom:'1px solid var(--card-border)',padding:'16px 16px 12px',position:'sticky',top:0,zIndex:50}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{fontWeight:800,fontSize:16}}>📝 건강 기록</div>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <button onClick={()=>setDate(shiftDate(date,-1))} style={{border:'1px solid var(--card-border)',borderRadius:8,width:30,height:30,background:'var(--input-bg)',cursor:'pointer',color:'var(--text-sub)',fontSize:16}}>‹</button>
-            <span style={{fontSize:13,fontWeight:600,color:'var(--text)',minWidth:60,textAlign:'center'}}>{fmtDate(date).short} ({fmtDate(date).day})</span>
-            <button onClick={()=>setDate(shiftDate(date,1))} disabled={date>=todayStr()} style={{border:'1px solid var(--card-border)',borderRadius:8,width:30,height:30,background:'var(--input-bg)',cursor:'pointer',color:date>=todayStr()?'#cbd5e1':'var(--text-sub)',fontSize:16}}>›</button>
-            {date\!==todayStr()&&<button onClick={()=>setDate(todayStr())} style={{border:'1px solid var(--accent)',borderRadius:8,padding:'4px 8px',background:'var(--accent-light)',cursor:'pointer',color:'var(--accent)',fontSize:11,fontWeight:700}}>오늘</button>}
+    <div className="screen">
+      <div className="home-header">
+        <div className="logo-text">CARE<span>NOTE</span></div>
+        <div className="header-actions">
+          <div className="icon-btn" onClick={onOpenDrug}>💊</div>
+          <div className="icon-btn" onClick={onOpenImport}>📥</div>
+          <div className="icon-btn" onClick={onOpenSync}>☁️</div>
+        </div>
+      </div>
+
+      <div className="section" style={{marginTop:14}}>
+        <div className="score-card">
+          <CircleGauge value={score.total} size={96} stroke={8}/>
+          <div className="score-info">
+            <div className="score-title">오늘의 건강 점수</div>
+            <div className="score-breakdown">
+              {[
+                {label:'혈압', val:score.bp, color:'var(--blue)'},
+                {label:'혈당', val:score.glucose, color:'var(--green)'},
+                {label:'복약', val:score.meds, color:'var(--accent)'},
+                {label:'활동', val:score.steps, color:'var(--yellow)'},
+              ].map(row => (
+                <div key={row.label} className="score-row">
+                  <span style={{fontSize:10,color:'var(--text2)',width:26}}>{row.label}</span>
+                  <div className="score-bar-wrap">
+                    <div className="score-bar" style={{width:row.val+'%',background:row.color}}/>
+                  </div>
+                  <span style={{fontSize:10,color:'var(--text2)',width:24,textAlign:'right'}}>{row.val}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{padding:'12px 14px'}}>
-        {/* 혈압 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>❤️ 혈압</div>
-          <div style={{display:'flex',gap:10,alignItems:'center'}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>수축기 (mmHg)</div>
-              <input type="number" inputMode="numeric" value={day.bp?.sys||''} onChange={e=>updBP('sys',e.target.value)} placeholder="120" style={inpSt}/>
+      <div className="section">
+        <div className="section-title">오늘 현황</div>
+        <div className="metric-grid">
+          <div className="metric-card">
+            <div className="metric-label">혈압</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+              <div className="metric-value" style={{fontSize:18}}>{lastBP}</div>
+              <div className="metric-unit">mmHg</div>
             </div>
-            <span style={{fontSize:20,color:'var(--text-sub)',paddingTop:20}}>/</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>이완기 (mmHg)</div>
-              <input type="number" inputMode="numeric" value={day.bp?.dia||''} onChange={e=>updBP('dia',e.target.value)} placeholder="80" style={inpSt}/>
+            <TrendBadge vals={bpSysVals}/>
+            <div className="metric-chart"><Sparkline data={bpSysVals.slice(-10)} color="var(--blue)"/></div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">혈당</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+              <div className="metric-value" style={{color:bsColor(lastBS==='--'?null:lastBS)}}>{lastBS}</div>
+              <div className="metric-unit">mg/dL</div>
+            </div>
+            {lastBS !== '--' && <div style={{fontSize:11,color:bsColor(lastBS)}}>{bsLabel(lastBS)}</div>}
+            <div className="metric-chart"><Sparkline data={bsVals.slice(-10)} color="var(--green)"/></div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">체중</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+              <div className="metric-value">{lastWeight}</div>
+              <div className="metric-unit">kg</div>
+            </div>
+            <TrendBadge vals={weightVals}/>
+            <div className="metric-chart"><Sparkline data={weightVals.slice(-10)} color="var(--yellow)"/></div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">오늘 걸음수</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+              <div className="metric-value" style={{fontSize:18}}>{parseInt(todaySteps).toLocaleString()}</div>
+            </div>
+            <div className="metric-sub">
+              {parseFloat(todaySteps)>=10000?'🎉 목표 달성':parseFloat(todaySteps)>=7500?'거의 다 왔어요':parseFloat(todaySteps)>=5000?'좋아요':'걷기 시작해봐요'}
+            </div>
+            <div className="metric-chart"><Sparkline data={stepsVals7.map(x=>x.v)} color="var(--accent)"/></div>
+          </div>
+        </div>
+      </div>
+
+      {bpChartData.length >= 2 && (
+        <div className="section">
+          <div className="section-title">혈압 추이 (14일)</div>
+          <div className="card" style={{padding:'14px 10px 10px'}}>
+            <svg viewBox={'0 0 '+chartW+' '+chartH} style={{width:'100%',height:chartH}} preserveAspectRatio="none">
+              {[80,120,140,160].map(v=>(
+                <line key={v} x1={0} y1={bpToY(v)} x2={chartW} y2={bpToY(v)} stroke="var(--border)" strokeWidth={0.5} strokeDasharray="4,4"/>
+              ))}
+              <rect x={0} y={bpToY(130)} width={chartW} height={bpToY(90)-bpToY(130)} fill="rgba(67,233,123,0.05)"/>
+              {bpChartData.length >= 2 && (
+                <polyline
+                  points={bpChartData.map((x,i)=>(i/(bpChartData.length-1))*chartW+','+bpToY(x.sys)).join(' ')}
+                  fill="none" stroke="var(--blue)" strokeWidth={1.5} strokeLinejoin="round"/>
+              )}
+              {bpChartData.length >= 2 && (
+                <polyline
+                  points={bpChartData.map((x,i)=>(i/(bpChartData.length-1))*chartW+','+bpToY(x.dia)).join(' ')}
+                  fill="none" stroke="rgba(79,172,254,0.5)" strokeWidth={1} strokeLinejoin="round"/>
+              )}
+              {bpChartData.map((x,i)=>(
+                <circle key={i} cx={(i/(bpChartData.length-1))*chartW} cy={bpToY(x.sys)} r={2.5} fill="var(--blue)"/>
+              ))}
+            </svg>
+            <div className="chart-labels">
+              {bpChartData.length > 0 && <span className="chart-label">{fmtDate(bpChartData[0].d)}</span>}
+              {bpChartData.length > 2 && <span className="chart-label">{fmtDate(bpChartData[Math.floor((bpChartData.length-1)/2)].d)}</span>}
+              {bpChartData.length > 1 && <span className="chart-label">{fmtDate(bpChartData[bpChartData.length-1].d)}</span>}
+            </div>
+            <div style={{display:'flex',gap:12,marginTop:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:2,background:'var(--blue)'}}></div><span style={{fontSize:10,color:'var(--text2)'}}>수축기</span></div>
+              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:2,background:'rgba(79,172,254,0.5)'}}></div><span style={{fontSize:10,color:'var(--text2)'}}>이완기</span></div>
             </div>
           </div>
-          {day.bp?.sys&&<div style={{marginTop:8,fontSize:13,fontWeight:600,color:parseInt(day.bp.sys)<120?'#22c55e':parseInt(day.bp.sys)<130?'#f59e0b':parseInt(day.bp.sys)<140?'#f97316':'#ef4444'}}>
-            {parseInt(day.bp.sys)<120?'정상 혈압':parseInt(day.bp.sys)<130?'주의 혈압':parseInt(day.bp.sys)<140?'고혈압 전단계':'고혈압'}
-          </div>}
         </div>
+      )}
 
-        {/* 혈당 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>🩸 혈당 기록</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            {BS_FIELDS.map(f=>{
-              const v=day.bs?.[f.id]||'';const n=parseInt(v);
+      <div className="section">
+        <div className="section-title">주간 걸음수</div>
+        <div className="card">
+          <div className="steps-bars">
+            {stepsVals7.map((x,i)=>{
+              const dt = new Date(x.d+'T00:00:00');
+              const ratio = x.v / maxSteps;
+              const isGoal = x.v >= 10000;
               return (
-                <div key={f.id} style={{background:'var(--input-bg)',borderRadius:10,padding:'10px',border:`1px solid ${n?bsColor(n)+'44':'var(--card-border)'}`}}>
-                  <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:6}}>
-                    <span style={{fontSize:13}}>{f.icon}</span>
-                    <span style={{fontSize:11,color:'var(--text-sub)',fontWeight:600,flex:1}}>{f.label}</span>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:4}}>
-                    <input type="number" inputMode="numeric" value={v} onChange={e=>updBS(f.id,e.target.value)} placeholder="---" className="bs-inp"
-                      style={{width:'100%',border:'none',background:'transparent',fontSize:20,fontWeight:800,color:n?bsColor(n):'var(--text)',outline:'none',textAlign:'center'}}/>
-                    <span style={{fontSize:11,color:'var(--text-sub)',flexShrink:0}}>mg/dL</span>
-                  </div>
-                  {n>0&&<div style={{fontSize:10,fontWeight:700,color:bsColor(n),textAlign:'center',marginTop:2}}>{bsLabel(n)}</div>}
+                <div key={i} className="step-bar-wrap">
+                  <div style={{fontSize:9,color:'var(--text2)',marginBottom:2}}>{x.v>=1000?(x.v/1000).toFixed(1)+'k':x.v||''}</div>
+                  <div className="step-bar" style={{height:Math.max(ratio*50,3)+'px',background:isGoal?'var(--green)':'var(--accent)',opacity:x.v?1:0.2}}/>
+                  <div className="step-day">{dayKor[dt.getDay()]}</div>
                 </div>
               );
             })}
           </div>
         </div>
+      </div>
 
-        {/* 복약 체크 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>💊 복약 확인</div>
-          {medsConfig.length===0&&<div style={{fontSize:13,color:'var(--text-sub)',textAlign:'center',padding:'10px 0'}}>⚙️ 설정 탭에서 복약 일정을 설정해 주세요</div>}
-          {medsConfig.map(slot=>(
-            <div key={slot.key||slot.slot} style={{border:`1px solid ${slot.border||'#e2e8f0'}`,borderRadius:10,padding:10,marginBottom:8,background:slot.bg||'var(--input-bg)'}}>
-              <div style={{fontWeight:700,fontSize:13,color:slot.color,marginBottom:6}}>{slot.icon} {slot.slot}</div>
-              {slot.items.map(med=>(
-                <label key={med.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 4px',cursor:'pointer'}}>
-                  <input type="checkbox" className="med-checkbox" checked={\!\!day.meds?.[med.id]} onChange={()=>togMed(med.id)}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)',textDecoration:day.meds?.[med.id]?'line-through':'none',opacity:day.meds?.[med.id]?0.6:1}}>{med.name}</div>
-                    <div style={{fontSize:11,color:'var(--text-sub)'}}>{med.dose}</div>
+      {medsConfig.length > 0 && (
+        <div className="section">
+          <div className="section-title">오늘 복약</div>
+          <div className="meds-grid">
+            {medsConfig.slice(0,4).map(med=>{
+              const done = todayData.meds && todayData.meds[med.id];
+              return (
+                <div key={med.id} className="med-row">
+                  <div>
+                    <div className="med-name">{med.name}</div>
+                    <div className="med-time">{med.time} · {med.dose}</div>
                   </div>
-                  {day.meds?.[med.id]&&<span style={{fontSize:14,color:'#22c55e'}}>✓</span>}
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* 체중 / 체지방 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>⚖️ 체중 · 체지방</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>체중 (kg)</div>
-              <input type="text" inputMode="decimal" value={day.weight||''} onChange={e=>upDay({weight:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0" style={inpSt}/>
-            </div>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>체지방률 (%)</div>
-              <input type="text" inputMode="decimal" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0" style={inpSt}/>
-            </div>
+                  <div className={'med-status '+(done?'med-done':'med-miss')}>{done?'✓':'○'}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
 
-        {/* 걸음수 / 수면 (수동 입력) */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>🚶 걸음수 · 수면</div>
-          <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:8}}>💡 건강앱 가져오기로 자동 입력하거나 직접 입력하세요</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>걸음수</div>
-              <input type="number" inputMode="numeric" value={day.steps||''} onChange={e=>upDay({steps:e.target.value})} placeholder="0" style={inpSt}/>
-            </div>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>목표 대비</div>
-              <div style={{padding:'10px 12px',background:'var(--input-bg)',borderRadius:10,border:'1px solid var(--card-border)',fontSize:14,fontWeight:700,color:parseInt(day.steps)>=8000?'#22c55e':parseInt(day.steps)>=5000?'#f59e0b':'#94a3b8'}}>
-                {parseInt(day.steps)>0?`${Math.min(100,Math.round(parseInt(day.steps)/80))}%`:'—'}
-              </div>
-            </div>
+      <div className="section" style={{marginBottom:16}}>
+        <div className="section-title">AI 인사이트</div>
+        {insights.map((text,i)=>(
+          <div key={i} className="insight-card" style={{marginBottom:8}}>
+            <div className="insight-icon">🤖</div>
+            <div className="insight-text">{text}</div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>수면 시간 (시간)</div>
-              <input type="number" inputMode="numeric" value={day.sleep?.h||''} onChange={e=>upDay({sleep:{...(day.sleep||{h:'',m:''}),h:e.target.value}})} placeholder="7" style={inpSt}/>
-            </div>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>수면 시간 (분)</div>
-              <input type="number" inputMode="numeric" value={day.sleep?.m||''} onChange={e=>upDay({sleep:{...(day.sleep||{h:'',m:''}),m:e.target.value}})} placeholder="30" style={inpSt}/>
-            </div>
-          </div>
-          <button onClick={onShowImport} style={{marginTop:10,width:'100%',border:'1px solid var(--accent)',borderRadius:10,padding:'8px',background:'var(--accent-light)',cursor:'pointer',fontWeight:600,color:'var(--accent)',fontSize:13}}>
-            📲 건강앱에서 자동 가져오기
-          </button>
-        </div>
-
-        {/* 식사 기록 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>🍱 식사 기록 + AI 분석</div>
-          {MEALS.map(meal=>(
-            <div key={meal.id} style={{marginBottom:14}}>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                <span style={{fontSize:16}}>{meal.icon}</span>
-                <span style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{meal.label}</span>
-                <button onClick={()=>photoRef[meal.id]?.current?.click()} style={{marginLeft:'auto',border:'1px solid #7c3aed',borderRadius:8,padding:'3px 10px',background:'#faf5ff',cursor:'pointer',fontSize:11,color:'#7c3aed',fontWeight:600}}>
-                  📷 사진 분석
-                </button>
-                <input ref={photoRef[meal.id]} type="file" accept="image/*" capture="environment" onChange={e=>e.target.files[0]&&handlePhoto(meal.id,e.target.files[0])} style={{display:'none'}}/>
-              </div>
-              <textarea value={day.meals?.[meal.id]||''} onChange={e=>updMeal(meal.id,e.target.value)} placeholder={meal.ph} rows={2}
-                style={{...inpSt,resize:'vertical',lineHeight:1.6,fontFamily:'inherit',fontSize:13}}/>
-              {mealPhotoSrc[meal.id]&&<img src={mealPhotoSrc[meal.id]} style={{width:'100%',maxHeight:140,objectFit:'cover',borderRadius:8,marginTop:6}} alt="meal"/>}
-              {aiLoading&&\!aiResult[meal.id]&&<div style={{fontSize:12,color:'#7c3aed',marginTop:4}}>🤖 AI 분석 중...</div>}
-              {aiResult[meal.id]&&<div style={{marginTop:6,background:'#faf5ff',border:'1px solid #c4b5fd',borderRadius:10,padding:'10px 12px',fontSize:12,lineHeight:1.8,color:'var(--text)',whiteSpace:'pre-wrap'}}>{aiResult[meal.id]}</div>}
-            </div>
-          ))}
-        </div>
-
-        {/* 운동 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>🏃 운동 기록</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>운동 종류</div>
-              <input type="text" value={day.exercise?.type||''} onChange={e=>updEx('type',e.target.value)} placeholder="걷기, 수영, 자전거…" style={inpSt}/>
-            </div>
-            <div>
-              <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>운동 시간 (분)</div>
-              <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt}/>
-            </div>
-          </div>
-          <div style={{marginTop:8,fontSize:12,color:'#22c55e'}}>💡 식후 30분 걷기 30분이 혈당 조절에 가장 효과적</div>
-        </div>
-
-        {/* 메모 */}
-        <div className="cn-card" style={{marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>📝 오늘의 메모</div>
-          <textarea value={day.note||''} onChange={e=>upDay({note:e.target.value})} placeholder="특이사항, 컨디션, 저혈당 증상, 의사에게 전달할 내용…" rows={4}
-            style={{...inpSt,resize:'vertical',lineHeight:1.6,fontFamily:'inherit'}}/>
-        </div>
+        ))}
       </div>
     </div>
   );
 };
 
-/* ── 설정 스크린 ─────────────────────────────────────────────── */
-const SettingsScreen = ({ medsConfig, setMedsConfig, data, userId, userEmail, saveStatus, lastImport, onRefresh }) => {
-  const [showMedSettings,setShowMedSettings]=useState(false);
-  const [showImport,setShowImport]=useState(false);
-  const [showDrugInfo,setShowDrugInfo]=useState(false);
-  const [showSync,setShowSync]=useState(false);
-  const [height,setHeight]=useState('');
-  const [darkMode,setDarkMode]=useState(_dm);
-  const isAdmin = userEmail===ADMIN_EMAIL;
+/* RecordScreen */
+const RecordScreen = ({ data, medsConfig, onSave, showToast }) => {
+  const [currentDate, setCurrentDate] = useState(todayStr());
+  const [entry, setEntry] = useState(() => {
+    const d = data[todayStr()];
+    return d ? Object.assign(emptyDay(),d) : emptyDay();
+  });
+  const [bsTab, setBsTab] = useState('fasting');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState({});
+  const mealRefs = useRef({});
 
-  useEffect(()=>{
-    if(\!userId)return;
-    const h=localStorage.getItem(`hcd_height_${userId}`)||localStorage.getItem('hcd_height');
-    if(h)setHeight(h);
-  },[userId]);
+  useEffect(() => {
+    const d = data[currentDate];
+    setEntry(d ? Object.assign(emptyDay(),d) : emptyDay());
+  }, [currentDate, data]);
 
-  const saveHeight=(v)=>{
-    setHeight(v);
-    localStorage.setItem('hcd_height',v);
-    if(userId)localStorage.setItem(`hcd_height_${userId}`,v);
+  const upd = (path, val) => {
+    setEntry(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const parts = path.split('.');
+      let obj = next;
+      for (let i = 0; i < parts.length-1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {};
+        obj = obj[parts[i]];
+      }
+      obj[parts[parts.length-1]] = val;
+      return next;
+    });
   };
 
-  const toggleDark=()=>{
-    const next=\!darkMode;
-    setDarkMode(next);
-    _dm=next;
-    document.body.classList.toggle('dark',next);
-    localStorage.setItem('cn_dark',next?'1':'0');
+  const handleMealPhoto = async (time, file) => {
+    if (!file) return;
+    setAnalyzing(true);
+    try {
+      const b64 = await fileToBase64(file);
+      const url = URL.createObjectURL(file);
+      upd('meals.'+time+'.photo', url);
+      upd('meals.'+time+'.photoB64', b64);
+      upd('meals.'+time+'.mimeType', file.type);
+      const result = await analyzeFood(b64, file.type);
+      setAnalysisResults(prev => Object.assign({},prev,{[time]:result}));
+      upd('meals.'+time+'.analysis', result);
+    } catch(e) { showToast('분석 오류: '+e.message); }
+    setAnalyzing(false);
   };
 
-  const saveMeds=(cfg)=>{setMedsConfig(cfg);setShowMedSettings(false);};
-
-  const handleImport=(importedData,setData_fn)=>{
-    // handled at App level via callback
-    window.__importCallback&&window.__importCallback(importedData);
-    setShowImport(false);
+  const toggleMed = (medId) => {
+    const cur = entry.meds && entry.meds[medId];
+    upd('meds.'+medId, cur ? false : true);
   };
 
-  // 총 데이터 통계
-  const totalDays=Object.keys(data).length;
-  const bpDays=Object.values(data).filter(d=>d.bp?.sys).length;
-  const gDays=Object.values(data).filter(d=>Object.values(d.bs||{}).some(v=>parseInt(v)>0)).length;
+  const handleSave = () => { onSave(currentDate, entry); showToast('저장되었습니다'); };
 
-  const sectionBtn=(icon,label,sub,onClick,color='var(--accent)')=>(
-    <button onClick={onClick} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px 0',border:'none',borderTop:'1px solid var(--divider)',background:'transparent',cursor:'pointer',textAlign:'left'}}>
-      <span style={{fontSize:22,width:36,textAlign:'center'}}>{icon}</span>
-      <div style={{flex:1}}>
-        <div style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>{label}</div>
-        {sub&&<div style={{fontSize:12,color:'var(--text-sub)',marginTop:1}}>{sub}</div>}
-      </div>
-      <span style={{fontSize:16,color:'var(--text-sub)'}}>›</span>
-    </button>
-  );
+  const bsVal = (entry.bs && entry.bs[bsTab]) || '';
+  const bsC = bsColor(bsVal);
+  const isToday = currentDate === todayStr();
 
   return (
-    <div className="screen page-scroll">
-      {/* 모달들 */}
-      {showMedSettings&&<MedSettingsModal medsConfig={medsConfig} onSave={saveMeds} onClose={()=>setShowMedSettings(false)}/>}
-      {showImport&&<ImportModal onClose={()=>setShowImport(false)} onImport={d=>{window.__importCallback&&window.__importCallback(d);setShowImport(false);}}/>}
-      {showDrugInfo&&<DrugInfoModal medsConfig={medsConfig} onClose={()=>setShowDrugInfo(false)}/>}
-      {showSync&&<SyncModal userId={userId} data={data} onClose={()=>setShowSync(false)}/>}
-
-      <div style={{padding:'16px 14px'}}>
-        {/* 앱 헤더 */}
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-          <CareNoteLogo size={40}/>
-          <div>
-            <div style={{fontWeight:900,fontSize:18}}>CARENOTE</div>
-            <div style={{fontSize:12,color:'var(--text-sub)'}}>내 몸을 기록하는 노트</div>
-          </div>
-          <div style={{marginLeft:'auto',textAlign:'right'}}>
-            <div style={{fontSize:11,color:'var(--text-sub)'}}>동기화</div>
-            <div style={{fontSize:12,fontWeight:600,color:saveStatus==='saved'?'#22c55e':saveStatus==='saving'?'#f59e0b':saveStatus==='error'?'#ef4444':'var(--text-sub)'}}>
-              {saveStatus==='saved'?'✓ 완료':saveStatus==='saving'?'⏳ 저장 중':saveStatus==='error'?'❌ 오류':'대기'}
+    <div className="screen">
+      <div className="record-header">
+        <div className="record-title">기록</div>
+        <div className="date-nav">
+          <button className="date-nav-btn" onClick={()=>setCurrentDate(shiftDate(currentDate,-1))}>‹</button>
+          <div className="date-display">{isToday?'오늘 · ':''}{currentDate}</div>
+          <button className="date-nav-btn" onClick={()=>setCurrentDate(shiftDate(currentDate,1))} disabled={currentDate>=todayStr()} style={{opacity:currentDate>=todayStr()?0.3:1}}>›</button>
+        </div>
+      </div>
+      <div className="section" style={{marginTop:14}}>
+        <div className="form-group card-sm">
+          <div className="form-label">🫀 혈압</div>
+          <div className="form-row">
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="수축기" type="number" value={(entry.bp && entry.bp.sys)||''} onChange={e=>upd('bp.sys',e.target.value)}/>
+              <span className="input-unit">mmHg</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',color:'var(--text3)',fontWeight:700}}>/</div>
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="이완기" type="number" value={(entry.bp && entry.bp.dia)||''} onChange={e=>upd('bp.dia',e.target.value)}/>
+              <span className="input-unit">mmHg</span>
             </div>
           </div>
         </div>
 
-        {/* 데이터 통계 */}
-        <div className="cn-card" style={{marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>📊 데이터 현황</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-            {[{label:'기록 일수',val:`${totalDays}일`,color:'#2563eb'},{label:'혈압 측정',val:`${bpDays}일`,color:'#ef4444'},{label:'혈당 기록',val:`${gDays}일`,color:'#f59e0b'}].map(s=>(
-              <div key={s.label} style={{background:'var(--input-bg)',borderRadius:10,padding:'10px',textAlign:'center'}}>
-                <div style={{fontSize:18,fontWeight:900,color:s.color}}>{s.val}</div>
-                <div style={{fontSize:11,color:'var(--text-sub)',marginTop:2}}>{s.label}</div>
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">🩸 혈당</div>
+          <div className="bs-tabs">
+            {BS_FIELDS.map(f=>(
+              <div key={f.key} className={'bs-tab'+(bsTab===f.key?' active':'')} onClick={()=>setBsTab(f.key)}>
+                {f.label}
+                {entry.bs && entry.bs[f.key] && <span style={{marginLeft:4,color:bsColor(entry.bs[f.key])}}>{entry.bs[f.key]}</span>}
               </div>
             ))}
           </div>
-          {lastImport&&<div style={{marginTop:8,fontSize:11,color:'var(--text-sub)'}}>마지막 가져오기: {lastImport}</div>}
+          <div className="input-group">
+            <input className="input" placeholder={(BS_FIELDS.find(f=>f.key===bsTab)||{}).label+' 혈당'} type="number"
+              value={bsVal} onChange={e=>upd('bs.'+bsTab,e.target.value)}
+              style={bsVal ? {borderColor:bsC} : {}}/>
+            <span className="input-unit" style={{color:bsC}}>{bsVal ? bsLabel(bsVal) : 'mg/dL'}</span>
+          </div>
         </div>
 
-        {/* 설정 항목들 */}
-        <div className="cn-card" style={{marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:6}}>⚙️ 건강 관리</div>
-          {sectionBtn('💊','복약 일정 설정',`${medsConfig.length}개 슬롯 · ${medsConfig.flatMap(s=>s.items).length}개 약품`,()=>setShowMedSettings(true))}
-          {sectionBtn('📲','건강앱 데이터 가져오기','iOS·Android·LibreView CSV',()=>setShowImport(true),'#059669')}
-          {sectionBtn('🔍','약품 정보 조회','e약은요 식약처 데이터',()=>setShowDrugInfo(true),'#7c3aed')}
-          {sectionBtn('☁️','Supabase 동기화',`${totalDays}일 데이터`,()=>setShowSync(true),'#0ea5e9')}
-        </div>
-
-        {/* 개인 정보 */}
-        <div className="cn-card" style={{marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>👤 개인 정보</div>
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:4}}>키 (신장)</div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <input type="text" inputMode="decimal" value={height} onChange={e=>saveHeight(e.target.value.replace(/[^0-9.]/g,''))} placeholder="175"
-                style={{flex:1,border:'1px solid var(--input-border)',borderRadius:10,padding:'10px 12px',background:'var(--input-bg)',color:'var(--text)',outline:'none',fontSize:15}}/>
-              <span style={{fontSize:14,color:'var(--text-sub)',fontWeight:600}}>cm</span>
+        {medsConfig.length > 0 && (
+          <div className="form-group card-sm" style={{marginTop:10}}>
+            <div className="form-label">💊 복약 체크</div>
+            <div className="meds-check-grid">
+              {medsConfig.map(med=>(
+                <div key={med.id} className={'med-check-btn'+((entry.meds && entry.meds[med.id])?' checked':'')} onClick={()=>toggleMed(med.id)}>
+                  <div className="med-check-box">{(entry.meds && entry.meds[med.id])?'✓':''}</div>
+                  <div>
+                    <div className="med-check-name">{med.name}</div>
+                    <div style={{fontSize:10,color:'var(--text3)'}}>{med.time} · {med.dose}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          {height&&(() => {
-            const h=parseFloat(height);
-            const wArr=Object.values(data).map(d=>parseFloat(d.weight)).filter(w=>w>0);
-            const w=wArr.length?wArr[wArr.length-1]:null;
-            if(\!w||h<100)return null;
-            const bmi=w/((h/100)**2);
-            const bmiR=Math.round(bmi*10)/10;
-            const ranges=[{l:'저체중',max:18.5,c:'#3b82f6'},{l:'정상',max:23.0,c:'#22c55e'},{l:'과체중',max:25.0,c:'#f59e0b'},{l:'비만',max:30.0,c:'#f97316'},{l:'고도비만',max:99,c:'#ef4444'}];
-            const cur=ranges.find(r=>bmiR<r.max)||ranges[4];
-            return <div style={{background:'var(--input-bg)',borderRadius:10,padding:'10px 12px',fontSize:13}}>
-              <span style={{fontWeight:700,color:'var(--text-sub)'}}>BMI </span>
-              <span style={{fontWeight:900,fontSize:18,color:cur.c}}>{bmiR}</span>
-              <span style={{fontSize:12,color:'var(--text-sub)'}}> kg/m² </span>
-              <span style={{fontWeight:700,color:cur.c}}>({cur.l})</span>
-            </div>;
-          })()}
-        </div>
+        )}
 
-        {/* 앱 설정 */}
-        <div className="cn-card" style={{marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>🎨 앱 설정</div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0'}}>
-            <div style={{fontSize:14,color:'var(--text)'}}>🌙 다크 모드</div>
-            <div onClick={toggleDark} style={{width:44,height:24,borderRadius:12,background:darkMode?'#2563eb':'#cbd5e1',cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
-              <div style={{position:'absolute',top:3,left:darkMode?20:3,width:18,height:18,borderRadius:9,background:'#fff',transition:'left 0.2s',boxShadow:'0 1px 4px rgba(0,0,0,0.2)'}}/>
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">⚖️ 체중 / 체지방</div>
+          <div className="form-row">
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="체중" type="number" step="0.1" value={entry.weight||''} onChange={e=>upd('weight',e.target.value)}/>
+              <span className="input-unit">kg</span>
+            </div>
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="체지방" type="number" step="0.1" value={entry.bodyFat||''} onChange={e=>upd('bodyFat',e.target.value)}/>
+              <span className="input-unit">%</span>
             </div>
           </div>
-          <div style={{borderTop:'1px solid var(--divider)',paddingTop:10,marginTop:2}}>
-            <button onClick={onRefresh} style={{border:'1px solid var(--card-border)',borderRadius:10,padding:'8px 14px',background:'var(--input-bg)',cursor:'pointer',fontSize:13,color:'var(--text-sub)',fontWeight:600}}>
-              🔄 데이터 새로고침
-            </button>
+        </div>
+
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">🏃 걸음수 / 수면</div>
+          <div className="form-row">
+            <div className="input-group" style={{flex:2}}>
+              <input className="input" placeholder="걸음수" type="number" value={entry.steps||''} onChange={e=>upd('steps',e.target.value)}/>
+              <span className="input-unit">보</span>
+            </div>
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="시간" type="number" value={(entry.sleep && entry.sleep.h)||''} onChange={e=>upd('sleep.h',e.target.value)}/>
+              <span className="input-unit">h</span>
+            </div>
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="분" type="number" value={(entry.sleep && entry.sleep.m)||''} onChange={e=>upd('sleep.m',e.target.value)}/>
+              <span className="input-unit">m</span>
+            </div>
           </div>
         </div>
 
-        {/* 사용자 ID */}
-        <div style={{background:'var(--input-bg)',borderRadius:10,padding:'10px 12px',marginBottom:16}}>
-          <div style={{fontSize:11,color:'var(--text-sub)',marginBottom:4}}>사용자 ID</div>
-          <div style={{fontSize:10,fontFamily:'monospace',color:'var(--text)',wordBreak:'break-all'}}>{userId}</div>
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">🍽 식사 기록 (사진 AI 분석)</div>
+          {analyzing && <div style={{fontSize:12,color:'var(--accent)',marginBottom:8}}>🤖 분석 중...</div>}
+          <div className="meals-row">
+            {TIME_WINDOWS.map(time=>{
+              const meal = entry.meals && entry.meals[time];
+              const openPicker = () => {
+                if (!mealRefs.current[time]) {
+                  const inp = document.createElement('input');
+                  inp.type='file'; inp.accept='image/*';
+                  inp.onchange = e => handleMealPhoto(time, e.target.files && e.target.files[0]);
+                  mealRefs.current[time] = inp;
+                }
+                mealRefs.current[time].click();
+              };
+              return (
+                <div key={time} className="meal-slot">
+                  <div className="meal-slot-btn" onClick={openPicker}>
+                    {meal && meal.photo ? <img src={meal.photo} alt={time}/> : <span style={{fontSize:20,color:'var(--text3)'}}>+</span>}
+                  </div>
+                  <div className="meal-slot-label">{time}</div>
+                </div>
+              );
+            })}
+          </div>
+          {Object.entries(analysisResults).map(([time, result]) => (
+            <div key={time} className="analysis-result"><b>{time}:</b> {result}</div>
+          ))}
         </div>
 
-        <div style={{textAlign:'center',fontSize:11,color:'var(--text-sub)',paddingBottom:8}}>CARENOTE v2.0 · Made with ❤️</div>
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">🏋️ 운동</div>
+          <div className="form-row">
+            <input className="input" style={{flex:2}} placeholder="운동 종류 (예: 걷기, 수영)" value={(entry.exercise && entry.exercise.type)||''} onChange={e=>upd('exercise.type',e.target.value)}/>
+            <div className="input-group" style={{flex:1}}>
+              <input className="input" placeholder="시간" type="number" value={(entry.exercise && entry.exercise.mins)||''} onChange={e=>upd('exercise.mins',e.target.value)}/>
+              <span className="input-unit">분</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-group card-sm" style={{marginTop:10}}>
+          <div className="form-label">📝 메모</div>
+          <textarea className="input" rows={3} placeholder="오늘 특이사항, 증상, 느낌 등..." value={entry.note||''} onChange={e=>upd('note',e.target.value)} style={{resize:'none'}}/>
+        </div>
+
+        <button className="save-btn" onClick={handleSave}>저장하기</button>
       </div>
     </div>
   );
 };
 
+/* SettingsScreen */
+const SettingsScreen = ({ data, medsConfig, onOpenMedSettings, onOpenDrug, showToast, userId, height, onSetHeight, darkMode, onToggleDark }) => {
+  const dates = Object.keys(data).filter(k => k !== '_user_settings_').sort();
+  const totalDays = dates.length;
+  const bpCount = dates.filter(d => data[d] && data[d].bp && data[d].bp.sys).length;
+  const bsCount = dates.filter(d => data[d] && data[d].bs && Object.keys(data[d].bs).length > 0).length;
+  const medDays = dates.filter(d => { const m = data[d] && data[d].meds; return m && Object.keys(m).length > 0; }).length;
+  const stepsAll = dates.map(d => parseFloat((data[d] && data[d].steps)||0)).filter(v => v > 0);
+  const avgSteps = stepsAll.length ? Math.round(stepsAll.reduce((a,b)=>a+b,0)/stepsAll.length) : 0;
+  const weightVals = dates.map(d => parseFloat(data[d] && data[d].weight)).filter(v => !isNaN(v) && v > 0);
+  const curWeight = weightVals.length ? weightVals[weightVals.length-1] : 0;
+  const h = parseFloat(height)||0;
+  const bmi = (h > 0 && curWeight > 0) ? (curWeight/((h/100)*(h/100))).toFixed(1) : '--';
+  const bmiLabel = bmi==='--' ? '' : parseFloat(bmi)<18.5?'저체중':parseFloat(bmi)<23?'정상':parseFloat(bmi)<25?'과체중':'비만';
 
-/* ── 메인 App 컴포넌트 ─────────────────────────────────────── */
+  return (
+    <div className="screen">
+      <div className="settings-header">
+        <div className="settings-title">설정</div>
+      </div>
+
+      <div className="settings-section" style={{marginTop:14}}>
+        <div className="section-title">기록 통계</div>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-val">{totalDays}</div><div className="stat-lbl">기록 일수</div></div>
+          <div className="stat-card"><div className="stat-val">{bpCount}</div><div className="stat-lbl">혈압 측정</div></div>
+          <div className="stat-card"><div className="stat-val">{bsCount}</div><div className="stat-lbl">혈당 측정</div></div>
+          <div className="stat-card"><div className="stat-val">{medDays}</div><div className="stat-lbl">복약 완료</div></div>
+          <div className="stat-card"><div className="stat-val">{avgSteps>0?(avgSteps/1000).toFixed(1)+'k':'-'}</div><div className="stat-lbl">평균 걸음</div></div>
+          <div className="stat-card">
+            <div className="stat-val" style={{color:parseFloat(bmi)>25?'var(--red)':parseFloat(bmi)>23?'var(--yellow)':'var(--green)'}}>{bmi}</div>
+            <div className="stat-lbl">BMI {bmiLabel}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section" style={{marginTop:10}}>
+        <div className="section-title">신체 정보</div>
+        <div className="settings-group">
+          <div className="settings-row" style={{cursor:'default'}}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(79,172,254,0.1)'}}>📏</div>
+              <div className="settings-label">키</div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <input className="input" style={{width:70,textAlign:'center',padding:'6px 10px'}} type="number" placeholder="170" value={height||''} onChange={e=>onSetHeight(e.target.value)}/>
+              <span style={{fontSize:13,color:'var(--text2)'}}>cm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section" style={{marginTop:10}}>
+        <div className="section-title">관리</div>
+        <div className="settings-group">
+          <div className="settings-row" onClick={onOpenMedSettings}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(108,99,255,0.1)'}}>💊</div>
+              <div>
+                <div className="settings-label">복약 설정</div>
+                <div style={{fontSize:11,color:'var(--text2)'}}>{medsConfig.length}개 약 등록됨</div>
+              </div>
+            </div>
+            <div className="settings-arrow">›</div>
+          </div>
+          <div className="settings-row" onClick={onOpenDrug}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(247,151,30,0.1)'}}>🔍</div>
+              <div className="settings-label">의약품 정보 검색</div>
+            </div>
+            <div className="settings-arrow">›</div>
+          </div>
+          <div className="settings-row" style={{cursor:'default'}}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(67,233,123,0.1)'}}>🌙</div>
+              <div className="settings-label">다크 모드</div>
+            </div>
+            <div className={'toggle'+(darkMode?' on':'')} onClick={onToggleDark}><div className="toggle-thumb"/></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section" style={{marginTop:10,marginBottom:16}}>
+        <div className="section-title">계정</div>
+        <div className="settings-group">
+          <div className="settings-row" style={{cursor:'default'}}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(255,101,132,0.1)'}}>👤</div>
+              <div>
+                <div className="settings-label">사용자 ID</div>
+                <div style={{fontSize:11,color:'var(--text2)'}}>{userId && userId.slice(0,8)}...</div>
+              </div>
+            </div>
+          </div>
+          <div className="settings-row" style={{cursor:'default'}}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(108,99,255,0.1)'}}>📧</div>
+              <div>
+                <div className="settings-label">이메일</div>
+                <div style={{fontSize:11,color:'var(--text2)'}}>{ADMIN_EMAIL}</div>
+              </div>
+            </div>
+          </div>
+          <div className="settings-row" onClick={()=>{
+            const exp = JSON.stringify(data,null,2);
+            const blob = new Blob([exp],{type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href=url; a.download='carenote_backup_'+todayStr()+'.json'; a.click();
+            showToast('백업 파일 다운로드 완료');
+          }}>
+            <div className="settings-row-left">
+              <div className="settings-icon" style={{background:'rgba(79,172,254,0.1)'}}>💾</div>
+              <div className="settings-label">데이터 백업 (JSON)</div>
+            </div>
+            <div className="settings-arrow">›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* App */
 const App = () => {
-  const [tab,     setTab]     = useState('home');  // 'home' | 'record' | 'settings'
-  const [date,    setDate]    = useState(todayStr);
-  const [data,    setData]    = useState({});
-  const [medsConfig, setMedsConfig] = useState([]);
-  const [medsReadyFor, setMedsReadyFor] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle');
-  const [lastImport, setLastImport] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const saveTimer = useRef(null);
-  const userId = useMemo(() => getOrCreateUserId(), []);
-  const userEmail = ADMIN_EMAIL; // 단일 사용자 앱
+  const [tab, setTab] = useState('home');
+  const [data, setData] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); } catch(e) { return {}; }
+  });
+  const [medsConfig, setMedsConfig] = useState(DEFAULT_MEDS);
+  const [medsReadyFor, setMedsReadyFor] = useState(null);
+  const [userId] = useState(() => getOrCreateUserId());
+  const [height, setHeight] = useState(() => localStorage.getItem('carenote_height')||'');
+  const [darkMode, setDarkMode] = useState(true);
+  const [showImport, setShowImport] = useState(false);
+  const [showSync, setShowSync] = useState(false);
+  const [showMedSettings, setShowMedSettings] = useState(false);
+  const [showDrug, setShowDrug] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState('');
+  const saveTimerRef = useRef(null);
 
-  // 기록용 현재 날짜 day 객체
-  const day = useMemo(() => data[date] || emptyDay(), [data, date]);
-  const upDay = useCallback((patch) => {
-    setData(prev => ({ ...prev, [date]: { ...(prev[date]||emptyDay()), ...patch } }));
-  }, [date]);
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(''),2500); };
 
-  /* ── Supabase: 초기 데이터 로드 ── */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const w=params.get('w'), bf=params.get('bf'), d=params.get('d');
-    const urlPatch={};
-    if(w&&\!isNaN(parseFloat(w)))urlPatch.weight=String(parseFloat(w));
-    if(bf&&\!isNaN(parseFloat(bf)))urlPatch.bodyFat=String(parseFloat(bf));
-    const targetDate=(d&&/^\d{4}-\d{2}-\d{2}$/.test(d))?d:todayStr();
-    if(Object.keys(urlPatch).length){window.history.replaceState({},'',window.location.pathname);if(targetDate\!==todayStr())setDate(targetDate);}
-
-    const load = async () => {
-      setLoading(true); setSyncing(true);
+    if (!userId) return;
+    (async () => {
+      setLoading(true);
       try {
-        const { data: rows, error } = await supa.from('diabetes_data').select('date, payload').eq('user_id', userId);
+        const { data: rows, error } = await supa.from('diabetes_data').select('*').eq('user_id', userId);
         if (error) throw error;
-        const loaded={};
-        (rows||[]).forEach(r=>{ if(r.date\!=='_user_settings_') loaded[r.date]=r.payload; });
-        // 로컬 캐시 병합
-        try {
-          const cached=JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{};
-          Object.keys(cached).forEach(d=>{
-            if(\!loaded[d])loaded[d]=cached[d];
-            else{
-              const sb=loaded[d],lc=cached[d];
-              if(\!sb.weight&&lc?.weight)loaded[d]={...sb,weight:lc.weight};
-              if(\!sb.bodyFat&&lc?.bodyFat)loaded[d]={...loaded[d],bodyFat:lc.bodyFat};
-              if(\!sb.steps&&lc?.steps)loaded[d]={...loaded[d],steps:lc.steps};
-              if(\!(sb.sleep?.h)&&lc?.sleep?.h)loaded[d]={...loaded[d],sleep:lc.sleep};
-            }
-          });
-        } catch{}
-        // 가져오기 전용 캐시 병합
-        try {
-          const imp=JSON.parse(localStorage.getItem('dm_imported')||'{}');
-          Object.keys(imp).forEach(d=>{
-            if(\!loaded[d])loaded[d]=imp[d];
-            else{
-              if(\!loaded[d].weight&&imp[d]?.weight)loaded[d]={...loaded[d],weight:imp[d].weight};
-              if(\!loaded[d].bodyFat&&imp[d]?.bodyFat)loaded[d]={...loaded[d],bodyFat:imp[d].bodyFat};
-              if(\!(loaded[d].bp?.sys)&&imp[d]?.bp?.sys)loaded[d]={...loaded[d],bp:imp[d].bp};
-              if(\!loaded[d].steps&&imp[d]?.steps)loaded[d]={...loaded[d],steps:imp[d].steps};
-              if(\!(loaded[d].sleep?.h)&&imp[d]?.sleep?.h)loaded[d]={...loaded[d],sleep:imp[d].sleep};
-            }
-          });
-        } catch{}
-        if(Object.keys(urlPatch).length)loaded[targetDate]={...(loaded[targetDate]||emptyDay()),...urlPatch};
-        setData(loaded);
-      } catch(e) {
-        try {
-          const s=localStorage.getItem('dm_dash_v2');
-          const loaded=s?(JSON.parse(s).data||{}):{};
-          if(Object.keys(urlPatch).length)loaded[targetDate]={...(loaded[targetDate]||emptyDay()),...urlPatch};
+        const loaded = {};
+        (rows||[]).forEach(r => { if (r.date !== '_user_settings_') loaded[r.date] = r.payload; });
+        if (Object.keys(loaded).length > 0) {
           setData(loaded);
-        } catch{}
-      }
-      setLoading(false); setSyncing(false);
-    };
-    if(userId) load();
-  }, [userId, refreshKey]);
-
-  /* ── Supabase: 현재 날짜 저장 (디바운스 1.5초) ── */
-  useEffect(() => {
-    if (loading || \!data[date]) return;
-    localStorage.setItem('dm_dash_v2', JSON.stringify({data, lastImport}));
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaveStatus('saving');
-    saveTimer.current = setTimeout(async () => {
-      try {
-        const { error } = await supa.from('diabetes_data').upsert(
-          { user_id:userId, date, payload:data[date], updated_at:new Date().toISOString() },
-          { onConflict:'user_id,date' }
-        );
-        if(error)throw error;
-        setSaveStatus('saved');
-        setTimeout(()=>setSaveStatus('idle'),2000);
-      } catch(e) {
-        setSaveStatus('error');
-        setTimeout(()=>setSaveStatus('idle'),3000);
-      }
-    }, 1500);
-  }, [data, date, loading]);
-
-  /* ── medsConfig 로드 ── */
-  useEffect(() => {
-    if (\!userId) { setMedsReadyFor(''); return; }
-    (async()=>{
-      try {
-        const { data:row } = await supa.from('diabetes_data').select('payload').eq('user_id',userId).eq('date','_user_settings_').maybeSingle();
-        const fromSB=row?.payload?.medsConfig;
-        if(fromSB&&Array.isArray(fromSB)){
-          setMedsConfig(fromSB);
-          localStorage.setItem(`hcd_meds_config_${userId}`,JSON.stringify(fromSB));
-        } else {
-          const s=localStorage.getItem(`hcd_meds_config_${userId}`);
-          setMedsConfig(s?JSON.parse(s):[]);
+          localStorage.setItem(LS_KEY, JSON.stringify(loaded));
         }
-      } catch {
-        try{const s=localStorage.getItem(`hcd_meds_config_${userId}`);setMedsConfig(s?JSON.parse(s):[]);}
-        catch{setMedsConfig([]);}
+        const settingsRow = (rows||[]).find(r => r.date === '_user_settings_');
+        if (settingsRow && settingsRow.payload && settingsRow.payload.medsConfig) {
+          setMedsConfig(settingsRow.payload.medsConfig);
+          localStorage.setItem('hcd_meds_config_'+userId, JSON.stringify(settingsRow.payload.medsConfig));
+        } else {
+          const localMeds = localStorage.getItem('hcd_meds_config_'+userId);
+          if (localMeds) { try { setMedsConfig(JSON.parse(localMeds)); } catch(ex) {} }
+        }
+        setMedsReadyFor(userId);
+        localStorage.setItem('carenote_last_sync', new Date().toLocaleString('ko-KR'));
+      } catch(e) {
+        console.error('Supabase load error:', e);
+        const localMeds = localStorage.getItem('hcd_meds_config_'+userId);
+        if (localMeds) { try { setMedsConfig(JSON.parse(localMeds)); } catch(ex) {} }
+        setMedsReadyFor(userId);
       }
-      setMedsReadyFor(userId);
+      setLoading(false);
     })();
   }, [userId]);
 
-  /* ── medsConfig 저장 ── */
   useEffect(() => {
-    if (\!userId||medsReadyFor\!==userId) return;
-    localStorage.setItem(`hcd_meds_config_${userId}`,JSON.stringify(medsConfig));
-    (async()=>{
+    if (!userId || medsReadyFor !== userId) return;
+    localStorage.setItem('hcd_meds_config_'+userId, JSON.stringify(medsConfig));
+    (async () => {
       try {
         await supa.from('diabetes_data').upsert(
           { user_id:userId, date:'_user_settings_', payload:{medsConfig}, updated_at:new Date().toISOString() },
           { onConflict:'user_id,date' }
         );
-      } catch(e){ console.error('복약 설정 저장 오류:',e); }
+      } catch(e) { console.error('복약 설정 저장 오류:', e); }
     })();
   }, [medsConfig, userId, medsReadyFor]);
 
-  /* ── 가져오기 핸들러 (일괄 저장) ── */
-  const saveAllToSupabase = async (newData) => {
-    if (\!userId) return;
-    try {
-      const rows=Object.entries(newData).map(([d,payload])=>({user_id:userId,date:d,payload,updated_at:new Date().toISOString()}));
-      for(let i=0;i<rows.length;i+=50){
-        await supa.from('diabetes_data').upsert(rows.slice(i,i+50),{onConflict:'user_id,date'});
-      }
-    } catch(e){console.error('일괄 저장 오류:',e);}
-  };
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  }, [data]);
 
-  const handleImport = async (importedData) => {
-    const next={...data};
-    const merged={};
-    Object.entries(importedData).forEach(([d,imp])=>{
-      if(\!next[d])next[d]=imp;
-      else {
-        const ex=next[d];
-        next[d]={...ex,
-          bs:{...imp.bs,...ex.bs},
-          weight:ex.weight||imp.weight||'',
-          bodyFat:ex.bodyFat||imp.bodyFat||'',
-          bp:(ex.bp?.sys&&ex.bp?.dia)?ex.bp:(imp.bp||ex.bp||{sys:'',dia:''}),
-          steps:ex.steps||imp.steps||'',
-          sleep:(ex.sleep?.h)?ex.sleep:(imp.sleep||ex.sleep||{h:'',m:''}),
-        };
-      }
-      merged[d]=next[d];
+  const handleSaveEntry = useCallback((date, entry) => {
+    setData(prev => {
+      const next = Object.assign({}, prev, {[date]: entry});
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          await supa.from('diabetes_data').upsert(
+            { user_id:userId, date, payload:entry, updated_at:new Date().toISOString() },
+            { onConflict:'user_id,date' }
+          );
+          localStorage.setItem('carenote_last_sync', new Date().toLocaleString('ko-KR'));
+        } catch(e) { console.error('저장 오류:', e); }
+      }, 1500);
+      return next;
     });
-    setData(next);
-    try{localStorage.setItem('dm_dash_v2',JSON.stringify({data:next,lastImport:new Date().toLocaleString('ko-KR')}));}catch{}
-    try{
-      const existing=JSON.parse(localStorage.getItem('dm_imported')||'{}');
-      const updated={...existing};
-      Object.entries(importedData).forEach(([d,imp])=>{
-        if(\!updated[d])updated[d]=imp;
-        else{updated[d]={...updated[d],weight:updated[d].weight||imp.weight||'',bodyFat:updated[d].bodyFat||imp.bodyFat||'',
-          bp:(updated[d].bp?.sys)?updated[d].bp:(imp.bp||updated[d].bp),
-          steps:updated[d].steps||imp.steps||'',sleep:(updated[d].sleep?.h)?updated[d].sleep:(imp.sleep||updated[d].sleep||{h:'',m:''})};}
-      });
-      localStorage.setItem('dm_imported',JSON.stringify(updated));
-    }catch{}
-    setLastImport(new Date().toLocaleString('ko-KR'));
-    await saveAllToSupabase(merged);
-  };
+  }, [userId]);
 
-  // 전역 콜백 등록 (SettingsScreen에서 ImportModal 사용 시)
-  window.__importCallback = handleImport;
+  const handleImport = useCallback((importedData) => {
+    setData(prev => {
+      const merged = buildDashboardData(importedData, prev);
+      localStorage.setItem(LS_KEY, JSON.stringify(merged));
+      (async () => {
+        try {
+          const upserts = Object.entries(merged).map(([date, payload]) => ({
+            user_id:userId, date, payload, updated_at:new Date().toISOString()
+          }));
+          for (let i = 0; i < upserts.length; i += 50) {
+            await supa.from('diabetes_data').upsert(upserts.slice(i,i+50), {onConflict:'user_id,date'});
+          }
+          localStorage.setItem('carenote_last_sync', new Date().toLocaleString('ko-KR'));
+          showToast('데이터 동기화 완료');
+        } catch(e) { console.error('Import save error:', e); showToast('저장 오류'); }
+      })();
+      return merged;
+    });
+  }, [userId]);
 
-  if (loading) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',gap:16}}>
-      <CareNoteLogo size={60}/>
-      <div style={{fontWeight:800,fontSize:18}}>CARENOTE</div>
-      <div style={{color:'var(--text-sub)',fontSize:14}}>데이터 로딩 중...</div>
-    </div>
-  );
+  const handleSetHeight = (v) => { setHeight(v); localStorage.setItem('carenote_height', v); };
+
+  const navItems = [
+    { id:'home', label:'홈', icon:(
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9,22 9,12 15,12 15,22"/>
+      </svg>
+    )},
+    { id:'record', label:'기록', icon:(
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    )},
+    { id:'settings', label:'설정', icon:(
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    )},
+  ];
 
   return (
-    <div style={{maxWidth:480,margin:'0 auto',position:'relative'}}>
-      {/* 전역 가져오기 모달 */}
-      {showImportModal&&<ImportModal onClose={()=>setShowImportModal(false)} onImport={d=>{handleImport(d);setShowImportModal(false);}}/>}
-
-      {/* 스크린 */}
-      {tab==='home'&&(
-        <HomeScreen data={data} date={todayStr()} medsConfig={medsConfig} userId={userId}/>
-      )}
-      {tab==='record'&&(
-        <RecordScreen data={data} date={date} setDate={setDate} medsConfig={medsConfig}
-          upDay={upDay} day={day} userId={userId} onShowImport={()=>setShowImportModal(true)}/>
-      )}
-      {tab==='settings'&&(
-        <SettingsScreen medsConfig={medsConfig} setMedsConfig={setMedsConfig}
-          data={data} userId={userId} userEmail={userEmail} saveStatus={saveStatus}
-          lastImport={lastImport} onRefresh={()=>setRefreshKey(k=>k+1)}/>
-      )}
-
-      {/* 저장 상태 토스트 */}
-      {saveStatus==='saving'&&(
-        <div style={{position:'fixed',top:12,right:12,background:'#1e293b',color:'#fff',borderRadius:20,padding:'6px 14px',fontSize:12,fontWeight:600,zIndex:500,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
-          ⏳ 저장 중...
+    <>
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-box">
+            <div className="spinner"/>
+            <div style={{fontSize:13,color:'var(--text2)'}}>데이터 불러오는 중...</div>
+          </div>
         </div>
       )}
-      {saveStatus==='saved'&&(
-        <div style={{position:'fixed',top:12,right:12,background:'#22c55e',color:'#fff',borderRadius:20,padding:'6px 14px',fontSize:12,fontWeight:600,zIndex:500,boxShadow:'0 4px 12px rgba(34,197,94,0.3)'}}>
-          ✓ 저장됨
-        </div>
-      )}
+      {toast && <div className="toast">{toast}</div>}
 
-      {/* 하단 네비게이션 */}
+      {tab==='home' && <HomeScreen data={data} medsConfig={medsConfig} onOpenImport={()=>setShowImport(true)} onOpenSync={()=>setShowSync(true)} onOpenDrug={()=>setShowDrug(true)}/>}
+      {tab==='record' && <RecordScreen data={data} medsConfig={medsConfig} onSave={handleSaveEntry} showToast={showToast}/>}
+      {tab==='settings' && <SettingsScreen data={data} medsConfig={medsConfig} onOpenMedSettings={()=>setShowMedSettings(true)} onOpenDrug={()=>setShowDrug(true)} showToast={showToast} userId={userId} height={height} onSetHeight={handleSetHeight} darkMode={darkMode} onToggleDark={()=>setDarkMode(p=>!p)}/>}
+
       <nav className="bottom-nav">
-        <button className={`nav-btn${tab==='home'?' active':''}`} onClick={()=>setTab('home')}>
-          <span className="nav-btn-icon">🏠</span>
-          <span className="nav-btn-label">홈</span>
-        </button>
-        <button className={`nav-btn${tab==='record'?' active':''}`} onClick={()=>setTab('record')}>
-          <span className="nav-btn-icon">📝</span>
-          <span className="nav-btn-label">기록</span>
-        </button>
-        <button className={`nav-btn${tab==='settings'?' active':''}`} onClick={()=>setTab('settings')}>
-          <span className="nav-btn-icon">⚙️</span>
-          <span className="nav-btn-label">설정</span>
-        </button>
+        {navItems.map(item=>(
+          <button key={item.id} className={'nav-btn'+(tab===item.id?' active':'')} onClick={()=>setTab(item.id)}>
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
-    </div>
+
+      {showImport && <ImportModal onClose={()=>setShowImport(false)} onImport={handleImport}/>}
+      {showSync && <SyncModal data={data} userId={userId} onClose={()=>setShowSync(false)}/>}
+      {showMedSettings && <MedSettingsModal medsConfig={medsConfig} onChange={setMedsConfig} onClose={()=>setShowMedSettings(false)}/>}
+      {showDrug && <DrugInfoModal onClose={()=>setShowDrug(false)}/>}
+    </>
   );
 };
 
-/* ── React 마운트 ──────────────────────────────────────────── */
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
