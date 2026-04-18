@@ -1035,6 +1035,8 @@
     const [analyzing,  setAnalyzing] = useState(null); // 분석 중인 meal id
     const [analysisResult, setAnalysisResult] = useState(null); // { mealId, text }
     const [drugInfoModal, setDrugInfoModal] = useState(null); // 약 이름 or null
+    const [refreshKey,  setRefreshKey]  = useState(0); // 수동 새로고침 트리거
+    const [syncing,     setSyncing]     = useState(false);
 
     // Supabase Auth 초기화
     useEffect(() => {
@@ -1167,6 +1169,7 @@
 
       const load = async () => {
         setLoading(true);
+        setSyncing(true);
         try {
           const { data: rows, error } = await supa
             .from('diabetes_data')
@@ -1175,13 +1178,11 @@
           if (error) throw error;
           const loaded = {};
           (rows || []).forEach(r => { loaded[r.date] = r.payload; });
-          // Supabase 로드 후 URL 파라미터 값 병합 (측정 날짜 기준)
           if (Object.keys(urlPatch).length) {
             loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
           }
           setData(loaded);
         } catch(e) {
-          // Supabase 실패 시 localStorage 캐시 사용
           try {
             const s = localStorage.getItem('dm_dash_v2');
             const loaded = s ? (JSON.parse(s).data || {}) : {};
@@ -1192,9 +1193,10 @@
           } catch(e2) {}
         }
         setLoading(false);
+        setSyncing(false);
       };
-      load();
-    }, [userId]);
+      if (userId) load();
+    }, [userId, refreshKey]);
 
     /* ── Supabase: 현재 날짜 데이터 저장 (디바운스 1.5초) ── */
     useEffect(() => {
@@ -1369,8 +1371,9 @@
               <button onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
                 📱 가져오기
               </button>
-              <button onClick={() => setShowSync(true)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
-                🔗 동기화
+              <button onClick={() => setRefreshKey(k => k + 1)} disabled={syncing}
+                style={{ background: syncing ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.4)', color:'#fff', borderRadius:'8px', padding:'6px 14px', cursor: syncing ? 'default' : 'pointer', fontSize:'13px', fontWeight:'700' }}>
+                {syncing ? '⏳ 불러오는 중...' : '🔄 새로고침'}
               </button>
               <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(0,0,0,0.15)', borderRadius:'8px', padding:'5px 10px' }}>
                 <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.8)', maxWidth:'120px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -1750,7 +1753,7 @@
         {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
 
         {/* Sync Modal */}
-        {showSync && <SyncModal userId={userId} onClose={() => setShowSync(false)} onChangeId={(id) => { setUserId(id); setData({}); }} />}
+        {showSync && <SyncModal userId={userId} onClose={() => { setShowSync(false); setRefreshKey(k => k + 1); }} onChangeId={() => { setRefreshKey(k => k + 1); }} />}
 
         {/* Med Settings Modal */}
         {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
