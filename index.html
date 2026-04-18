@@ -1419,8 +1419,8 @@
                           <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
                           <div style={{ fontSize:'12px', color:'#94a3b8' }}>{med.dose}</div>
                         </label>
-                        <button onClick={() => setDrugInfoModal(med.name)} title="약 정보 보기"
-                          style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:'15px', color:'#93c5fd', padding:'2px 4px', flexShrink:0 }}>ℹ️</button>
+                        <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
+                          style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'12px', color:'#2563eb', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
                         {day.meds[med.id] && <span style={{ color:'#16a34a', fontSize:'16px' }}>✓</span>}
                       </div>
                     ))}
