@@ -878,11 +878,16 @@
       const params = new URLSearchParams(window.location.search);
       const w  = params.get('w');
       const bf = params.get('bf');
+      const d  = params.get('d');  // 측정 날짜 (YYYY-MM-DD)
       const urlPatch = {};
       if (w  && !isNaN(parseFloat(w)))  urlPatch.weight  = String(parseFloat(w));
       if (bf && !isNaN(parseFloat(bf))) urlPatch.bodyFat = String(parseFloat(bf));
+      // 날짜 파라미터 검증 (YYYY-MM-DD 형식)
+      const targetDate = (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : todayStr();
       if (Object.keys(urlPatch).length) {
         window.history.replaceState({}, '', window.location.pathname);
+        // 날짜가 오늘이 아니면 해당 날짜 페이지로 이동
+        if (targetDate !== todayStr()) setDate(targetDate);
       }
 
       const load = async () => {
@@ -895,10 +900,9 @@
           if (error) throw error;
           const loaded = {};
           (rows || []).forEach(r => { loaded[r.date] = r.payload; });
-          // Supabase 로드 후 URL 파라미터 값 병합 (덮어쓰기 방지)
+          // Supabase 로드 후 URL 파라미터 값 병합 (측정 날짜 기준)
           if (Object.keys(urlPatch).length) {
-            const today = todayStr();
-            loaded[today] = { ...(loaded[today] || emptyDay()), ...urlPatch };
+            loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
           }
           setData(loaded);
         } catch(e) {
@@ -907,8 +911,7 @@
             const s = localStorage.getItem('dm_dash_v2');
             const loaded = s ? (JSON.parse(s).data || {}) : {};
             if (Object.keys(urlPatch).length) {
-              const today = todayStr();
-              loaded[today] = { ...(loaded[today] || emptyDay()), ...urlPatch };
+              loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
             }
             setData(loaded);
           } catch(e2) {}
