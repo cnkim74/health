@@ -2985,21 +2985,28 @@
 
     /* ── Supabase: 초기 데이터 로드 + URL 파라미터 단축어 연동 ── */
     useEffect(() => {
-      // URL 파라미터 먼저 읽어두기 (Supabase 로드 전에 저장)
+      // URL 파라미터 읽기 — userId가 비동기로 설정되므로 sessionStorage에 보존
       const params = new URLSearchParams(window.location.search);
       const w  = params.get('w');
       const bf = params.get('bf');
       const d  = params.get('d');  // 측정 날짜 (YYYY-MM-DD)
-      const urlPatch = {};
-      if (w  && !isNaN(parseFloat(w)))  urlPatch.weight  = String(parseFloat(w));
-      if (bf && !isNaN(parseFloat(bf))) urlPatch.bodyFat = String(parseFloat(bf));
-      // 날짜 파라미터 검증 (YYYY-MM-DD 형식)
-      const targetDate = (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : todayStr();
-      if (Object.keys(urlPatch).length) {
+      const freshPatch = {};
+      if (w  && !isNaN(parseFloat(w)))  freshPatch.weight  = String(parseFloat(w));
+      if (bf && !isNaN(parseFloat(bf))) freshPatch.bodyFat = String(parseFloat(bf));
+      const freshTarget = (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : todayStr();
+      if (Object.keys(freshPatch).length) {
+        // URL에서 읽은 즉시 sessionStorage에 저장 (userId 로드 전에 URL이 사라져도 보존)
+        sessionStorage.setItem('cn_url_patch', JSON.stringify({ patch: freshPatch, targetDate: freshTarget }));
         window.history.replaceState({}, '', window.location.pathname);
-        // 날짜가 오늘이 아니면 해당 날짜 페이지로 이동
-        if (targetDate !== todayStr()) setDate(targetDate);
+        if (freshTarget !== todayStr()) setDate(freshTarget);
       }
+      // sessionStorage에서 보존된 패치 꺼내기 (재실행 시에도 유효)
+      let urlPatch = {}, targetDate = todayStr();
+      try {
+        const saved = sessionStorage.getItem('cn_url_patch');
+        if (saved) { const p = JSON.parse(saved); urlPatch = p.patch; targetDate = p.targetDate; }
+      } catch {}
+
 
       const load = async () => {
         setLoading(true);
@@ -3063,6 +3070,7 @@
 
           if (Object.keys(urlPatch).length) {
             loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
+            sessionStorage.removeItem('cn_url_patch'); // 적용 완료 후 제거
           }
           setData(loaded);
         } catch(e) {
@@ -3071,6 +3079,7 @@
             const loaded = s ? (JSON.parse(s).data || {}) : {};
             if (Object.keys(urlPatch).length) {
               loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
+              sessionStorage.removeItem('cn_url_patch');
             }
             setData(loaded);
           } catch(e2) {}
