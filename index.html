@@ -75,12 +75,12 @@
       --modal-scrim:     rgba(0,0,0,0.82);
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; max-width: 100%;
-      overflow-x: clip;
-    }
+    html { margin: 0; padding: 0; }
     body {
+      margin: 0; padding: 0;
+      /* body에만 overflow-x:hidden → position:fixed 탭바 정상 작동 보장 */
+      overflow-x: hidden;
+      width: 100%;
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
       font-size: 16px;
       line-height: 1.6;
