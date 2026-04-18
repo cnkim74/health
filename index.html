@@ -75,6 +75,7 @@
       --modal-scrim:     rgba(0,0,0,0.82);
     }
     *, *::before, *::after { box-sizing: border-box; }
+    html { overflow-x: hidden; max-width: 100vw; }
     body {
       margin: 0;
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
@@ -85,6 +86,8 @@
       min-height: 100vh;
       word-break: keep-all;
       transition: background 0.25s, color 0.25s;
+      overflow-x: hidden;
+      max-width: 100vw;
     }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
@@ -176,9 +179,9 @@
     .cn-hdr-actions { display: none !important; }
     .cn-hdr-logo    { width: 30px !important; height: 30px !important; }
     /* 메인 패딩 축소 */
-    .cn-main-pad    { padding: 10px 12px !important; }
+    .cn-main-pad    { padding: 8px 10px !important; }
     /* 카드 패딩 축소 */
-    .cn-card        { padding: 14px 14px !important; border-radius: 12px !important; }
+    .cn-card        { padding: 12px 12px !important; border-radius: 12px !important; margin-bottom: 10px !important; }
     /* 탭바 높이 및 safe-area */
     .cn-tabbar {
       padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -217,6 +220,47 @@
   .dash-step-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
   .dash-step-bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 3px; transition: height 0.4s; }
   .dash-step-day { font-size: 9px; color: var(--text-mute); }
+
+  /* ── 모바일 탭별 최적화 (max-width: 600px) ── */
+  @media (max-width: 600px) {
+
+    /* ─ 홈 탭 ─ */
+    .dash-score-card {
+      padding: 12px !important;
+      gap: 12px !important;
+      margin-bottom: 10px !important;
+      border-radius: 14px !important;
+    }
+    .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
+    .dash-metric-grid { gap: 8px !important; margin-bottom: 10px !important; }
+    .dash-metric-card { padding: 10px 12px !important; border-radius: 10px !important; gap: 3px !important; }
+    .dash-metric-val  { font-size: 18px !important; }
+    .dash-metric-label { font-size: 10px !important; }
+    .dash-metric-unit  { font-size: 10px !important; }
+    .dash-insight-card { padding: 10px 12px !important; margin-bottom: 6px !important; border-radius: 10px !important; }
+    .dash-insight-text { font-size: 12px !important; line-height: 1.6 !important; }
+    .dash-steps-bars   { height: 44px !important; gap: 4px !important; }
+    .dash-step-day     { font-size: 8px !important; }
+
+    /* ─ 기록 탭: 혈당 입력 ─ */
+    .bs-num-input { font-size: 30px !important; }
+    .bs-input-wrap { width: 68px !important; }
+    /* ─ 기록 탭: 혈압 입력 ─ */
+    .bp-num-input { font-size: 34px !important; }
+    /* ─ 기록 탭: 혈압 범례 축소 ─ */
+    .bp-legend { font-size: 10px !important; gap: 5px !important; margin-bottom: 10px !important; }
+
+    /* ─ 리포트 탭: 차트 높이 줄임 ─ */
+    .chart-wrap { height: 160px !important; }
+
+    /* ─ 챌린지 탭 ─ */
+    .cn-challenge-card { padding: 10px 12px !important; }
+    .cn-streak-big { font-size: 28px !important; }
+
+    /* ─ 공통 카드 헤더·폰트 ─ */
+    .cn-card-title, h3 { font-size: 14px !important; }
+    .cn-section-title  { font-size: 13px !important; }
+  }
 
   </style>
 </head>
@@ -3260,7 +3304,7 @@
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
 
         {/* ── CARENOTE Header ── */}
-        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 20px', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100 }}>
+        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 16px', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100, overflowX:'hidden' }}>
 
           {/* ─ 1행: 로고+브랜드 · 날짜 · 유저 ─ */}
           <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
@@ -3369,15 +3413,15 @@
                       {slot.icon} {slot.slot}
                     </div>
                     {activeItems.map(med => (
-                      <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
-                        <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
-                        <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer' }}>
-                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'var(--text-mute)':'var(--cn-ink)', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
-                          <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>{med.dose}</div>
+                      <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'6px 0', borderTop:'1px solid rgba(0,0,0,0.05)', minWidth:0 }}>
+                        <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} style={{ flexShrink:0 }} />
+                        <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer', minWidth:0, overflow:'hidden' }}>
+                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'var(--text-mute)':'var(--cn-ink)', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{med.name}</div>
+                          <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>{med.dose}</div>
                         </label>
                         <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
-                          style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'14px', color:'var(--cn-brand)', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
-                        {day.meds[med.id] && <span style={{ color:'var(--cn-ok)', fontSize:'14px' }}>✓</span>}
+                          style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'12px', color:'var(--cn-brand)', padding:'3px 7px', flexShrink:0, fontWeight:'600', whiteSpace:'nowrap' }}>약정보</button>
+                        {day.meds[med.id] && <span style={{ color:'var(--cn-ok)', fontSize:'14px', flexShrink:0 }}>✓</span>}
                       </div>
                     ))}
                   </div>
@@ -3408,11 +3452,12 @@
                         {/* 숫자 + 단위 + 배지 — 같은 가로줄, 3자리 고정폭 */}
                         <div style={{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'nowrap' }}>
                           {/* 3자리 기준 고정폭 컨테이너 */}
-                          <div style={{ width:'82px', flexShrink:0 }}>
+                          <div className="bs-input-wrap" style={{ width:'82px', flexShrink:0 }}>
                             <input
                               type="text" inputMode="numeric" pattern="[0-9]*"
                               value={v} onChange={e => { const n = e.target.value.replace(/[^0-9]/g,''); updBS(f.id, n); }}
                               placeholder="---"
+                              className="bs-num-input"
                               style={{ width:'100%', border:'none', background:'transparent', fontSize:'40px', fontWeight:'900',
                                 color:v?c:'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px',
                                 fontVariantNumeric:'tabular-nums' }}
@@ -3465,7 +3510,7 @@
                     <STitle icon="💓" label="혈압 기록" />
 
                     {/* 분류 기준 범례 */}
-                    <div style={{ display:'flex', gap:'8px', marginBottom:'14px', flexWrap:'wrap', fontSize:'12px' }}>
+                    <div className="bp-legend" style={{ display:'flex', gap:'8px', marginBottom:'14px', flexWrap:'wrap', fontSize:'12px' }}>
                       {[
                         { c:'var(--cn-ok)', t:'정상 (<120/80)' },
                         { c:'#65a30d', t:'주의 (120–129/~80)' },
@@ -3492,6 +3537,7 @@
                               type="text" inputMode="numeric" pattern="[0-9]*"
                               value={bp.sys} onChange={e => updBP('sys', e.target.value.replace(/[^0-9]/g,''))}
                               placeholder="---"
+                              className="bp-num-input"
                               size={bp.sys ? Math.max(2, bp.sys.length) : 3}
                               style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
                                 color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
@@ -3511,6 +3557,7 @@
                               type="text" inputMode="numeric" pattern="[0-9]*"
                               value={bp.dia} onChange={e => updBP('dia', e.target.value.replace(/[^0-9]/g,''))}
                               placeholder="---"
+                              className="bp-num-input"
                               size={bp.dia ? Math.max(2, bp.dia.length) : 3}
                               style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
                                 color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
