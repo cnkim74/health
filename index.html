@@ -872,8 +872,19 @@
       if (weightFileRef.current) weightFileRef.current.value = '';
     };
 
-    /* ── Supabase: 초기 데이터 로드 ── */
+    /* ── Supabase: 초기 데이터 로드 + URL 파라미터 단축어 연동 ── */
     useEffect(() => {
+      // URL 파라미터 먼저 읽어두기 (Supabase 로드 전에 저장)
+      const params = new URLSearchParams(window.location.search);
+      const w  = params.get('w');
+      const bf = params.get('bf');
+      const urlPatch = {};
+      if (w  && !isNaN(parseFloat(w)))  urlPatch.weight  = String(parseFloat(w));
+      if (bf && !isNaN(parseFloat(bf))) urlPatch.bodyFat = String(parseFloat(bf));
+      if (Object.keys(urlPatch).length) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
       const load = async () => {
         setLoading(true);
         try {
@@ -884,12 +895,22 @@
           if (error) throw error;
           const loaded = {};
           (rows || []).forEach(r => { loaded[r.date] = r.payload; });
+          // Supabase 로드 후 URL 파라미터 값 병합 (덮어쓰기 방지)
+          if (Object.keys(urlPatch).length) {
+            const today = todayStr();
+            loaded[today] = { ...(loaded[today] || emptyDay()), ...urlPatch };
+          }
           setData(loaded);
         } catch(e) {
           // Supabase 실패 시 localStorage 캐시 사용
           try {
             const s = localStorage.getItem('dm_dash_v2');
-            if (s) { const p = JSON.parse(s); setData(p.data || {}); }
+            const loaded = s ? (JSON.parse(s).data || {}) : {};
+            if (Object.keys(urlPatch).length) {
+              const today = todayStr();
+              loaded[today] = { ...(loaded[today] || emptyDay()), ...urlPatch };
+            }
+            setData(loaded);
           } catch(e2) {}
         }
         setLoading(false);
