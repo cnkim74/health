@@ -2840,7 +2840,35 @@
   /* inpSt는 App 안에서 dm 없이 쓰이므로 CSS 오버라이드로 처리됨 */
   const inpSt    = { width:'100%', border:'1px solid var(--input-border)', borderRadius:'8px', padding:'8px 12px', fontSize:'14px', outline:'none', background:'var(--input-bg)', color:'var(--text)' };
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  class ErrorBoundary extends React.Component {
+    constructor(props) { super(props); this.state = { error: null }; }
+    static getDerivedStateFromError(e) { return { error: e }; }
+    render() {
+      if (this.state.error) {
+        return (
+          <div style={{ padding:'40px', fontFamily:'monospace', background:'#fef2f2', minHeight:'100vh' }}>
+            <h2 style={{ color:'#dc2626' }}>❌ React 렌더링 오류</h2>
+            <pre style={{ background:'#fff', padding:'20px', borderRadius:'8px', border:'1px solid #fca5a5', whiteSpace:'pre-wrap', wordBreak:'break-all', fontSize:'13px', color:'#1e293b' }}>
+              {this.state.error.toString()}{'\n\n'}{this.state.error.stack}
+            </pre>
+          </div>
+        );
+      }
+      return this.props.children;
+    }
+  }
+
+  try {
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ErrorBoundary><App /></ErrorBoundary>
+    );
+  } catch(e) {
+    document.getElementById('root').innerHTML =
+      '<div style="padding:40px;font-family:monospace;background:#fef2f2">' +
+      '<h2 style="color:#dc2626">❌ 초기화 오류</h2>' +
+      '<pre style="background:#fff;padding:20px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:13px">' +
+      e.toString() + '\n\n' + (e.stack||'') + '</pre></div>';
+  }
 </script>
 </body>
 </html>
