@@ -78,6 +78,11 @@
     body.dark textarea::placeholder { color: var(--text-sub) !important; opacity: 1 !important; }
 
     @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr !important; } }
+
+    /* 혈당 입력 스피너 제거 (숫자와 단위 겹침 방지) */
+    .bs-num-input::-webkit-inner-spin-button,
+    .bs-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .bs-num-input { -moz-appearance: textfield; }
   </style>
 </head>
 <body>
@@ -964,7 +969,7 @@
       setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...s.items, {id, name:'', dose:'', startDate:'', endDate:''}]} : s));
       setEditingMed({slotKey, medId:id});
     };
-    const reset = () => { if(window.confirm('기본값으로 초기화할까요?')) setCfg(JSON.parse(JSON.stringify(DEFAULT_MEDS))); };
+    const reset = () => { if(window.confirm('복약 목록을 전부 삭제할까요?')) setCfg([]); };
 
     const inpSt = { border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'6px', padding:'6px 10px', fontSize:'16px', width:'100%', outline:'none' };
 
@@ -1053,7 +1058,7 @@
           </button>
 
           <div style={{display:'flex',gap:'8px'}}>
-            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>기본값으로 초기화</button>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,color:'#dc2626',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>🗑️ 전체 삭제</button>
             <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>저장</button>
           </div>
         </div>
@@ -1519,6 +1524,7 @@
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
     const [medsConfig, setMedsConfig] = useState([]);
+    const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(true);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -1553,7 +1559,6 @@
     const chartRef    = useRef(null);
     const chartInst   = useRef(null);
     const saveTimer   = useRef(null);
-    const medsLoaded  = useRef(false);   // 복약 설정 로드 완료 플래그
     const weightFileRef  = useRef(null);
     const androidFileRef = useRef(null);
     const imgRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
@@ -1805,23 +1810,20 @@
     // 복약 설정: 유저별 로드 (userId 확정 후)
     // ⚠️ localStorage에 저장된 값이 없으면 빈 배열로 시작 (신규 가입자는 직접 입력)
     useEffect(() => {
-      if (!userId) return;
-      medsLoaded.current = false; // 로드 전 플래그 초기화
+      if (!userId) { setMedsReadyFor(''); return; }
       try {
         const s = localStorage.getItem(`hcd_meds_config_${userId}`);
         setMedsConfig(s ? JSON.parse(s) : []);
       } catch { setMedsConfig([]); }
+      setMedsReadyFor(userId); // 로드 완료 표시 — setMedsConfig와 같은 배치에서 처리됨
     }, [userId]);
 
-    // 복약 설정: 유저별 저장 (로드 직후 첫 번째 실행은 스킵해 덮어쓰기 방지)
+    // 복약 설정: 유저별 저장
+    // medsReadyFor === userId 인 경우에만 저장 (로드 전 덮어쓰기 방지)
     useEffect(() => {
-      if (!userId) return;
-      if (!medsLoaded.current) {
-        medsLoaded.current = true; // 로드 완료 → 다음부터 저장 허용
-        return;
-      }
+      if (!userId || medsReadyFor !== userId) return;
       localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(medsConfig));
-    }, [medsConfig, userId]);
+    }, [medsConfig, userId, medsReadyFor]);
     const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
 
     // 키(신장): 유저별 로드/저장
@@ -2046,15 +2048,19 @@
                     return (
                       <div key={f.id} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 14px', border:v?`2px solid ${c}`:'1px solid var(--card-border)', transition:'border-color 0.2s' }}>
                         <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'8px' }}>{f.icon} {f.label}</div>
-                        <div style={{ display:'flex', alignItems:'baseline', gap:'4px' }}>
-                          <input type="number" min="30" max="600" value={v} onChange={e=>updBS(f.id,e.target.value)} placeholder="---"
-                            style={{ width:'100px', border:'none', background:'transparent', fontSize:'40px', fontWeight:'900', color:v?c:'#cbd5e1', outline:'none', padding:0, lineHeight:1, letterSpacing:'-1px' }} />
-                          <span style={{ fontSize:'14px', color:'var(--text-sub)', fontWeight:'500', paddingBottom:'4px' }}>mg/dL</span>
+                        {/* 숫자 + 단위 + 상태뱃지 한 줄 */}
+                        <div style={{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'nowrap' }}>
+                          <input type="number" min="30" max="600" value={v} onChange={e=>updBS(f.id,e.target.value)}
+                            placeholder="---" className="bs-num-input"
+                            style={{ width:'88px', border:'none', background:'transparent', fontSize:'38px', fontWeight:'900', color:v?c:'#cbd5e1', outline:'none', padding:0, lineHeight:1, letterSpacing:'-1px', flexShrink:0 }} />
+                          <div style={{ display:'flex', flexDirection:'column', gap:'3px', paddingBottom:'2px' }}>
+                            <span style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'500', lineHeight:1 }}>mg/dL</span>
+                            {v
+                              ? <span style={{ background:c, color:'#fff', borderRadius:'20px', padding:'2px 8px', fontSize:'11px', fontWeight:'700', lineHeight:1.4, whiteSpace:'nowrap' }}>{bsLabel(v)}</span>
+                              : <span style={{ fontSize:'11px', color:dm?'#475569':'#d1d5db', lineHeight:1.4 }}>목표: {f.target}</span>
+                            }
+                          </div>
                         </div>
-                        {v
-                          ? <div style={{ fontSize:'12px', color:c, fontWeight:'700', marginTop:'2px' }}>{bsLabel(v)}</div>
-                          : <div style={{ fontSize:'12px', color:dm?'#475569':'#d1d5db', marginTop:'2px' }}>목표: {f.target}</div>
-                        }
                       </div>
                     );
                   })}
