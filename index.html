@@ -949,6 +949,203 @@
     );
   };
 
+  /* ── 배너 슬롯 위치 정의 ─────────────────────────────────── */
+  const BANNER_SLOTS = [
+    { id:'top',        label:'헤더 바로 아래' },
+    { id:'after_meds', label:'복약 체크리스트 아래' },
+    { id:'after_bs',   label:'혈당 입력 아래' },
+    { id:'sidebar_top',label:'사이드바 상단' },
+    { id:'bottom',     label:'페이지 맨 아래' },
+  ];
+
+  const loadBanners = () => {
+    try { return JSON.parse(localStorage.getItem('cn_banners') || '{}'); } catch { return {}; }
+  };
+  const saveBanners = (b) => localStorage.setItem('cn_banners', JSON.stringify(b));
+
+  /* ── 배너 렌더 컴포넌트 ──────────────────────────────── */
+  const BannerSlot = ({ slotId }) => {
+    const banners = loadBanners();
+    const b = banners[slotId];
+    if (!b || !b.enabled || !b.url) return null;
+
+    const getYoutubeId = (url) => {
+      const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+      return m ? m[1] : null;
+    };
+    const ytId = getYoutubeId(b.url);
+
+    return (
+      <div style={{ margin:'10px 0', borderRadius:'12px', overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+        {ytId ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?rel=0`}
+            style={{ width:'100%', height: b.height || '200px', border:'none', display:'block' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : b.type === 'image' ? (
+          <a href={b.link||'#'} target="_blank" rel="noreferrer">
+            <img src={b.url} alt={b.label||'배너'} style={{ width:'100%', display:'block', maxHeight:'150px', objectFit:'cover' }} />
+          </a>
+        ) : (
+          <div style={{ background: b.bgColor||'#eff6ff', padding:'12px 16px', fontSize:'13px',
+                        color: b.textColor||'#1e40af', fontWeight:'600', textAlign:'center',
+                        border:`1px solid ${b.borderColor||'#bfdbfe'}`, borderRadius:'12px' }}>
+            {b.url}
+          </div>
+        )}
+        {b.caption && <div style={{ fontSize:'11px', color:'#94a3b8', textAlign:'right', padding:'2px 6px' }}>{b.caption}</div>}
+      </div>
+    );
+  };
+
+  /* ── 관리자 배너 설정 모달 ───────────────────────────── */
+  const ADMIN_EMAIL = 'cnkim74@gmail.com';
+  const AdminModal = ({ onClose }) => {
+    const dm = _dm;
+    const [banners, setBanners] = useState(loadBanners);
+    const [editing, setEditing] = useState(null); // slotId
+    const [draft, setDraft] = useState({});
+
+    const startEdit = (slotId) => {
+      setEditing(slotId);
+      setDraft(banners[slotId] || { enabled:false, type:'youtube', url:'', height:'200px', caption:'', link:'', label:'' });
+    };
+    const saveDraft = () => {
+      const next = { ...banners, [editing]: draft };
+      setBanners(next);
+      saveBanners(next);
+      setEditing(null);
+    };
+    const toggleEnabled = (slotId) => {
+      const cur = banners[slotId] || {};
+      const next = { ...banners, [slotId]: { ...cur, enabled: !cur.enabled } };
+      setBanners(next);
+      saveBanners(next);
+    };
+
+    const cardBg = dm ? '#161b22' : '#fff';
+    const inputSt = { width:'100%', padding:'8px 10px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,
+                      borderRadius:'8px', fontSize:'13px', background:dm?'#0d1117':'#fff',
+                      color:dm?'#e6edf3':'#1e293b', outline:'none', boxSizing:'border-box' };
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center',
+                    justifyContent:'center', zIndex:3000, padding:'20px' }}
+           onClick={e => e.target===e.currentTarget && onClose()}>
+        <div style={{ background:cardBg, borderRadius:'20px', padding:'26px', maxWidth:'520px', width:'100%',
+                      maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.35)' }}>
+
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🛠️ 관리자 배너 설정</div>
+            <button onClick={onClose} style={{ background:'var(--input-bg)', border:'none', borderRadius:'8px',
+              width:'32px', height:'32px', cursor:'pointer', fontSize:'16px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+
+          {editing ? (
+            <div>
+              <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)', marginBottom:'14px' }}>
+                📍 {BANNER_SLOTS.find(s=>s.id===editing)?.label} 설정
+              </div>
+              {/* 배너 타입 */}
+              <div style={{ marginBottom:'12px' }}>
+                <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'5px' }}>배너 종류</div>
+                <div style={{ display:'flex', gap:'8px' }}>
+                  {[['youtube','🎬 유튜브'],['image','🖼️ 이미지'],['text','📝 텍스트']].map(([v,l])=>(
+                    <button key={v} onClick={()=>setDraft(d=>({...d,type:v}))}
+                      style={{ flex:1, padding:'7px', border:`1.5px solid ${draft.type===v?'#2563eb':'#e2e8f0'}`,
+                               borderRadius:'8px', background: draft.type===v?'#eff6ff':'transparent',
+                               color: draft.type===v?'#1d4ed8':'var(--text-sub)',
+                               cursor:'pointer', fontSize:'12px', fontWeight:'600' }}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              {/* URL */}
+              <div style={{ marginBottom:'10px' }}>
+                <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'5px' }}>
+                  {draft.type==='youtube' ? 'YouTube URL' : draft.type==='image' ? '이미지 URL' : '표시할 텍스트'}
+                </div>
+                <input style={inputSt} value={draft.url||''} onChange={e=>setDraft(d=>({...d,url:e.target.value}))}
+                  placeholder={draft.type==='youtube'?'https://youtube.com/watch?v=...' : draft.type==='image'?'https://...' : '공지 내용 입력'} />
+              </div>
+              {draft.type==='youtube' && (
+                <div style={{ marginBottom:'10px' }}>
+                  <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'5px' }}>높이 (기본 200px)</div>
+                  <input style={{...inputSt, width:'120px'}} value={draft.height||'200px'}
+                    onChange={e=>setDraft(d=>({...d,height:e.target.value}))} placeholder="200px" />
+                </div>
+              )}
+              {draft.type==='image' && (
+                <div style={{ marginBottom:'10px' }}>
+                  <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'5px' }}>클릭 시 이동 URL</div>
+                  <input style={inputSt} value={draft.link||''} onChange={e=>setDraft(d=>({...d,link:e.target.value}))}
+                    placeholder="https://..." />
+                </div>
+              )}
+              <div style={{ marginBottom:'14px' }}>
+                <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'5px' }}>캡션 (선택)</div>
+                <input style={inputSt} value={draft.caption||''} onChange={e=>setDraft(d=>({...d,caption:e.target.value}))}
+                  placeholder="광고 / 협찬 등" />
+              </div>
+              {/* 활성화 */}
+              <label style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'18px', cursor:'pointer' }}>
+                <input type="checkbox" checked={!!draft.enabled} onChange={e=>setDraft(d=>({...d,enabled:e.target.checked}))}
+                  style={{ width:'16px', height:'16px', accentColor:'#2563eb' }} />
+                <span style={{ fontSize:'13px', color:'var(--text)', fontWeight:'600' }}>이 슬롯 활성화</span>
+              </label>
+              <div style={{ display:'flex', gap:'8px' }}>
+                <button onClick={()=>setEditing(null)} style={{ flex:1, padding:'10px', background:'var(--input-bg)',
+                  border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'10px', cursor:'pointer',
+                  fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>취소</button>
+                <button onClick={saveDraft} style={{ flex:2, padding:'10px', background:'#2563eb',
+                  border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'13px', color:'#fff', fontWeight:'700' }}>저장</button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'14px', lineHeight:'1.6' }}>
+                각 슬롯에 유튜브, 이미지, 텍스트 배너를 설정할 수 있어요. 활성화된 배너는 모든 사용자에게 표시됩니다.
+              </div>
+              {BANNER_SLOTS.map(slot => {
+                const b = banners[slot.id] || {};
+                return (
+                  <div key={slot.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px',
+                    background:'var(--input-bg)', borderRadius:'10px', marginBottom:'8px',
+                    border:`1px solid ${dm?'#30363d':'#e2e8f0'}` }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text)' }}>📍 {slot.label}</div>
+                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'2px' }}>
+                        {b.url ? `${b.type==='youtube'?'🎬':b.type==='image'?'🖼️':'📝'} ${b.url.slice(0,40)}${b.url.length>40?'...':''}` : '미설정'}
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                      <span style={{ fontSize:'11px', padding:'2px 8px', borderRadius:'20px', fontWeight:'600',
+                        background: b.enabled?'#dcfce7':'#fee2e2', color: b.enabled?'#16a34a':'#dc2626' }}>
+                        {b.enabled ? '활성' : '비활성'}
+                      </span>
+                      <button onClick={()=>toggleEnabled(slot.id)}
+                        style={{ padding:'4px 8px', border:'none', borderRadius:'6px', cursor:'pointer',
+                                 background:'var(--card-bg)', fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>
+                        {b.enabled ? 'OFF' : 'ON'}
+                      </button>
+                      <button onClick={()=>startEdit(slot.id)}
+                        style={{ padding:'4px 8px', background:'#2563eb', border:'none', borderRadius:'6px',
+                                 cursor:'pointer', fontSize:'11px', color:'#fff', fontWeight:'700' }}>설정</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ marginTop:'10px', fontSize:'11px', color:'var(--text-sub)', textAlign:'center' }}>
+                ⚠️ 배너 설정은 이 기기의 localStorage에 저장됩니다
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /* ── 의약품 정보 팝업 ──────────────────────────────────── */
   const DrugInfoModal = ({ medName, onClose }) => {
     const dm = _dm;
@@ -1214,6 +1411,8 @@
     const [analyzing,  setAnalyzing] = useState(null); // 분석 중인 meal id
     const [analysisResult, setAnalysisResult] = useState(null); // { mealId, text }
     const [drugInfoModal, setDrugInfoModal] = useState(null); // 약 이름 or null
+    const [showAdmin,    setShowAdmin]    = useState(false);
+    const isAdmin = authUser?.email === ADMIN_EMAIL;
     const [refreshKey,  setRefreshKey]  = useState(0); // 수동 새로고침 트리거
     const [syncing,     setSyncing]     = useState(false);
     const [darkMode,    setDarkMode]    = useState(_dm);
@@ -1587,9 +1786,18 @@
               style={{ background: syncing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color: syncing ? 'rgba(255,255,255,0.45)' : '#fff', borderRadius:'7px', padding:'4px 12px', cursor: syncing ? 'default' : 'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
               {syncing ? '⏳ 로딩중...' : '🔄 새로고침'}
             </button>
+            {isAdmin && (
+              <button onClick={() => setShowAdmin(true)}
+                style={{ background:'rgba(255,165,0,0.2)', border:'1px solid rgba(255,165,0,0.4)', color:'#fbbf24', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>
+                🛠️ 관리자
+              </button>
+            )}
             {lastImport && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', whiteSpace:'nowrap', flexShrink:0 }}>마지막: {lastImport}</span>}
           </div>
         </div>
+
+        {/* Banner: 헤더 바로 아래 */}
+        <BannerSlot slotId="top" />
 
         {/* Main */}
         <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'22px 16px' }}>
@@ -1612,7 +1820,7 @@
                   if (!activeItems.length) return null;
                   return (
                   <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
-                    <div style={{ fontSize:'14px', fontWeight:'700', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
+                    <div style={{ fontSize:'16px', fontWeight:'800', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
                       {slot.icon} {slot.slot}
                     </div>
                     {activeItems.map(med => (
@@ -1631,6 +1839,9 @@
                   );
                 })}
               </Card>
+
+              {/* Banner: 복약 체크리스트 아래 */}
+              <BannerSlot slotId="after_meds" />
 
               {/* 혈당 */}
               <Card>
@@ -1660,6 +1871,9 @@
                   })}
                 </div>
               </Card>
+
+              {/* Banner: 혈당 입력 아래 */}
+              <BannerSlot slotId="after_bs" />
 
               {/* 식사 */}
               <Card>
@@ -1758,6 +1972,9 @@
 
             {/* ── RIGHT ── */}
             <div>
+              {/* Banner: 사이드바 상단 */}
+              <BannerSlot slotId="sidebar_top" />
+
               {/* 요약 */}
               <Card style={{ background:medPct===100?'#f0fdf4':'#fff' }}>
                 <STitle icon="📊" label="오늘 요약" />
@@ -1799,16 +2016,16 @@
                     <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <input type="number" step="0.1" min="30" max="200" value={day.weight||''} onChange={e=>upDay({weight:e.target.value})} placeholder="00.0"
-                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'14px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
-                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px' }}>kg</span>
+                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'18px' }}>kg</span>
                     </div>
                   </div>
                   <div style={{ flex:1, minWidth:'100px' }}>
                     <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <input type="number" step="0.1" min="1" max="60" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value})} placeholder="00.0"
-                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'14px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
-                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px' }}>%</span>
+                        style={{ width:'90px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
+                      <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'18px' }}>%</span>
                     </div>
                   </div>
                 </div>
@@ -1848,7 +2065,7 @@
                         <div style={{ display:'flex', marginTop:'4px' }}>
                           {wk.map((d,i) => (
                             <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? '#2563eb' : '#e2e8f0', fontWeight:'700' }}>
-                              {d.w ? `${d.w}` : ''}
+                              {d.w ? d.w.toFixed(2) : ''}
                             </div>
                           ))}
                         </div>
@@ -1883,7 +2100,7 @@
                 {/* 건강앱 가져오기 버튼 */}
                 <input ref={weightFileRef} type="file" accept=".zip,.xml" onChange={e => e.target.files[0] && handleWeightImport(e.target.files[0])} style={{ display:'none' }} />
                 <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting}
-                  style={{ width:'100%', padding:'9px', background: weightImporting?'#f1f5f9':'#f0fdf4', border:'1px solid #86efac', color: weightImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'16px', marginBottom:'6px' }}>
+                  style={{ width:'100%', padding:'7px', background: weightImporting?'#f1f5f9':'#f0fdf4', border:'1px solid #86efac', color: weightImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', marginBottom:'4px' }}>
                   🍎 건강앱에서 가져오기 (ZIP / XML)
                 </button>
                 {weightImportMsg && (
@@ -1891,10 +2108,10 @@
                     {weightImportMsg}
                   </div>
                 )}
-                <div style={{ fontSize:'16px', color:'var(--text-sub)', lineHeight:'1.6', marginTop:'4px' }}>
+                <div style={{ fontSize:'11px', color:'var(--text-sub)', lineHeight:'1.6', marginTop:'3px' }}>
                   iPhone 건강앱 → 우상단 프로필 → 건강 데이터 내보내기 → export.zip
                 </div>
-                <div style={{ fontSize:'16px', color:'#16a34a', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
+                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', marginTop:'4px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
               </Card>
 
               {/* 운동 */}
@@ -1908,7 +2125,7 @@
                   <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 시간 (분)</div>
                   <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt} />
                 </div>
-                <div style={{ fontSize:'16px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
+                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
                   💪 식후 30분 걷기 30분이 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
                 </div>
               </Card>
@@ -1929,11 +2146,14 @@
                   ✅ 식후 걷기 30분<br/>
                   ✅ 체중 점진적 감량<br/>
                   ✅ 주치의와 정기 상담<br/><br/>
-                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'16px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
+                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'11px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
                 </div>
               </Card>
             </div>
           </div>
+
+          {/* Banner: 페이지 맨 아래 */}
+          <BannerSlot slotId="bottom" />
         </div>
 
         {/* 로딩 오버레이 */}
@@ -1956,6 +2176,9 @@
 
         {/* Med Settings Modal */}
         {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
+
+        {/* Admin Modal */}
+        {showAdmin && <AdminModal onClose={() => setShowAdmin(false)} />}
       </div>
     );
   };
