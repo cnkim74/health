@@ -1084,12 +1084,44 @@
   };
 
   /* ── 복약 설정 모달 ──────────────────────────────────── */
-  const MedSettingsModal = ({ meds, onSave, onClose }) => {
+  const MedSettingsModal = ({ meds, onSave, onClose, userId }) => {
     const dm = _dm;
     const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(meds)));
     const [editingSlot, setEditingSlot] = useState(null);
     const [editingMed,  setEditingMed]  = useState(null);
     const nameInputRef = useRef(null);
+    const [loadingCloud, setLoadingCloud] = useState(false);
+    const [loadMsg, setLoadMsg] = useState('');
+
+    // Supabase에서 최신 복약 설정 불러오기
+    const loadFromCloud = async () => {
+      if (!userId) { setLoadMsg('⚠️ 로그인이 필요해요.'); setTimeout(()=>setLoadMsg(''),2500); return; }
+      setLoadingCloud(true); setLoadMsg('');
+      try {
+        const { data: row, error } = await supa.from('diabetes_data')
+          .select('payload').eq('user_id', userId).eq('date', '_user_settings_').maybeSingle();
+        if (error) throw error;
+        const fromSB = row?.payload?.medsConfig;
+        if (fromSB && Array.isArray(fromSB) && fromSB.length > 0) {
+          setCfg(JSON.parse(JSON.stringify(fromSB)));
+          setLoadMsg('✅ ' + fromSB.flatMap(s=>s.items).length + '개 약이 불러와졌어요!');
+        } else {
+          // localStorage도 확인
+          const ls = localStorage.getItem(`hcd_meds_config_${userId}`);
+          const fromLS = ls ? JSON.parse(ls) : null;
+          if (fromLS && Array.isArray(fromLS) && fromLS.length > 0) {
+            setCfg(JSON.parse(JSON.stringify(fromLS)));
+            setLoadMsg('✅ 로컬 저장 데이터(' + fromLS.flatMap(s=>s.items).length + '개 약)를 불러왔어요.');
+          } else {
+            setLoadMsg('저장된 복약 데이터가 없어요. 직접 추가해 주세요.');
+          }
+        }
+      } catch(e) {
+        setLoadMsg('❌ 불러오기 실패: ' + (e.message||'오류'));
+      }
+      setLoadingCloud(false);
+      setTimeout(()=>setLoadMsg(''), 3500);
+    };
 
     const SLOT_COLORS = [
       { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
@@ -1135,10 +1167,27 @@
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
            onClick={e=>e.target===e.currentTarget&&onClose()}>
         <div style={{background:'var(--card-bg)',borderRadius:'18px',padding:'24px',maxWidth:'520px',width:'100%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 80px rgba(0,0,0,0.25)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
             <div style={{fontSize:'14px',fontWeight:'800',color:'var(--text)'}}>⚙️ 복약 설정</div>
-            <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'14px'}}>✕</button>
+            <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+              <button onClick={loadFromCloud} disabled={loadingCloud}
+                style={{background:loadingCloud?'var(--divider)':'var(--cn-brand-100)',border:'1px solid var(--cn-brand)',
+                        borderRadius:'8px',padding:'5px 10px',cursor:loadingCloud?'default':'pointer',
+                        fontSize:'12px',fontWeight:'700',color:'var(--cn-brand)',whiteSpace:'nowrap'}}>
+                {loadingCloud ? '⏳ 불러오는 중...' : '☁️ 저장된 데이터 불러오기'}
+              </button>
+              <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',width:'32px',height:'32px',cursor:'pointer',fontSize:'14px'}}>✕</button>
+            </div>
           </div>
+          {loadMsg && (
+            <div style={{background: loadMsg.startsWith('✅')?'var(--cn-ok-100)': loadMsg.startsWith('❌')?'var(--cn-danger-100)':'var(--cn-warn-100)',
+                         border:`1px solid ${loadMsg.startsWith('✅')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'var(--cn-warn)'}`,
+                         borderRadius:'8px',padding:'8px 12px',marginBottom:'12px',
+                         fontSize:'13px',fontWeight:'600',
+                         color: loadMsg.startsWith('✅')?'var(--cn-ok)':loadMsg.startsWith('❌')?'var(--cn-danger)':'#92400e'}}>
+              {loadMsg}
+            </div>
+          )}
 
           {cfg.map(slot => (
             <div key={slot.key} style={{background:slot.bg,border:`1px solid ${slot.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'10px'}}>
@@ -3467,7 +3516,7 @@
         {showSync && <SyncModal userId={userId} onClose={() => { setShowSync(false); setRefreshKey(k => k + 1); }} onChangeId={() => { setRefreshKey(k => k + 1); }} />}
 
         {/* Med Settings Modal */}
-        {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
+        {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} userId={userId} />}
 
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
