@@ -123,6 +123,70 @@
     .bs-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     .bs-num-input { -moz-appearance: textfield; }
   .cn-num, .cn-num * { font-family: var(--font-num) !important; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+  /* ── Tab Navigation System ── */
+  /* 기본: 모바일에서 모든 Card는 숨김. data-current-tab과 매치되는 것만 표시 */
+  @media (max-width: 1023px) {
+    body[data-current-tab] .cn-card[data-tab]:not([data-tab=""]) { display: none; }
+    body[data-current-tab="home"]      .cn-card[data-tab="home"],
+    body[data-current-tab="record"]    .cn-card[data-tab="record"],
+    body[data-current-tab="report"]    .cn-card[data-tab="report"],
+    body[data-current-tab="challenge"] .cn-card[data-tab="challenge"],
+    body[data-current-tab="profile"]   .cn-card[data-tab="profile"] { display: block; }
+    /* 모바일에서 RIGHT 컬럼이 별도 보이지 않도록 그리드 단일컬럼 */
+    .main-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+    /* 날짜 이동은 기록 탭에서만 의미있게 보이게, 다른 탭에선 전역 표시 유지 OK */
+  }
+  .cn-tab-only-mobile { display: block; }
+  @media (min-width: 1024px) { .cn-tab-only-mobile { display: none; } }
+  .cn-tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--card-bg);
+    border-top: 1px solid var(--card-border);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    z-index: 100; padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  }
+  .cn-tab-btn {
+    background: none; border: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 4px; color: var(--text-mute);
+    font-size: 11px; font-weight: 600; font-family: inherit;
+    transition: color 0.15s ease;
+  }
+  .cn-tab-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .cn-tab-btn.active { color: var(--cn-brand); }
+  .cn-tab-btn:hover { color: var(--text); }
+  .cn-tab-btn.active:hover { color: var(--cn-brand); }
+  body.has-tabbar { padding-bottom: 80px; }
+  /* 데스크톱에서는 탭바 숨기고 기존 레이아웃 유지 */
+  @media (min-width: 1024px) {
+    .cn-tabbar { display: none; }
+    body.has-tabbar { padding-bottom: 0; }
+    .cn-tab-content { display: block !important; }
+    .main-grid { display: grid !important; }
+  }
+  @media (max-width: 1023px) {
+    .main-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+  }
+  .cn-challenge-card {
+    background: linear-gradient(135deg, var(--cn-brand-100), var(--card-bg));
+    border: 1px solid var(--cn-brand);
+    border-radius: 16px; padding: 20px; margin-bottom: 14px;
+  }
+  .cn-badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-top: 16px; }
+  .cn-badge {
+    aspect-ratio: 1; background: var(--input-bg); border: 1.5px solid var(--card-border);
+    border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 10px; text-align: center; gap: 4px; transition: all 0.2s ease;
+  }
+  .cn-badge.earned { background: var(--cn-brand-100); border-color: var(--cn-brand); }
+  .cn-badge-icon { font-size: 28px; filter: grayscale(1); opacity: 0.35; }
+  .cn-badge.earned .cn-badge-icon { filter: none; opacity: 1; }
+  .cn-badge-name { font-size: 11px; font-weight: 700; color: var(--text); }
+  .cn-badge-desc { font-size: 10px; color: var(--text-sub); line-height: 1.3; }
+  .cn-streak-big { font-family: var(--font-num); font-size: 56px; font-weight: 700; color: var(--cn-brand); line-height: 1; letter-spacing: -0.02em; }
+  
   </style>
 </head>
 <body>
@@ -205,8 +269,8 @@
   let _dm = localStorage.getItem('cn_dark') === '1';
   if (_dm) document.body.classList.add('dark');
 
-  const Card = ({children, style}) => (
-    <div className="cn-card" style={style}>
+  const Card = ({children, style, tab}) => (
+    <div className="cn-card" data-tab={tab} style={style}>
       {children}
     </div>
   );
@@ -1585,6 +1649,148 @@
   };
 
   /* ── App ──────────────────────────────────────────────── */
+
+  /* ── 챌린지 탭 ── */
+  const ChallengeTab = ({ data, date, userId }) => {
+    // 연속 기록 streak 계산
+    const streak = React.useMemo(() => {
+      let count = 0;
+      let d = date;
+      for (let i = 0; i < 365; i++) {
+        const dd = data[d];
+        if (!dd) break;
+        const hasBs = Object.values(dd.bs || {}).some(v => parseInt(v) > 0);
+        if (!hasBs) break;
+        count++;
+        d = shiftDate(d, -1);
+      }
+      return count;
+    }, [data, date]);
+
+    const last7 = React.useMemo(() => {
+      let inRange = 0, total = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = shiftDate(date, -i);
+        const dd = data[d];
+        if (!dd) continue;
+        Object.values(dd.bs || {}).forEach(v => {
+          const n = parseInt(v);
+          if (n > 0) { total++; if (n >= 70 && n <= 140) inRange++; }
+        });
+      }
+      return { inRange, total, pct: total ? Math.round((inRange / total) * 100) : 0 };
+    }, [data, date]);
+
+    const medStreak = React.useMemo(() => {
+      let count = 0;
+      let d = date;
+      for (let i = 0; i < 30; i++) {
+        const dd = data[d];
+        if (!dd || !dd.meds || !Object.values(dd.meds).some(Boolean)) break;
+        count++;
+        d = shiftDate(d, -1);
+      }
+      return count;
+    }, [data, date]);
+
+    const badges = [
+      { id: 'first', icon: '🎯', name: '첫 걸음', desc: '첫 혈당 기록', earned: streak >= 1 },
+      { id: 'streak3', icon: '🔥', name: '3일 연속', desc: '3일 연속 기록', earned: streak >= 3 },
+      { id: 'streak7', icon: '⭐', name: '일주일', desc: '7일 연속 기록', earned: streak >= 7 },
+      { id: 'streak30', icon: '🏆', name: '한 달', desc: '30일 연속 기록', earned: streak >= 30 },
+      { id: 'streak100', icon: '💎', name: '100일', desc: '100일 연속', earned: streak >= 100 },
+      { id: 'inrange70', icon: '✅', name: '정상 70%', desc: '7일 70%이상 정상', earned: last7.pct >= 70 && last7.total >= 10 },
+      { id: 'inrange80', icon: '🌟', name: '정상 80%', desc: '7일 80%이상 정상', earned: last7.pct >= 80 && last7.total >= 10 },
+      { id: 'med7', icon: '💊', name: '복약 일주일', desc: '7일 연속 복약 체크', earned: medStreak >= 7 },
+      { id: 'med30', icon: '👑', name: '복약 마스터', desc: '30일 연속 복약', earned: medStreak >= 30 },
+    ];
+    const earned = badges.filter(b => b.earned).length;
+
+    return (
+      <div className="cn-card" data-tab="challenge">
+        <div className="cn-challenge-card">
+          <div style={{ fontSize:'14px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'6px' }}>🔥 연속 기록</div>
+          <div className="cn-streak-big">{streak}</div>
+          <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'4px' }}>일 연속 혈당 기록 중</div>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px' }}>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'600' }}>최근 7일 정상범위</div>
+            <div style={{ fontFamily:'var(--font-num)', fontSize:'32px', fontWeight:'700', color: last7.pct >= 70 ? 'var(--cn-ok)' : 'var(--cn-warn)', marginTop:'6px' }}>{last7.pct}%</div>
+            <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'2px' }}>{last7.inRange}/{last7.total}회</div>
+          </div>
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px' }}>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'600' }}>복약 연속</div>
+            <div style={{ fontFamily:'var(--font-num)', fontSize:'32px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'6px' }}>{medStreak}<span style={{ fontSize:'16px', color:'var(--text-sub)', marginLeft:'4px' }}>일</span></div>
+          </div>
+        </div>
+
+        <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'4px' }}>🏅 배지</div>
+        <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'8px' }}>{earned}/{badges.length} 획득</div>
+        <div className="cn-badge-grid">
+          {badges.map(b => (
+            <div key={b.id} className={'cn-badge' + (b.earned ? ' earned' : '')}>
+              <div className="cn-badge-icon">{b.icon}</div>
+              <div className="cn-badge-name">{b.name}</div>
+              <div className="cn-badge-desc">{b.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 프로필 탭 ── */
+  const ProfileTab = ({ authUser, userId, onMedSettings, onImport, onSync, onAdmin, onRefresh, syncing, darkMode, onToggleDark }) => {
+    const isAdmin = authUser?.email === 'cnkim74@gmail.com';
+    const Row = ({ icon, label, sub, onClick, accent, disabled }) => (
+      <button onClick={onClick} disabled={disabled}
+        style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px',
+                 padding:'14px 16px', display:'flex', alignItems:'center', gap:'12px', cursor: disabled?'default':'pointer',
+                 marginBottom:'10px', opacity: disabled?0.5:1, textAlign:'left', fontFamily:'inherit' }}>
+        <div style={{ fontSize:'22px', width:'36px', height:'36px', background: accent || 'var(--cn-brand-100)', color: accent?'#fff':'var(--cn-brand)',
+                     borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{icon}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>{label}</div>
+          {sub && <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'2px' }}>{sub}</div>}
+        </div>
+        <div style={{ color:'var(--text-mute)', fontSize:'18px' }}>›</div>
+      </button>
+    );
+    return (
+      <div className="cn-card" data-tab="profile">
+        <div style={{ background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', borderRadius:'16px',
+                     padding:'22px 18px', marginBottom:'16px', color:'#fff' }}>
+          <div style={{ fontSize:'13px', opacity:0.9 }}>로그인 계정</div>
+          <div style={{ fontSize:'18px', fontWeight:'700', marginTop:'4px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
+          <div style={{ fontSize:'11px', opacity:0.75, marginTop:'6px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+        </div>
+
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'12px 4px 8px' }}>데이터</div>
+        <Row icon="💊" label="복약 설정" sub="복용 중인 약 등록" onClick={onMedSettings} />
+        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강" onClick={onImport} />
+        <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
+        <Row icon="♻️" label={syncing?'새로고침 중...':'새로고침'} sub="최신 데이터 다시 불러오기" onClick={onRefresh} disabled={syncing} />
+
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>화면</div>
+        <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙" onClick={onToggleDark} />
+
+        {isAdmin && (<>
+          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>관리자</div>
+          <Row icon="🛠️" label="관리자 설정" sub="배너 · 콘텐츠 관리" onClick={onAdmin} accent="var(--cn-warn)" />
+        </>)}
+
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>계정</div>
+        <Row icon="🚪" label="로그아웃" onClick={() => supabase?.auth.signOut()} accent="var(--cn-danger)" />
+
+        <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'24px', lineHeight:1.6 }}>
+          CARENOTE v2.0<br/>내 몸을 기록하는 노트
+        </div>
+      </div>
+    );
+  };
+
   const App = () => {
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
@@ -1606,6 +1812,13 @@
     const [refreshKey,  setRefreshKey]  = useState(0); // 수동 새로고침 트리거
     const [syncing,     setSyncing]     = useState(false);
     const [darkMode,    setDarkMode]    = useState(_dm);
+    const [currentTab,  setCurrentTab]  = useState(() => { try { return localStorage.getItem('cn-tab') || 'home'; } catch { return 'home'; } });
+    useEffect(() => {
+      try { localStorage.setItem('cn-tab', currentTab); } catch {}
+      document.body.classList.add('has-tabbar');
+      document.body.setAttribute('data-current-tab', currentTab);
+      return () => { document.body.classList.remove('has-tabbar'); document.body.removeAttribute('data-current-tab'); };
+    }, [currentTab]);
     const dm = _dm; // 모듈 레벨 변수 (토글 시 동기적으로 갱신됨)
 
     // Supabase Auth 초기화
@@ -2151,7 +2364,7 @@
             {/* ── LEFT ── */}
             <div>
               {/* 복약 */}
-              <Card>
+              <Card tab="record">
                 <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
                 <div style={{ background:'var(--card-border)', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
                   <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'var(--cn-ok)':'var(--cn-brand)', transition:'width 0.5s ease' }}/>
@@ -2200,7 +2413,7 @@
               <BannerSlot slotId="after_meds" />
 
               {/* 혈당 */}
-              <Card>
+              <Card tab="record">
                 <STitle icon="🩸" label="혈당 기록" right="단위: mg/dL" />
                 <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'16px' }}>
                   {[{c:'var(--cn-low)',t:'저혈당 (<70)'},{c:'var(--cn-ok)',t:'정상 (70–140)'},{c:'var(--cn-warn)',t:'주의 (140–180)'},{c:'var(--cn-danger)',t:'높음 (>180)'}].map(l => (
@@ -2272,7 +2485,7 @@
                 const hasBPWeek = bpWeek.some(x => x.sys);
 
                 return (
-                  <Card>
+                  <Card tab="record">
                     <STitle icon="💓" label="혈압 기록" />
 
                     {/* 분류 기준 범례 */}
@@ -2427,7 +2640,7 @@
               })()}
 
               {/* 식사 */}
-              <Card>
+              <Card tab="record">
                 <STitle icon="🍽️" label="식사 기록" />
                 <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'14px' }}>
                   <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
@@ -2509,7 +2722,7 @@
               </Card>
 
               {/* 주간 차트 */}
-              <Card>
+              <Card tab="report">
                 <STitle icon="📈" label="최근 7일 평균 혈당" />
                 <div className="chart-wrap"><canvas ref={chartRef}/></div>
                 <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center', fontSize:'14px', color:'var(--text-sub)' }}>
@@ -2527,7 +2740,7 @@
               <BannerSlot slotId="sidebar_top" />
 
               {/* 요약 */}
-              <Card style={{ background:medPct===100?'var(--cn-ok-100)':'#fff' }}>
+              <Card tab="home" style={{ background:medPct===100?'var(--cn-ok-100)':'#fff' }}>
                 <STitle icon="📊" label="오늘 요약" />
                 <div style={{ marginBottom:'16px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:'16px', marginBottom:'5px' }}>
@@ -2558,7 +2771,7 @@
               </Card>
 
               {/* 체중 / 체지방 */}
-              <Card>
+              <Card tab="record">
                 <STitle icon="⚖️" label="체중 · 체지방 기록" />
 
                 {/* 입력 행 */}
@@ -2795,7 +3008,7 @@
               </Card>
 
               {/* 운동 */}
-              <Card>
+              <Card tab="record">
                 <STitle icon="🏃" label="운동 기록" />
                 <div style={{ marginBottom:'10px' }}>
                   <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 종류</div>
@@ -2811,14 +3024,14 @@
               </Card>
 
               {/* 메모 */}
-              <Card>
+              <Card tab="home">
                 <STitle icon="📝" label="오늘의 메모" />
                 <textarea value={day.note||''} onChange={e=>upDay({note:e.target.value})} placeholder="특이사항, 컨디션, 저혈당 증상, 의사 선생님께 전달할 내용 등…" rows={4}
                   style={{ ...inpSt, resize:'vertical', lineHeight:'1.6', fontFamily:'inherit' }} />
               </Card>
 
               {/* 목표 카드 */}
-              <Card style={{ background:'linear-gradient(135deg,var(--cn-brand-100),var(--cn-ok-100))', border:'1px solid #bfdbfe' }}>
+              <Card tab="home" style={{ background:'linear-gradient(135deg,var(--cn-brand-100),var(--cn-ok-100))', border:'1px solid #bfdbfe' }}>
                 <div style={{ fontSize:'14px', fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
                 <div style={{ fontSize:'14px', color:'var(--text)', lineHeight:'2' }}>
                   ✅ 혈당 꾸준히 기록 (리브레2 연동)<br/>
@@ -2832,9 +3045,46 @@
             </div>
           </div>
 
+          {/* ── 챌린지 탭 ── */}
+          <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'0 16px 22px' }}>
+            <ChallengeTab data={data} date={date} userId={userId} />
+          </div>
+
+          {/* ── 프로필 탭 ── */}
+          <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'0 16px 22px' }}>
+            <ProfileTab
+              authUser={authUser} userId={userId}
+              onMedSettings={() => setShowMedSettings(true)}
+              onImport={() => setShowImport(true)}
+              onSync={() => setShowSync(true)}
+              onAdmin={() => setShowAdmin(true)}
+              onRefresh={() => setRefreshKey(k => k + 1)}
+              syncing={syncing}
+              darkMode={darkMode}
+              onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
+            />
+          </div>
+
           {/* Banner: 페이지 맨 아래 */}
           <BannerSlot slotId="bottom" />
         </div>
+
+        {/* ── 하단 탭바 (모바일 전용) ── */}
+        <nav className="cn-tabbar">
+          {[
+            { id:'home',      label:'홈',    icon:<><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></>    },
+            { id:'record',    label:'기록',   icon:<><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></> },
+            { id:'report',    label:'리포트', icon:<><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></>       },
+            { id:'challenge', label:'챌린지', icon:<><circle cx="12" cy="8" r="6"/><path d="M8.5 13L7 22l5-3 5 3-1.5-9"/></> },
+            { id:'profile',   label:'프로필', icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></> },
+          ].map(t => (
+            <button key={t.id} className={'cn-tab-btn' + (currentTab===t.id?' active':'')}
+              onClick={() => setCurrentTab(t.id)}>
+              <svg viewBox="0 0 24 24">{t.icon}</svg>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
 
         {/* 로딩 오버레이 */}
         {loading && (
