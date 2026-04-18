@@ -1765,8 +1765,69 @@
     );
   };
 
+  /* ── 비밀번호 변경 모달 ── */
+  const ChangePasswordModal = ({ onClose }) => {
+    const dm = _dm;
+    const [pw,    setPw]   = useState('');
+    const [pw2,   setPw2]  = useState('');
+    const [busy,  setBusy] = useState(false);
+    const [msg,   setMsg]  = useState('');
+    const [err,   setErr]  = useState('');
+    const inp = { width:'100%', padding:'12px 14px', border:`1.5px solid ${dm?'var(--card-border)':'#e5eaf2'}`, borderRadius:'10px',
+                  fontSize:'15px', outline:'none', fontFamily:'inherit', background:dm?'var(--bg)':'#fff',
+                  color:dm?'var(--text)':'var(--cn-ink)', boxSizing:'border-box' };
+    const handle = async () => {
+      if (!pw || pw.length < 6) { setErr('비밀번호는 6자 이상이어야 해요.'); return; }
+      if (pw !== pw2)           { setErr('비밀번호가 일치하지 않아요.'); return; }
+      setBusy(true); setErr('');
+      try {
+        const { error } = await supa.auth.updateUser({ password: pw });
+        if (error) throw error;
+        setMsg('✅ 비밀번호가 변경됐어요!');
+        setTimeout(onClose, 2200);
+      } catch(e) {
+        setErr(e.message || '비밀번호 변경에 실패했어요.');
+        setBusy(false);
+      }
+    };
+    return (
+      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.58)',display:'flex',alignItems:'center',
+                   justifyContent:'center',zIndex:2500,padding:'20px'}}
+           onClick={e => e.target===e.currentTarget && onClose()}>
+        <div style={{background:'var(--card-bg)',borderRadius:'20px',padding:'28px 24px',maxWidth:'400px',width:'100%',
+                     boxShadow:'0 24px 80px rgba(0,0,0,0.3)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'22px'}}>
+            <div style={{fontSize:'17px',fontWeight:'800',color:'var(--text)'}}>🔑 비밀번호 변경</div>
+            <button onClick={onClose} style={{background:'var(--divider)',border:'none',borderRadius:'8px',
+                                              width:'32px',height:'32px',cursor:'pointer',fontSize:'16px'}}>✕</button>
+          </div>
+          {msg && <div style={{background:'var(--cn-ok-100)',border:'1px solid var(--cn-ok)',borderRadius:'10px',
+                                padding:'12px 14px',marginBottom:'14px',fontSize:'14px',color:'var(--cn-ok)',fontWeight:'600'}}>{msg}</div>}
+          {err && <div style={{background:'var(--cn-danger-100)',border:'1px solid var(--cn-danger)',borderRadius:'10px',
+                                padding:'12px 14px',marginBottom:'14px',fontSize:'14px',color:'var(--cn-danger)'}}>{err}</div>}
+          <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+            <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('');}}
+              placeholder="새 비밀번호 (6자 이상)" style={inp} />
+            <input type="password" value={pw2} onChange={e=>{setPw2(e.target.value);setErr('');}}
+              placeholder="새 비밀번호 확인" style={inp}
+              onKeyDown={e => e.key==='Enter' && handle()} />
+            <button onClick={handle} disabled={busy||!!msg}
+              style={{width:'100%',padding:'13px',background:busy||msg?'var(--divider)':'var(--cn-brand)',color:busy||msg?'var(--text-mute)':'#fff',
+                      border:'none',borderRadius:'12px',fontSize:'15px',fontWeight:'800',cursor:busy||msg?'default':'pointer',
+                      transition:'background 0.2s',marginTop:'4px'}}>
+              {busy ? '변경 중...' : '변경하기'}
+            </button>
+          </div>
+          <div style={{fontSize:'12px',color:'var(--text-mute)',textAlign:'center',marginTop:'14px',lineHeight:1.6}}>
+            Google 계정으로 가입하셨다면 비밀번호 변경이 적용되지 않을 수 있어요.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   /* ── 프로필 탭 ── */
-  const ProfileTab = ({ authUser, userId, onMedSettings, onImport, onSync, onAdmin, onRefresh, syncing, darkMode, onToggleDark }) => {
+  const ProfileTab = ({ authUser, userId, onMedSettings, onImport, onSync, onAdmin, onRefresh, syncing, darkMode, onToggleDark, onChangePassword }) => {
     const isAdmin = authUser?.email === 'cnkim74@gmail.com';
     const Row = ({ icon, label, sub, onClick, accent, disabled }) => (
       <button onClick={onClick} disabled={disabled}
@@ -1793,7 +1854,7 @@
 
         <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'12px 4px 8px' }}>데이터</div>
         <Row icon="💊" label="복약 설정" sub="복용 중인 약 등록" onClick={onMedSettings} />
-        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강" onClick={onImport} />
+        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 ZIP/XML · 삼성 헬스 ZIP" onClick={onImport} />
         <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
         <Row icon="♻️" label={syncing?'새로고침 중...':'새로고침'} sub="최신 데이터 다시 불러오기" onClick={onRefresh} disabled={syncing} />
 
@@ -1806,7 +1867,8 @@
         </>)}
 
         <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', margin:'20px 4px 8px' }}>계정</div>
-        <Row icon="🚪" label="로그아웃" onClick={() => supabase?.auth.signOut()} accent="var(--cn-danger)" />
+        <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
+        <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
 
         <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'24px', lineHeight:1.6 }}>
           CARENOTE v2.0<br/>내 몸을 기록하는 노트
@@ -2125,6 +2187,7 @@
     const [showImport, setShowImport] = useState(false);
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
+    const [showChangePw,    setShowChangePw]    = useState(false);
     const [medsConfig, setMedsConfig] = useState([]);
     const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
@@ -3269,7 +3332,7 @@
                   {/* iOS */}
                   <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
                     style={{ flex:1, padding:'8px 6px', background: weightImporting?'var(--divider)':'var(--cn-brand-100)', border:`1px solid ${weightImporting?'var(--card-border)':'var(--cn-brand)'}`, color: weightImporting?'var(--text-mute)':'#1d4ed8', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
-                    🍎 iOS<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>건강앱 export.zip</span>
+                    🍎 iOS 건강앱<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>export.zip 또는 export.xml</span>
                   </button>
                   {/* Android */}
                   <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
@@ -3360,6 +3423,7 @@
               syncing={syncing}
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
+              onChangePassword={() => setShowChangePw(true)}
             />
           </div>
 
@@ -3404,6 +3468,9 @@
 
         {/* Med Settings Modal */}
         {showMedSettings && <MedSettingsModal meds={medsConfig} onSave={saveMeds} onClose={() => setShowMedSettings(false)} />}
+
+        {/* Change Password Modal */}
+        {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
 
         {/* Admin Modal */}
         {showAdmin && <AdminModal onClose={() => setShowAdmin(false)} userEmail={authUser?.email} />}
