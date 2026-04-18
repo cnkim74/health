@@ -6,6 +6,9 @@
   <title>CARENOTE – 내 몸을 기록하는 노트</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -14,26 +17,62 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <style>
     :root {
-      --bg:          #f0f4f8;
-      --card-bg:     #ffffff;
-      --card-border: #e2e8f0;
-      --card-shadow: 0 1px 8px rgba(0,0,0,0.07);
-      --text:        #1e293b;
-      --text-sub:    #64748b;
-      --input-bg:    #f8fafc;
-      --input-border:#e2e8f0;
-      --divider:     #f1f5f9;
+      /* CARENOTE Design Tokens v2.0 */
+      --cn-brand:        #2F6BFF;
+      --cn-brand-600:    #1F4FD9;
+      --cn-brand-100:    #EAF1FF;
+      --cn-ink:          #0B1B3B;
+      --cn-ok:           #10B981;
+      --cn-ok-100:       #E6FAF4;
+      --cn-warn:         #F59E0B;
+      --cn-warn-100:     #FFF7E0;
+      --cn-danger:       #EF4444;
+      --cn-danger-100:   #FFECEC;
+      --cn-low:          #8B5CF6;
+      --cn-low-100:      #F3EDFF;
+      --bg:              #F4F6FB;
+      --bg-soft:         #ECF0F8;
+      --card-bg:         #FFFFFF;
+      --card-border:     #E5EAF2;
+      --card-shadow:     0 1px 2px rgba(11,27,59,0.04), 0 4px 16px rgba(11,27,59,0.05);
+      --text:            #0B1B3B;
+      --text-sub:        #5B6B85;
+      --text-mute:       #8C98AD;
+      --input-bg:        var(--input-bg);
+      --input-border:    #E5EAF2;
+      --divider:         #EEF1F6;
+      --chart-grid:      rgba(11,27,59,0.08);
+      --chart-axis:      #8C98AD;
+      --modal-scrim:     rgba(11,27,59,0.55);
+      --font-num: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
     }
     body.dark {
-      --bg:          #0d1117;
-      --card-bg:     #161b22;
-      --card-border: #30363d;
-      --card-shadow: 0 1px 8px rgba(0,0,0,0.4);
-      --text:        #e6edf3;
-      --text-sub:    #8b949e;
-      --input-bg:    #0d1117;
-      --input-border:#30363d;
-      --divider:     #21262d;
+      --cn-brand:        #5B8CFF;
+      --cn-brand-600:    #3A6FE8;
+      --cn-brand-100:    #12244A;
+      --cn-ink:          #E8EEF9;
+      --cn-ok:           #34D399;
+      --cn-ok-100:       #06281D;
+      --cn-warn:         #FBBF24;
+      --cn-warn-100:     #2A1F00;
+      --cn-danger:       #FB7185;
+      --cn-danger-100:   #2A0B10;
+      --cn-low:          #A78BFA;
+      --cn-low-100:      var(--cn-low-100);
+      --bg:              #000000;
+      --bg-soft:         #050507;
+      --card-bg:         #0A0A0F;
+      --card-border:     #1C1F28;
+      --card-shadow:     0 1px 2px rgba(0,0,0,0.6), 0 6px 20px rgba(0,0,0,0.5);
+      --text:            #F2F5FA;
+      --text-sub:        #A0ABC0;
+      --text-mute:       #6B7689;
+      --input-bg:        #0D0F15;
+      --input-border:    #1C1F28;
+      --divider:         #161923;
+      --chart-grid:      rgba(255,255,255,0.06);
+      --chart-axis:      #6B7689;
+      --modal-scrim:     rgba(0,0,0,0.82);
     }
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -52,7 +91,7 @@
     ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
     input, textarea, select { font-family: inherit; font-size: inherit; }
     button { font-family: inherit; }
-    .med-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb; flex-shrink: 0; }
+    .med-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--cn-brand); flex-shrink: 0; }
     .chart-wrap { position: relative; height: 200px; }
     .cn-card {
       background: var(--card-bg);
@@ -83,6 +122,7 @@
     .bs-num-input::-webkit-inner-spin-button,
     .bs-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     .bs-num-input { -moz-appearance: textfield; }
+  .cn-num, .cn-num * { font-family: var(--font-num) !important; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   </style>
 </head>
 <body>
@@ -92,20 +132,20 @@
 
   /* ── 복약 기본 데이터 ─────────────────────────────────── */
   const DEFAULT_MEDS = [
-    { slot:'아침 식전',    key:'morn_pre',   color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+    { slot:'아침 식전',    key:'morn_pre',   color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)', icon:'💉',
       items:[{ id:'fiasp_am',      name:'피아스포',           dose:'4단위 주사' }] },
-    { slot:'아침 식후 30분', key:'morn_post', color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
+    { slot:'아침 식후 30분', key:'morn_post', color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)', icon:'💊',
       items:[{ id:'teneliaam_am', name:'테넬리아앰서방정',   dose:'10/500mg 1정' },
              { id:'thioctacid',   name:'치옥타시드에이취알정', dose:'600mg 1정' }] },
-    { slot:'점심 식전',    key:'lunch_pre',  color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+    { slot:'점심 식전',    key:'lunch_pre',  color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)', icon:'💉',
       items:[{ id:'fiasp_lunch',   name:'피아스포',           dose:'4단위 주사' }] },
-    { slot:'저녁 식전',    key:'din_pre',    color:'#2563eb', bg:'#eff6ff', border:'#93c5fd', icon:'💉',
+    { slot:'저녁 식전',    key:'din_pre',    color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)', icon:'💉',
       items:[{ id:'fiasp_din',     name:'피아스포',           dose:'4단위 주사' }] },
-    { slot:'저녁 식후 30분', key:'din_post', color:'#059669', bg:'#f0fdf4', border:'#86efac', icon:'💊',
+    { slot:'저녁 식후 30분', key:'din_post', color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)', icon:'💊',
       items:[{ id:'lipitor',       name:'리피토정',           dose:'10mg 1정' },
              { id:'teneliaam_pm', name:'테넬리아앰서방정',   dose:'10/500mg 1정' },
              { id:'lyrica',        name:'리리카캡슐',         dose:'75mg 1캡슐' }] },
-    { slot:'취침 전',      key:'bed',        color:'#7c3aed', bg:'#faf5ff', border:'#c4b5fd', icon:'💉',
+    { slot:'취침 전',      key:'bed',        color:'var(--cn-low)', bg:'var(--cn-low-100)', border:'var(--cn-low)', icon:'💉',
       items:[{ id:'toujeo',        name:'투제오 솔로스타',    dose:'14단위 주사' }] }
   ];
   const genId = () => 'med_' + Math.random().toString(36).slice(2,9);
@@ -155,7 +195,7 @@
     d.setDate(d.getDate() + n);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
-  const bsColor = (v) => { const n=parseInt(v); if(!n) return '#94a3b8'; if(n<70) return '#7c3aed'; if(n<=140) return '#16a34a'; if(n<=180) return '#d97706'; return '#dc2626'; };
+  const bsColor = (v) => { const n=parseInt(v); if(!n) return 'var(--text-mute)'; if(n<70) return 'var(--cn-low)'; if(n<=140) return 'var(--cn-ok)'; if(n<=180) return 'var(--cn-warn)'; return 'var(--cn-danger)'; };
   const bsLabel = (v) => { const n=parseInt(v); if(!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
   const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
   const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, exercise:{type:'',mins:''}, weight:'', bodyFat:'', note:'' });
@@ -177,35 +217,19 @@
     </div>
   );
 
-  /* ── CARENOTE 로고 SVG ─────────────────────────────────── */
-  const CareNoteLogo = ({ size = 38 }) => (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* 클립보드 본체 */}
-      <rect x="10" y="20" width="80" height="72" rx="12" fill="rgba(147,197,253,0.18)" stroke="#7ec8f0" strokeWidth="4.5"/>
-      {/* 상단 바인딩 탭 */}
-      {[18,31,44,57,70].map((x,i) => (
-        <rect key={i} x={x} y="11" width="9" height="15" rx="3.5" fill="none" stroke="#7ec8f0" strokeWidth="3.5"/>
-      ))}
-      {/* 오른쪽 위 접힌 모서리 */}
-      <path d="M73 20 L90 37 L73 37 Z" fill="#7ec8f0" opacity="0.45"/>
-      {/* 의료 십자 (초록) */}
-      <rect x="14" y="34" width="22" height="8" rx="2.5" fill="#4ade80"/>
-      <rect x="21" y="27" width="8" height="22" rx="2.5" fill="#4ade80"/>
-      {/* 텍스트 라인 (파란) */}
-      <rect x="42" y="35" width="26" height="4.5" rx="2" fill="#7ec8f0"/>
-      <rect x="42" y="43" width="19" height="4.5" rx="2" fill="#7ec8f0"/>
-      {/* 막대 차트 */}
-      <rect x="14" y="70" width="11" height="16" rx="2" fill="#93c5fd" opacity="0.75"/>
-      <rect x="29" y="61" width="11" height="25" rx="2" fill="#93c5fd" opacity="0.75"/>
-      <rect x="44" y="54" width="11" height="32" rx="2" fill="#93c5fd" opacity="0.75"/>
-      <rect x="59" y="47" width="11" height="39" rx="2" fill="#93c5fd" opacity="0.75"/>
-      <rect x="74" y="40" width="11" height="46" rx="2" fill="#93c5fd" opacity="0.75"/>
-      {/* 라인 그래프 */}
-      <path d="M14 78 C28 64 42 57 57 52 S75 46 86 40" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round"/>
-      {/* 체크마크 (초록) */}
-      <path d="M62 56 L72 68 L87 47" stroke="#4ade80" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  /* CARENOTE 펄스 라인 로고 */
+  const CareNoteLogo = ({ size = 38, onDark = true }) => {
+    const ring = onDark ? 'rgba(255,255,255,0.95)' : 'var(--cn-brand)';
+    const pulse = onDark ? '#5B8CFF' : 'var(--cn-brand)';
+    const accent = onDark ? '#34D399' : 'var(--cn-ok)';
+    return (
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="19" stroke={ring} strokeWidth="2.5" fill="none"/>
+        <path d="M7 24 L14 24 L17 24 L19 17 L22 31 L25 20 L28 27 L31 24 L41 24" stroke={pulse} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <circle cx="22" cy="31" r="1.8" fill={accent}/>
+      </svg>
+    );
+  };
 
   /* ── Gemini 식사 사진 분석 ─────────────────────────────────── */
   const GEMINI_KEY = 'AIzaSyDsRv6gCfI2JrMYORkz8NJuuf9hy7acQYk';
@@ -715,9 +739,9 @@
 
     const isLV      = tab === 'libreview';
     const isAndroid = tab === 'android';
-    const accent  = isLV ? '#7c3aed' : isAndroid ? '#16a34a' : '#2563eb';
-    const accentL = isLV ? '#faf5ff' : isAndroid ? '#f0fdf4' : '#eff6ff';
-    const accentB = isLV ? '#c4b5fd' : isAndroid ? '#86efac' : '#93c5fd';
+    const accent  = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : 'var(--cn-brand)';
+    const accentL = isLV ? 'var(--cn-low-100)' : isAndroid ? 'var(--cn-ok-100)' : 'var(--cn-brand-100)';
+    const accentB = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : 'var(--cn-brand)';
 
     return (
       <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px' }}
@@ -743,12 +767,12 @@
               <button key={t.key} onClick={() => onTabChange(t.key)} style={{
                 flex:1, padding:'10px 6px', border:'none', borderRadius:'8px', cursor:'pointer',
                 fontSize:'13px', fontWeight:'700', transition:'all 0.2s',
-                background: tab===t.key ? (dm?'#1e293b':'#fff') : 'transparent',
-                color: tab===t.key ? accent : '#94a3b8',
+                background: tab===t.key ? (dm?'var(--cn-ink)':'#fff') : 'transparent',
+                color: tab===t.key ? accent : 'var(--text-mute)',
                 boxShadow: tab===t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
               }}>
                 {t.label}
-                {t.sub && <span style={{ display:'block', fontSize:'11px', fontWeight:'500', marginTop:'1px', color: tab===t.key ? accent : '#cbd5e1' }}>{t.sub}</span>}
+                {t.sub && <span style={{ display:'block', fontSize:'11px', fontWeight:'500', marginTop:'1px', color: tab===t.key ? accent : 'var(--text-mute)' }}>{t.sub}</span>}
               </button>
             ))}
           </div>
@@ -756,9 +780,9 @@
           {/* ── LibreView 탭 ── */}
           {isLV && (status === 'idle' || status === 'error') && (
             <>
-              <div style={{ background:dm?'#1a1030':'#faf5ff', border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
-                <div style={{ fontWeight:'700', color:'#7c3aed', fontSize:'16px', marginBottom:'8px' }}>📋 LibreView에서 내보내는 방법</div>
-                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'#c4b5fd':'#4c1d95', lineHeight:'2.1' }}>
+              <div style={{ background:dm?'var(--cn-low-100)':'var(--cn-low-100)', border:dm?'1px solid var(--cn-low)':'1px solid var(--cn-low)', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:'var(--cn-low)', fontSize:'16px', marginBottom:'8px' }}>📋 LibreView에서 내보내는 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'var(--cn-low)':'var(--cn-low)', lineHeight:'2.1' }}>
                   <li><strong>libreview.com</strong> 에 로그인 (LibreLink 계정 동일)</li>
                   <li>상단 메뉴 → <strong>보고서</strong></li>
                   <li>기간 선택 후 <strong>"데이터 내보내기"</strong> 클릭</li>
@@ -768,32 +792,32 @@
               </div>
               <div
                 onClick={() => fileRef.current?.click()}
-                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:dm?'#1a1030':'#fdfaff', transition:'all 0.2s' }}
+                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:dm?'var(--cn-low-100)':'var(--cn-low-100)', transition:'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.background=accentL; e.currentTarget.style.borderColor=accent; }}
-                onMouseLeave={e => { e.currentTarget.style.background='#fdfaff'; e.currentTarget.style.borderColor=accentB; }}
+                onMouseLeave={e => { e.currentTarget.style.background='var(--cn-low-100)'; e.currentTarget.style.borderColor=accentB; }}
               >
                 <div style={{ fontSize:'26px', marginBottom:'8px' }}>📄</div>
                 <div style={{ fontWeight:'700', color:accent, fontSize:'16px', marginBottom:'4px' }}>CSV 파일 선택</div>
                 <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>libreview.com 에서 내보낸 .csv 파일</div>
               </div>
               <input ref={fileRef} type="file" accept=".csv,.zip,.xml" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
-              {status==='error' && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+              {status==='error' && <div style={{ background:dm?'var(--cn-danger-100)':'var(--cn-danger-100)', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'var(--cn-danger)', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
             </>
           )}
 
           {/* ── 애플 건강 탭 ── */}
           {tab==='apple' && (status === 'idle' || status === 'error') && (
             <>
-              <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
-                <div style={{ fontWeight:'700', color:dm?'#fcd34d':'#92400e', marginBottom:'5px' }}>⚠️ 리브레2 연동이 필요해요</div>
-                <div style={{ color:dm?'#fde68a':'#78350f', lineHeight:'1.8' }}>
+              <div style={{ background:dm?'var(--cn-warn-100)':'var(--cn-warn-100)', border:dm?'1px solid var(--cn-warn)':'1px solid var(--cn-warn)', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
+                <div style={{ fontWeight:'700', color:dm?'var(--cn-warn)':'var(--cn-warn)', marginBottom:'5px' }}>⚠️ 리브레2 연동이 필요해요</div>
+                <div style={{ color:dm?'var(--cn-warn)':'var(--cn-warn)', lineHeight:'1.8' }}>
                   LibreLink → 메뉴(☰) → <strong>연결된 앱</strong> → <strong>Apple 건강</strong> 토글 ON<br/>
                   연동 후 건강 앱에 데이터가 쌓이면 아래 방법으로 가져올 수 있어요
                 </div>
               </div>
-              <div style={{ background:dm?'#0c1e2e':'#f0f9ff', border:dm?'1px solid #0369a1':'1px solid #bae6fd', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
-                <div style={{ fontWeight:'700', color:dm?'#7ec8f0':'#0369a1', fontSize:'16px', marginBottom:'8px' }}>📋 애플 건강 내보내기 방법</div>
-                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'#93c5fd':'#0c4a6e', lineHeight:'2.1' }}>
+              <div style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:dm?'1px solid var(--cn-brand-600)':'1px solid var(--cn-brand)', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', fontSize:'16px', marginBottom:'8px' }}>📋 애플 건강 내보내기 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'16px', color:dm?'var(--cn-brand)':'#0c4a6e', lineHeight:'2.1' }}>
                   <li>iPhone <strong>건강</strong> 앱 열기</li>
                   <li>우측 상단 <strong>프로필 사진</strong> 탭</li>
                   <li>아래로 스크롤 → <strong>"건강 데이터 내보내기"</strong></li>
@@ -803,39 +827,39 @@
               </div>
               <div
                 onClick={() => fileRef.current?.click()}
-                style={{ border:'2px dashed #93c5fd', borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'var(--input-bg)', transition:'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background='#eff6ff'; e.currentTarget.style.borderColor='#2563eb'; }}
-                onMouseLeave={e => { e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#93c5fd'; }}
+                style={{ border:'2px dashed var(--cn-brand)', borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'var(--input-bg)', transition:'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background='var(--cn-brand-100)'; e.currentTarget.style.borderColor='var(--cn-brand)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='var(--input-bg)'; e.currentTarget.style.borderColor='var(--cn-brand)'; }}
               >
                 <div style={{ fontSize:'26px', marginBottom:'8px' }}>📂</div>
-                <div style={{ fontWeight:'700', color:dm?'#93c5fd':'#1e40af', fontSize:'16px', marginBottom:'4px' }}>ZIP / XML 파일 선택</div>
+                <div style={{ fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', fontSize:'16px', marginBottom:'4px' }}>ZIP / XML 파일 선택</div>
                 <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>export.zip 또는 export.xml</div>
               </div>
               <input ref={fileRef} type="file" accept=".zip,.xml,.csv" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
-              {status==='error' && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+              {status==='error' && <div style={{ background:dm?'var(--cn-danger-100)':'var(--cn-danger-100)', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'var(--cn-danger)', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
             </>
           )}
 
           {/* ── 안드로이드(삼성 헬스) 탭 ── */}
           {tab==='android' && (status === 'idle' || status === 'error') && (
             <>
-              <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
-                <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'5px' }}>ℹ️ 삼성 헬스 데이터 내보내기</div>
-                <div style={{ color:dm?'#86efac':'#166534', lineHeight:'1.8' }}>
+              <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
+                <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'5px' }}>ℹ️ 삼성 헬스 데이터 내보내기</div>
+                <div style={{ color:dm?'var(--cn-ok)':'#166534', lineHeight:'1.8' }}>
                   삼성 헬스 앱이 체중·체지방을 기록한 경우 가져올 수 있어요.<br/>
                   <strong>리브레2 혈당 데이터는 LibreView CSV 탭을 이용하세요.</strong>
                 </div>
               </div>
-              <div style={{ background:dm?'#0c2010':'#f0fdf4', border:dm?'1px solid #166534':'1px solid #86efac', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
-                <div style={{ fontWeight:'700', color:dm?'#86efac':'#166534', fontSize:'16px', marginBottom:'8px' }}>📋 삼성 헬스 내보내기 방법</div>
-                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'14px', color:dm?'#86efac':'#166534', lineHeight:'2.1' }}>
+              <div style={{ background:dm?'#0c2010':'var(--cn-ok-100)', border:dm?'1px solid #166534':'1px solid var(--cn-ok)', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:dm?'var(--cn-ok)':'#166534', fontSize:'16px', marginBottom:'8px' }}>📋 삼성 헬스 내보내기 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'14px', color:dm?'var(--cn-ok)':'#166534', lineHeight:'2.1' }}>
                   <li>삼성 헬스 앱 → 우측 하단 <strong>더보기(···)</strong></li>
                   <li><strong>설정(⚙️)</strong> 탭</li>
                   <li><strong>개인 데이터 다운로드</strong> 선택</li>
                   <li>데이터 선택 후 <strong>다운로드</strong></li>
                   <li>ZIP 파일을 이 기기로 전송 후 선택</li>
                 </ol>
-                <div style={{ marginTop:'10px', padding:'8px 10px', background:dm?'#0d1117':'#dcfce7', borderRadius:'8px', fontSize:'13px', color:dm?'#86efac':'#166534' }}>
+                <div style={{ marginTop:'10px', padding:'8px 10px', background:dm?'var(--bg)':'#dcfce7', borderRadius:'8px', fontSize:'13px', color:dm?'var(--cn-ok)':'#166534' }}>
                   💡 체중·체지방 항목이 포함된 ZIP을 선택해야 해요
                 </div>
               </div>
@@ -850,7 +874,7 @@
                 <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>samsung_health_data_*.zip</div>
               </div>
               <input ref={fileRef} type="file" accept=".zip" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
-              {status==='error' && <div style={{ background:dm?'#1f0a0a':'#fef2f2', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'#dc2626', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+              {status==='error' && <div style={{ background:dm?'var(--cn-danger-100)':'var(--cn-danger-100)', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'var(--cn-danger)', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
             </>
           )}
 
@@ -867,8 +891,8 @@
           {/* 미리보기 */}
           {status === 'preview' && preview && (
             <>
-              <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
-                <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'12px', fontSize:'14px' }}>
+              <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
+                <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'12px', fontSize:'14px' }}>
                   ✅ {preview.source==='libreview' ? 'LibreView CSV' : preview.source==='android' ? '삼성 헬스' : '애플 건강'} 데이터 발견
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
@@ -878,7 +902,7 @@
                     { label:'체중 기록일', value:`${preview.wDays||0}일`, icon:'⚖️' },
                     { label:'체지방 기록일', value:`${preview.bfDays||0}일`, icon:'💪' }
                   ].map(item => (
-                    <div key={item.label} style={{ background:dm?'#161b22':'white', borderRadius:'8px', padding:'10px 6px' }}>
+                    <div key={item.label} style={{ background:dm?'var(--card-bg)':'white', borderRadius:'8px', padding:'10px 6px' }}>
                       <div style={{ fontSize:'14px' }}>{item.icon}</div>
                       <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)', marginTop:'4px' }}>{item.value}</div>
                       <div style={{ fontSize:'16px', color:'var(--text-sub)' }}>{item.label}</div>
@@ -886,14 +910,14 @@
                   ))}
                 </div>
               </div>
-              <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'16px', fontSize:'14px', color:dm?'#fde68a':'#78350f' }}>
+              <div style={{ background:dm?'var(--cn-warn-100)':'var(--cn-warn-100)', border:dm?'1px solid var(--cn-warn)':'1px solid var(--cn-warn)', borderRadius:'10px', padding:'12px 14px', marginBottom:'16px', fontSize:'14px', color:dm?'var(--cn-warn)':'var(--cn-warn)' }}>
                 <strong>📌 가져오기 규칙</strong><br/>
                 • 직접 입력한 데이터는 유지 (덮어쓰지 않아요)<br/>
                 • 연속 혈당은 시간대별 중앙값으로 변환돼요<br/>
                 • 7개 슬롯(식전·식후·취침 전)에 자동 배치
               </div>
               <div style={{ display:'flex', gap:'10px' }}>
-                <button onClick={reset} style={{ flex:1, padding:'13px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'10px', cursor:'pointer', background:'var(--input-bg)', fontSize:'14px', fontWeight:'600', color:'var(--text-sub)' }}>다시 선택</button>
+                <button onClick={reset} style={{ flex:1, padding:'13px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'10px', cursor:'pointer', background:'var(--input-bg)', fontSize:'14px', fontWeight:'600', color:'var(--text-sub)' }}>다시 선택</button>
                 <button onClick={confirm} style={{ flex:2, padding:'13px', border:'none', borderRadius:'10px', cursor:'pointer', background:accent, color:'#fff', fontSize:'14px', fontWeight:'700' }}>📥 대시보드에 가져오기</button>
               </div>
             </>
@@ -903,7 +927,7 @@
           {status === 'done' && (
             <div style={{ textAlign:'center', padding:'24px 20px' }}>
               <div style={{ fontSize:'26px', marginBottom:'14px' }}>🎉</div>
-              <div style={{ fontWeight:'800', fontSize:'14px', color:'#16a34a', marginBottom:'8px' }}>가져오기 완료!</div>
+              <div style={{ fontWeight:'800', fontSize:'14px', color:'var(--cn-ok)', marginBottom:'8px' }}>가져오기 완료!</div>
               <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'24px', lineHeight:'1.8' }}>
                 혈당 데이터가 대시보드에 반영됐어요.<br/>날짜를 이동해서 확인해 보세요.
               </div>
@@ -941,12 +965,12 @@
             <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px' }}>✕</button>
           </div>
 
-          <div style={{ background:dm?'#0c1e2e':'#f0f9ff', border:dm?'1px solid #0369a1':'1px solid #bae6fd', borderRadius:'12px', padding:'16px', marginBottom:'20px' }}>
-            <div style={{ fontSize:'14px', color:dm?'#7ec8f0':'#0369a1', fontWeight:'700', marginBottom:'8px' }}>📱 내 동기화 코드</div>
-            <div style={{ fontFamily:'monospace', fontSize:'16px', color:'var(--text)', wordBreak:'break-all', background:'var(--card-bg)', padding:'10px 12px', borderRadius:'8px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, marginBottom:'10px' }}>
+          <div style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:dm?'1px solid var(--cn-brand-600)':'1px solid var(--cn-brand)', borderRadius:'12px', padding:'16px', marginBottom:'20px' }}>
+            <div style={{ fontSize:'14px', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', fontWeight:'700', marginBottom:'8px' }}>📱 내 동기화 코드</div>
+            <div style={{ fontFamily:'monospace', fontSize:'16px', color:'var(--text)', wordBreak:'break-all', background:'var(--card-bg)', padding:'10px 12px', borderRadius:'8px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, marginBottom:'10px' }}>
               {userId}
             </div>
-            <button onClick={copy} style={{ width:'100%', padding:'10px', background: copied?'#16a34a':'#2563eb', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px', transition:'background 0.2s' }}>
+            <button onClick={copy} style={{ width:'100%', padding:'10px', background: copied?'var(--cn-ok)':'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px', transition:'background 0.2s' }}>
               {copied ? '✓ 복사됨!' : '코드 복사'}
             </button>
           </div>
@@ -958,12 +982,12 @@
             3. 위 코드를 아래에 입력 → 적용
           </div>
 
-          <div style={{ borderTop:'1px solid #f1f5f9', paddingTop:'16px' }}>
+          <div style={{ borderTop:'1px solid var(--divider)', paddingTop:'16px' }}>
             <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'6px' }}>다른 기기의 코드 입력 (동기화 코드 변경)</div>
             <div style={{ display:'flex', gap:'8px' }}>
               <input value={input} onChange={e=>setInput(e.target.value)} placeholder="코드를 붙여넣어 주세요"
-                style={{ flex:1, border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', outline:'none', fontFamily:'monospace' }} />
-              <button onClick={apply} style={{ padding:'10px 16px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>적용</button>
+                style={{ flex:1, border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', outline:'none', fontFamily:'monospace' }} />
+              <button onClick={apply} style={{ padding:'10px 16px', background:'var(--cn-low)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>적용</button>
             </div>
           </div>
         </div>
@@ -980,11 +1004,11 @@
     const nameInputRef = useRef(null);
 
     const SLOT_COLORS = [
-      { color:'#2563eb', bg:'#eff6ff', border:'#93c5fd' },
-      { color:'#059669', bg:'#f0fdf4', border:'#86efac' },
-      { color:'#7c3aed', bg:'#faf5ff', border:'#c4b5fd' },
-      { color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' },
-      { color:'#d97706', bg:'#fffbeb', border:'#fcd34d' },
+      { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
+      { color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)' },
+      { color:'var(--cn-low)', bg:'var(--cn-low-100)', border:'var(--cn-low)' },
+      { color:'var(--cn-danger)', bg:'var(--cn-danger-100)', border:'var(--cn-danger)' },
+      { color:'var(--cn-warn)', bg:'var(--cn-warn-100)', border:'var(--cn-warn)' },
     ];
 
     // 편집 시작 시 이름 input 자동 포커스 + 전체 선택
@@ -1017,7 +1041,7 @@
     };
     const reset = () => { if(window.confirm('복약 목록을 전부 삭제할까요?')) setCfg([]); };
 
-    const inpSt = { border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'6px', padding:'6px 10px', fontSize:'16px', width:'100%', outline:'none' };
+    const inpSt = { border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'6px', padding:'6px 10px', fontSize:'16px', width:'100%', outline:'none' };
 
     return (
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'20px'}}
@@ -1035,9 +1059,9 @@
                 {editingSlot===slot.key ? (
                   <>
                     <input value={slot.icon} onChange={e=>updSlotIcon(slot.key,e.target.value)}
-                      style={{width:'44px',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,borderRadius:'6px',padding:'4px',fontSize:'14px',textAlign:'center'}}/>
+                      style={{width:'44px',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,borderRadius:'6px',padding:'4px',fontSize:'14px',textAlign:'center'}}/>
                     <input value={slot.slot} onChange={e=>updSlotName(slot.key,e.target.value)} autoFocus
-                      style={{flex:1,border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,borderRadius:'6px',padding:'6px 10px',fontSize:'16px',fontWeight:'700'}}/>
+                      style={{flex:1,border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,borderRadius:'6px',padding:'6px 10px',fontSize:'16px',fontWeight:'700'}}/>
                     <button onClick={()=>setEditingSlot(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'5px 10px',cursor:'pointer',fontSize:'14px'}}>완료</button>
                   </>
                 ) : (
@@ -1045,14 +1069,14 @@
                     <span style={{fontSize:'14px'}}>{slot.icon}</span>
                     <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
                     <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--text-sub)'}}>✏️</button>
-                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'#fca5a5'}}>🗑️</button>
+                    <button onClick={()=>delSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--cn-danger)'}}>🗑️</button>
                   </>
                 )}
               </div>
 
               {/* 약 목록 */}
               {slot.items.map(med => (
-                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`}}>
+                <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`}}>
                   {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
                     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                       <input ref={nameInputRef} value={med.name}
@@ -1067,7 +1091,7 @@
                           <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
                           <input type="date" value={med.startDate||''} onChange={e=>updMedField(slot.key,med.id,'startDate',e.target.value)} style={inpSt}/>
                         </div>
-                        <div style={{color:dm?'#475569':'#cbd5e1',marginTop:'16px'}}>~</div>
+                        <div style={{color:dm?'var(--text-sub)':'var(--text-mute)',marginTop:'16px'}}>~</div>
                         <div style={{flex:1}}>
                           <div style={{fontSize:'16px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 종료일</div>
                           <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
@@ -1082,13 +1106,13 @@
                         <div style={{fontSize:'16px',fontWeight:'600',color:'var(--text)'}}>{med.name||'(이름 없음)'}</div>
                         <div style={{fontSize:'16px',color:'var(--text-sub)'}}>{med.dose}</div>
                         {(med.startDate||med.endDate) && (
-                          <div style={{fontSize:'14px',color:'#2563eb',marginTop:'2px'}}>
+                          <div style={{fontSize:'14px',color:'var(--cn-brand)',marginTop:'2px'}}>
                             📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
                           </div>
                         )}
                       </div>
                       <button onClick={()=>setEditingMed({slotKey:slot.key,medId:med.id})} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--text-sub)'}}>✏️</button>
-                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'#fca5a5'}}>🗑️</button>
+                      <button onClick={()=>delMed(slot.key,med.id)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'16px',color:'var(--cn-danger)'}}>🗑️</button>
                     </div>
                   )}
                 </div>
@@ -1099,13 +1123,13 @@
             </div>
           ))}
 
-          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed #cbd5e1',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px',fontWeight:'700',marginBottom:'12px'}}>
+          <button onClick={addSlot} style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed var(--text-mute)',color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'16px',fontWeight:'700',marginBottom:'12px'}}>
             + 시간대 추가
           </button>
 
           <div style={{display:'flex',gap:'8px'}}>
-            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,color:'#dc2626',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>🗑️ 전체 삭제</button>
-            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>저장</button>
+            <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'16px'}}>🗑️ 전체 삭제</button>
+            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>저장</button>
           </div>
         </div>
       </div>
@@ -1152,13 +1176,13 @@
             <img src={b.url} alt={b.label||'배너'} style={{ width:'100%', display:'block', maxHeight:'150px', objectFit:'cover' }} />
           </a>
         ) : (
-          <div style={{ background: b.bgColor||'#eff6ff', padding:'12px 16px', fontSize:'13px',
-                        color: b.textColor||'#1e40af', fontWeight:'600', textAlign:'center',
+          <div style={{ background: b.bgColor||'var(--cn-brand-100)', padding:'12px 16px', fontSize:'13px',
+                        color: b.textColor||'var(--cn-brand-600)', fontWeight:'600', textAlign:'center',
                         border:`1px solid ${b.borderColor||'#bfdbfe'}`, borderRadius:'12px' }}>
             {b.url}
           </div>
         )}
-        {b.caption && <div style={{ fontSize:'11px', color:'#94a3b8', textAlign:'right', padding:'2px 6px' }}>{b.caption}</div>}
+        {b.caption && <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'right', padding:'2px 6px' }}>{b.caption}</div>}
       </div>
     );
   };
@@ -1190,10 +1214,10 @@
       saveBanners(next);
     };
 
-    const cardBg = dm ? '#161b22' : '#fff';
-    const inputSt = { width:'100%', padding:'8px 10px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`,
-                      borderRadius:'8px', fontSize:'13px', background:dm?'#0d1117':'#fff',
-                      color:dm?'#e6edf3':'#1e293b', outline:'none', boxSizing:'border-box' };
+    const cardBg = dm ? 'var(--card-bg)' : '#fff';
+    const inputSt = { width:'100%', padding:'8px 10px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`,
+                      borderRadius:'8px', fontSize:'13px', background:dm?'var(--bg)':'#fff',
+                      color:dm?'var(--text)':'var(--cn-ink)', outline:'none', boxSizing:'border-box' };
 
     return (
       <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center',
@@ -1219,8 +1243,8 @@
                 <div style={{ display:'flex', gap:'8px' }}>
                   {[['youtube','🎬 유튜브'],['image','🖼️ 이미지'],['text','📝 텍스트']].map(([v,l])=>(
                     <button key={v} onClick={()=>setDraft(d=>({...d,type:v}))}
-                      style={{ flex:1, padding:'7px', border:`1.5px solid ${draft.type===v?'#2563eb':'#e2e8f0'}`,
-                               borderRadius:'8px', background: draft.type===v?'#eff6ff':'transparent',
+                      style={{ flex:1, padding:'7px', border:`1.5px solid ${draft.type===v?'var(--cn-brand)':'var(--card-border)'}`,
+                               borderRadius:'8px', background: draft.type===v?'var(--cn-brand-100)':'transparent',
                                color: draft.type===v?'#1d4ed8':'var(--text-sub)',
                                cursor:'pointer', fontSize:'12px', fontWeight:'600' }}>{l}</button>
                   ))}
@@ -1256,14 +1280,14 @@
               {/* 활성화 */}
               <label style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'18px', cursor:'pointer' }}>
                 <input type="checkbox" checked={!!draft.enabled} onChange={e=>setDraft(d=>({...d,enabled:e.target.checked}))}
-                  style={{ width:'16px', height:'16px', accentColor:'#2563eb' }} />
+                  style={{ width:'16px', height:'16px', accentColor:'var(--cn-brand)' }} />
                 <span style={{ fontSize:'13px', color:'var(--text)', fontWeight:'600' }}>이 슬롯 활성화</span>
               </label>
               <div style={{ display:'flex', gap:'8px' }}>
                 <button onClick={()=>setEditing(null)} style={{ flex:1, padding:'10px', background:'var(--input-bg)',
-                  border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'10px', cursor:'pointer',
+                  border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'10px', cursor:'pointer',
                   fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>취소</button>
-                <button onClick={saveDraft} style={{ flex:2, padding:'10px', background:'#2563eb',
+                <button onClick={saveDraft} style={{ flex:2, padding:'10px', background:'var(--cn-brand)',
                   border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'13px', color:'#fff', fontWeight:'700' }}>저장</button>
               </div>
             </div>
@@ -1277,7 +1301,7 @@
                 return (
                   <div key={slot.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px',
                     background:'var(--input-bg)', borderRadius:'10px', marginBottom:'8px',
-                    border:`1px solid ${dm?'#30363d':'#e2e8f0'}` }}>
+                    border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}` }}>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text)' }}>📍 {slot.label}</div>
                       <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'2px' }}>
@@ -1286,7 +1310,7 @@
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <span style={{ fontSize:'11px', padding:'2px 8px', borderRadius:'20px', fontWeight:'600',
-                        background: b.enabled?'#dcfce7':'#fee2e2', color: b.enabled?'#16a34a':'#dc2626' }}>
+                        background: b.enabled?'#dcfce7':'#fee2e2', color: b.enabled?'var(--cn-ok)':'var(--cn-danger)' }}>
                         {b.enabled ? '활성' : '비활성'}
                       </span>
                       <button onClick={()=>toggleEnabled(slot.id)}
@@ -1295,7 +1319,7 @@
                         {b.enabled ? 'OFF' : 'ON'}
                       </button>
                       <button onClick={()=>startEdit(slot.id)}
-                        style={{ padding:'4px 8px', background:'#2563eb', border:'none', borderRadius:'6px',
+                        style={{ padding:'4px 8px', background:'var(--cn-brand)', border:'none', borderRadius:'6px',
                                  cursor:'pointer', fontSize:'11px', color:'#fff', fontWeight:'700' }}>설정</button>
                     </div>
                   </div>
@@ -1331,8 +1355,8 @@
     }, [medName]);
 
     const Sec = ({ icon, label, content }) => content ? (
-      <div style={{ marginBottom:'14px', paddingBottom:'14px', borderBottom:`1px solid ${dm?'#21262d':'#f1f5f9'}` }}>
-        <div style={{ fontSize:'16px', fontWeight:'700', color:'#2563eb', marginBottom:'5px' }}>{icon} {label}</div>
+      <div style={{ marginBottom:'14px', paddingBottom:'14px', borderBottom:`1px solid ${dm?'var(--divider)':'var(--divider)'}` }}>
+        <div style={{ fontSize:'16px', fontWeight:'700', color:'var(--cn-brand)', marginBottom:'5px' }}>{icon} {label}</div>
         <div style={{ fontSize:'16px', color:'var(--text)', lineHeight:'1.7' }}>{content}</div>
       </div>
     ) : null;
@@ -1358,15 +1382,15 @@
           {error && (
             <div style={{ textAlign:'center', padding:'30px 0', color:'var(--text-sub)' }}>
               <div style={{ fontSize:'31px', marginBottom:'10px' }}>{injectable ? '💉' : '🔍'}</div>
-              <div style={{ fontSize:'14px', color:dm?'#94a3b8':'#475569', fontWeight:'600' }}>{error}</div>
+              <div style={{ fontSize:'14px', color:dm?'var(--text-mute)':'var(--text-sub)', fontWeight:'600' }}>{error}</div>
               {injectable ? (
                 <div style={{ fontSize:'14px', marginTop:'10px', color:'var(--text-sub)', lineHeight:'1.7', background:'var(--input-bg)', borderRadius:'10px', padding:'12px 16px', textAlign:'left' }}>
                   <b>이유:</b> 식약처 e약은요 서비스는 일반 소비자용 경구약 정보를 제공하며,
                   인슐린·주사제 등 전문 주사약은 수록 대상에서 제외됩니다.<br/>
-                  <span style={{ color:'#2563eb' }}>→ 처방전·약사·제조사 자료를 참고하세요.</span>
+                  <span style={{ color:'var(--cn-brand)' }}>→ 처방전·약사·제조사 자료를 참고하세요.</span>
                 </div>
               ) : (
-                <div style={{ fontSize:'14px', marginTop:'8px', color:dm?'#475569':'#cbd5e1' }}>
+                <div style={{ fontSize:'14px', marginTop:'8px', color:dm?'var(--text-sub)':'var(--text-mute)' }}>
                   약품명 철자를 확인하거나 복약설정에서 이름을 수정해 보세요
                 </div>
               )}
@@ -1375,7 +1399,7 @@
           {info && !loading && (
             <div>
               {info.itemName && info.itemName !== medName && (
-                <div style={{ background:dm?'#0c1a2e':'#eff6ff', borderRadius:'8px', padding:'8px 12px', fontSize:'14px', color:'#2563eb', marginBottom:'16px' }}>
+                <div style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', borderRadius:'8px', padding:'8px 12px', fontSize:'14px', color:'var(--cn-brand)', marginBottom:'16px' }}>
                   검색 결과: {info.itemName}
                 </div>
               )}
@@ -1435,14 +1459,14 @@
       if (error) { setError(error.message); setBusy(false); }
     };
 
-    const borderCol = dm ? '#30363d' : '#e2e8f0';
+    const borderCol = dm ? 'var(--card-border)' : 'var(--card-border)';
     const inp = {
       width:'100%', padding:'12px 16px',
       border: `1.5px solid ${borderCol}`,
       borderRadius:'10px', fontSize:'15px', outline:'none',
       fontFamily:'inherit', boxSizing:'border-box',
-      background: dm ? '#0d1117' : '#fff',
-      color: dm ? '#e6edf3' : '#1e293b',
+      background: dm ? 'var(--bg)' : '#fff',
+      color: dm ? 'var(--text)' : 'var(--cn-ink)',
       transition:'border-color 0.2s',
     };
 
@@ -1475,22 +1499,22 @@
               <CareNoteLogo size={48} />
             </div>
             <div style={{ fontSize:'26px', fontWeight:'900', letterSpacing:'2px',
-                          background:'linear-gradient(90deg,#7ec8f0,#4ade80)',
+                          background:'linear-gradient(90deg,var(--cn-brand),var(--cn-ok))',
                           WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
                           marginBottom:'6px' }}>CARENOTE</div>
-            <div style={{ fontSize:'13px', color: dm ? 'rgba(148,163,184,0.9)' : '#64748b',
+            <div style={{ fontSize:'13px', color: dm ? 'rgba(148,163,184,0.9)' : 'var(--text-sub)',
                           fontWeight:'500', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
           </div>
 
           {/* 탭 */}
-          <div style={{ display:'flex', background: dm ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+          <div style={{ display:'flex', background: dm ? 'rgba(255,255,255,0.06)' : 'var(--divider)',
                         borderRadius:'14px', padding:'4px', marginBottom:'22px' }}>
             {['login','signup'].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setMessage(''); }}
                 style={{ flex:1, padding:'10px', border:'none', borderRadius:'11px', cursor:'pointer',
                          fontSize:'14px', fontWeight:'700', transition:'all 0.2s',
                          background: mode===m ? (dm ? '#1e3a5f' : '#fff') : 'transparent',
-                         color: mode===m ? (dm ? '#7ec8f0' : '#1d4ed8') : (dm ? '#64748b' : '#94a3b8'),
+                         color: mode===m ? (dm ? 'var(--cn-brand)' : '#1d4ed8') : (dm ? 'var(--text-sub)' : 'var(--text-mute)'),
                          boxShadow: mode===m ? (dm ? '0 2px 8px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.1)') : 'none' }}>
                 {m === 'login' ? '🔐 로그인' : '✏️ 회원가입'}
               </button>
@@ -1498,27 +1522,27 @@
           </div>
 
           {/* 에러 / 성공 메시지 */}
-          {error   && <div style={{ background:dm?'rgba(127,29,29,0.4)':'#fef2f2', border:'1px solid #fca5a5',
-                                    color: dm?'#fca5a5':'#dc2626', borderRadius:'10px',
+          {error   && <div style={{ background:dm?'rgba(127,29,29,0.4)':'var(--cn-danger-100)', border:'1px solid var(--cn-danger)',
+                                    color: dm?'var(--cn-danger)':'var(--cn-danger)', borderRadius:'10px',
                                     padding:'10px 14px', fontSize:'14px', marginBottom:'16px' }}>{error}</div>}
-          {message && <div style={{ background:dm?'rgba(20,83,45,0.4)':'#f0fdf4', border:'1px solid #86efac',
-                                    color: dm?'#86efac':'#166534', borderRadius:'10px',
+          {message && <div style={{ background:dm?'rgba(20,83,45,0.4)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)',
+                                    color: dm?'var(--cn-ok)':'#166534', borderRadius:'10px',
                                     padding:'10px 14px', fontSize:'14px', marginBottom:'16px' }}>{message}</div>}
 
           {/* 폼 */}
           <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
             <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
               placeholder="이메일 주소" required style={inp}
-              onFocus={e=>e.target.style.borderColor='#3b82f6'}
+              onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
               onBlur={e=>e.target.style.borderColor=borderCol} />
             <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
               placeholder="비밀번호 (6자 이상)" required style={inp}
-              onFocus={e=>e.target.style.borderColor='#3b82f6'}
+              onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
               onBlur={e=>e.target.style.borderColor=borderCol} />
             <button type="submit" disabled={busy}
               style={{ padding:'13px', border:'none', borderRadius:'12px',
                        fontSize:'15px', fontWeight:'700', cursor: busy?'default':'pointer',
-                       background: busy ? '#475569' : 'linear-gradient(135deg,#1e40af,#2563eb)',
+                       background: busy ? 'var(--text-sub)' : 'linear-gradient(135deg,var(--cn-brand-600),var(--cn-brand))',
                        color:'#fff', boxShadow: busy ? 'none' : '0 4px 16px rgba(37,99,235,0.4)',
                        transition:'all 0.2s', marginTop:'4px' }}>
               {busy ? '처리 중...' : mode === 'login' ? '로그인하기' : '가입하기'}
@@ -1527,22 +1551,22 @@
 
           {/* 구분선 */}
           <div style={{ display:'flex', alignItems:'center', gap:'12px', margin:'20px 0' }}>
-            <div style={{ flex:1, height:'1px', background: dm ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}/>
-            <span style={{ fontSize:'12px', color: dm ? '#475569' : '#94a3b8', fontWeight:'500' }}>또는</span>
-            <div style={{ flex:1, height:'1px', background: dm ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}/>
+            <div style={{ flex:1, height:'1px', background: dm ? 'rgba(255,255,255,0.1)' : 'var(--card-border)' }}/>
+            <span style={{ fontSize:'12px', color: dm ? 'var(--text-sub)' : 'var(--text-mute)', fontWeight:'500' }}>또는</span>
+            <div style={{ flex:1, height:'1px', background: dm ? 'rgba(255,255,255,0.1)' : 'var(--card-border)' }}/>
           </div>
 
           {/* 구글 로그인 */}
           <button onClick={handleGoogle} disabled={busy}
             style={{ width:'100%', padding:'12px 16px',
                      background: dm ? 'rgba(255,255,255,0.05)' : '#fff',
-                     border: `1.5px solid ${dm ? 'rgba(255,255,255,0.12)' : '#e2e8f0'}`,
+                     border: `1.5px solid ${dm ? 'rgba(255,255,255,0.12)' : 'var(--card-border)'}`,
                      borderRadius:'12px', fontSize:'14px', fontWeight:'600',
                      cursor: busy?'default':'pointer',
                      display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
-                     color: dm ? '#e6edf3' : '#374151', transition:'all 0.2s' }}
-            onMouseOver={e=>{ e.currentTarget.style.borderColor='#3b82f6'; e.currentTarget.style.background=dm?'rgba(59,130,246,0.1)':'#f0f7ff'; }}
-            onMouseOut={e=>{ e.currentTarget.style.borderColor=dm?'rgba(255,255,255,0.12)':'#e2e8f0'; e.currentTarget.style.background=dm?'rgba(255,255,255,0.05)':'#fff'; }}>
+                     color: dm ? 'var(--text)' : '#374151', transition:'all 0.2s' }}
+            onMouseOver={e=>{ e.currentTarget.style.borderColor='var(--cn-brand)'; e.currentTarget.style.background=dm?'rgba(59,130,246,0.1)':'#f0f7ff'; }}
+            onMouseOut={e=>{ e.currentTarget.style.borderColor=dm?'rgba(255,255,255,0.12)':'var(--card-border)'; e.currentTarget.style.background=dm?'rgba(255,255,255,0.05)':'#fff'; }}>
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -1552,7 +1576,7 @@
             Google 계정으로 계속하기
           </button>
 
-          <div style={{ textAlign:'center', marginTop:'20px', fontSize:'12px', color: dm ? '#334155' : '#cbd5e1' }}>
+          <div style={{ textAlign:'center', marginTop:'20px', fontSize:'12px', color: dm ? '#334155' : 'var(--text-mute)' }}>
             로그인 시 서비스 이용약관에 동의한 것으로 간주됩니다
           </div>
         </div>
@@ -1992,7 +2016,7 @@
           labels: weekData.map(d => d.label),
           datasets: [{
             label: '평균 혈당', data: weekData.map(d => d.avg),
-            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
+            borderColor: 'var(--cn-brand)', backgroundColor: 'rgba(37,99,235,0.08)',
             borderWidth: 2.5, pointBackgroundColor: weekData.map(d => bsColor(d.avg)),
             pointRadius: 5, fill: true, tension: 0.35, spanGaps: true
           }]
@@ -2001,7 +2025,7 @@
           responsive: true, maintainAspectRatio: false,
           plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c => c.raw ? `${c.raw} mg/dL` : '기록 없음' } } },
           scales: {
-            y: { min:50, max:320, grid:{color:'#f1f5f9'}, ticks:{font:{size:11}} },
+            y: { min:50, max:320, grid:{color:'var(--divider)'}, ticks:{font:{size:11}} },
             x: { grid:{display:false}, ticks:{font:{size:11}} }
           }
         }
@@ -2021,8 +2045,8 @@
     const _bfDiff     = (_prevBf && _curBf) ? _curBf - _prevBf : null;
     const _wArrow     = _wDiff  === null ? null : _wDiff  > 0.04 ? '↑' : _wDiff  < -0.04 ? '↓' : '→';
     const _bfArrow    = _bfDiff === null ? null : _bfDiff > 0.04 ? '↑' : _bfDiff < -0.04 ? '↓' : '→';
-    const _wArrowClr  = _wDiff  === null ? '#94a3b8' : _wDiff  > 0.04 ? '#ef4444' : _wDiff  < -0.04 ? '#2563eb' : '#94a3b8';
-    const _bfArrowClr = _bfDiff === null ? '#94a3b8' : _bfDiff > 0.04 ? '#ef4444' : _bfDiff < -0.04 ? '#2563eb' : '#94a3b8';
+    const _wArrowClr  = _wDiff  === null ? 'var(--text-mute)' : _wDiff  > 0.04 ? '#ef4444' : _wDiff  < -0.04 ? 'var(--cn-brand)' : 'var(--text-mute)';
+    const _bfArrowClr = _bfDiff === null ? 'var(--text-mute)' : _bfDiff > 0.04 ? '#ef4444' : _bfDiff < -0.04 ? 'var(--cn-brand)' : 'var(--text-mute)';
 
     // 인증 로딩 중
     if (!authReady) return (
@@ -2056,8 +2080,8 @@
               </div>
               <div style={{ marginLeft:'6px', display:'flex', gap:'5px', alignItems:'center' }}>
                 {saveStatus==='saving' && <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
-                {saveStatus==='saved'  && <span style={{ fontSize:'12px', color:'#86efac' }}>✓ 저장됨</span>}
-                {saveStatus==='error'  && <span style={{ fontSize:'12px', color:'#fca5a5' }}>⚠ 저장 실패</span>}
+                {saveStatus==='saved'  && <span style={{ fontSize:'12px', color:'var(--cn-ok)' }}>✓ 저장됨</span>}
+                {saveStatus==='error'  && <span style={{ fontSize:'12px', color:'var(--cn-danger)' }}>⚠ 저장 실패</span>}
               </div>
             </div>
 
@@ -2129,8 +2153,8 @@
               {/* 복약 */}
               <Card>
                 <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
-                <div style={{ background:'#e2e8f0', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
-                  <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s ease' }}/>
+                <div style={{ background:'var(--card-border)', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
+                  <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'var(--cn-ok)':'var(--cn-brand)', transition:'width 0.5s ease' }}/>
                 </div>
                 {medsConfig.length === 0 && (
                   <div style={{ textAlign:'center', padding:'28px 16px', background:'var(--input-bg)', borderRadius:'12px', border:'1.5px dashed var(--card-border)' }}>
@@ -2138,7 +2162,7 @@
                     <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'6px' }}>복약 정보가 없어요</div>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'14px' }}>복용 중인 약을 등록하면 매일 체크할 수 있어요</div>
                     <button onClick={() => setShowMedSettings(true)}
-                      style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                      style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
                       ⚙️ 복약 설정하기
                     </button>
                   </div>
@@ -2159,12 +2183,12 @@
                       <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'5px 0', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
                         <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} />
                         <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer' }}>
-                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'#94a3b8':'#1e293b', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
+                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'var(--text-mute)':'var(--cn-ink)', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s' }}>{med.name}</div>
                           <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>{med.dose}</div>
                         </label>
                         <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
-                          style={{ background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'14px', color:'#2563eb', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
-                        {day.meds[med.id] && <span style={{ color:'#16a34a', fontSize:'14px' }}>✓</span>}
+                          style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'14px', color:'var(--cn-brand)', padding:'3px 8px', flexShrink:0, fontWeight:'600' }}>약정보</button>
+                        {day.meds[med.id] && <span style={{ color:'var(--cn-ok)', fontSize:'14px' }}>✓</span>}
                       </div>
                     ))}
                   </div>
@@ -2179,7 +2203,7 @@
               <Card>
                 <STitle icon="🩸" label="혈당 기록" right="단위: mg/dL" />
                 <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'16px' }}>
-                  {[{c:'#7c3aed',t:'저혈당 (<70)'},{c:'#16a34a',t:'정상 (70–140)'},{c:'#d97706',t:'주의 (140–180)'},{c:'#dc2626',t:'높음 (>180)'}].map(l => (
+                  {[{c:'var(--cn-low)',t:'저혈당 (<70)'},{c:'var(--cn-ok)',t:'정상 (70–140)'},{c:'var(--cn-warn)',t:'주의 (140–180)'},{c:'var(--cn-danger)',t:'높음 (>180)'}].map(l => (
                     <div key={l.t} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <div style={{ width:'9px', height:'9px', borderRadius:'50%', background:l.c }}/>
                       <span style={{ color:'var(--text-sub)' }}>{l.t}</span>
@@ -2201,7 +2225,7 @@
                               value={v} onChange={e => { const n = e.target.value.replace(/[^0-9]/g,''); updBS(f.id, n); }}
                               placeholder="---"
                               style={{ width:'100%', border:'none', background:'transparent', fontSize:'40px', fontWeight:'900',
-                                color:v?c:'#cbd5e1', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px',
+                                color:v?c:'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px',
                                 fontVariantNumeric:'tabular-nums' }}
                             />
                           </div>
@@ -2210,7 +2234,7 @@
                           {/* 상태 배지 또는 목표 */}
                           {v
                             ? <span style={{ background:c, color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'700', flexShrink:0, whiteSpace:'nowrap' }}>{bsLabel(v)}</span>
-                            : <span style={{ fontSize:'11px', color:dm?'#475569':'#d1d5db', flexShrink:0, whiteSpace:'nowrap' }}>목표: {f.target}</span>
+                            : <span style={{ fontSize:'11px', color:dm?'var(--text-sub)':'#d1d5db', flexShrink:0, whiteSpace:'nowrap' }}>목표: {f.target}</span>
                           }
                         </div>
                       </div>
@@ -2232,11 +2256,11 @@
                 // 혈압 분류 (대한고혈압학회 기준)
                 const bpInfo = (() => {
                   if (!hasBP) return null;
-                  if (sys < 120 && dia < 80)  return { label:'정상',       color:'#16a34a', bg:'#f0fdf4', border:'#86efac' };
+                  if (sys < 120 && dia < 80)  return { label:'정상',       color:'var(--cn-ok)', bg:'var(--cn-ok-100)', border:'var(--cn-ok)' };
                   if (sys < 130 && dia < 80)  return { label:'주의혈압',    color:'#65a30d', bg:'#f7fee7', border:'#bef264' };
-                  if (sys < 140 || dia < 90)  return { label:'고혈압 전단계', color:'#d97706', bg:'#fffbeb', border:'#fcd34d' };
+                  if (sys < 140 || dia < 90)  return { label:'고혈압 전단계', color:'var(--cn-warn)', bg:'var(--cn-warn-100)', border:'var(--cn-warn)' };
                   if (sys < 160 || dia < 100) return { label:'고혈압 1기',   color:'#ea580c', bg:'#fff7ed', border:'#fdba74' };
-                  return                              { label:'고혈압 2기',   color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' };
+                  return                              { label:'고혈압 2기',   color:'var(--cn-danger)', bg:'var(--cn-danger-100)', border:'var(--cn-danger)' };
                 })();
 
                 // 최근 7일 혈압 추이
@@ -2254,11 +2278,11 @@
                     {/* 분류 기준 범례 */}
                     <div style={{ display:'flex', gap:'8px', marginBottom:'14px', flexWrap:'wrap', fontSize:'12px' }}>
                       {[
-                        { c:'#16a34a', t:'정상 (<120/80)' },
+                        { c:'var(--cn-ok)', t:'정상 (<120/80)' },
                         { c:'#65a30d', t:'주의 (120–129/~80)' },
-                        { c:'#d97706', t:'전단계 (130–139/80–89)' },
+                        { c:'var(--cn-warn)', t:'전단계 (130–139/80–89)' },
                         { c:'#ea580c', t:'1기 (140–159/90–99)' },
-                        { c:'#dc2626', t:'2기 (≥160/≥100)' },
+                        { c:'var(--cn-danger)', t:'2기 (≥160/≥100)' },
                       ].map(l => (
                         <div key={l.t} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                           <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:l.c }}/>
@@ -2281,7 +2305,7 @@
                               placeholder="---"
                               size={bp.sys ? Math.max(2, bp.sys.length) : 3}
                               style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
-                                color: hasBP&&bpInfo ? bpInfo.color : '#cbd5e1', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
+                                color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
                             />
                             <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'500' }}>mmHg</span>
                           </div>
@@ -2300,7 +2324,7 @@
                               placeholder="---"
                               size={bp.dia ? Math.max(2, bp.dia.length) : 3}
                               style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
-                                color: hasBP&&bpInfo ? bpInfo.color : '#cbd5e1', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
+                                color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
                             />
                             <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'500' }}>mmHg</span>
                           </div>
@@ -2323,24 +2347,24 @@
                         {/* iOS */}
                         <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
                           style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #93c5fd', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'#2563eb', fontWeight:'700', fontSize:'13px',
+                            background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', borderRadius:'10px',
+                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-brand)', fontWeight:'700', fontSize:'13px',
                             opacity:(weightImporting||androidImporting)?0.6:1 }}>
                           <span style={{ fontSize:'16px' }}></span> iOS 건강앱
                         </button>
                         {/* Android */}
                         <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
                           style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'#16a34a', fontWeight:'700', fontSize:'13px',
+                            background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px',
+                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-ok)', fontWeight:'700', fontSize:'13px',
                             opacity:(weightImporting||androidImporting)?0.6:1 }}>
                           <span style={{ fontSize:'16px' }}>🤖</span> 삼성 헬스
                         </button>
                       </div>
-                      {weightImporting  && <div style={{ fontSize:'12px', color:'#2563eb', marginTop:'6px', fontWeight:'600' }}>⏳ {weightImportMsg}</div>}
-                      {androidImporting && <div style={{ fontSize:'12px', color:'#16a34a', marginTop:'6px', fontWeight:'600' }}>⏳ {androidImportMsg}</div>}
-                      {!weightImporting  && weightImportMsg  && <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'#16a34a':'#dc2626', marginTop:'6px', fontWeight:'600' }}>{weightImportMsg}</div>}
-                      {!androidImporting && androidImportMsg && <div style={{ fontSize:'12px', color: androidImportMsg.startsWith('✅')?'#16a34a':'#dc2626', marginTop:'6px', fontWeight:'600' }}>{androidImportMsg}</div>}
+                      {weightImporting  && <div style={{ fontSize:'12px', color:'var(--cn-brand)', marginTop:'6px', fontWeight:'600' }}>⏳ {weightImportMsg}</div>}
+                      {androidImporting && <div style={{ fontSize:'12px', color:'var(--cn-ok)', marginTop:'6px', fontWeight:'600' }}>⏳ {androidImportMsg}</div>}
+                      {!weightImporting  && weightImportMsg  && <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{weightImportMsg}</div>}
+                      {!androidImporting && androidImportMsg && <div style={{ fontSize:'12px', color: androidImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{androidImportMsg}</div>}
                       <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'5px' }}>
                         iOS: 건강앱 → 내보내기 .zip · Android: 삼성 헬스 → 설정 → 개인 데이터 다운로드 .zip
                       </div>
@@ -2359,18 +2383,18 @@
                             {bpWeek.map((d, i) => {
                               if (!d.sys) return (
                                 <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', height:'60px' }}>
-                                  <div style={{ width:'100%', height:'4px', background: dm?'#21262d':'#e2e8f0', borderRadius:'2px' }}/>
+                                  <div style={{ width:'100%', height:'4px', background: dm?'var(--divider)':'var(--card-border)', borderRadius:'2px' }}/>
                                   <div style={{ fontSize:'9px', color:'var(--text-sub)', marginTop:'3px', whiteSpace:'nowrap' }}>{d.label}</div>
                                 </div>
                               );
                               const sysH = Math.round(((d.sys - minV) / (maxV - minV)) * 50);
                               const diaH = Math.round(((d.dia - minV) / (maxV - minV)) * 50);
                               const bpI2 = (() => {
-                                if (d.sys < 120 && d.dia < 80)  return '#16a34a';
+                                if (d.sys < 120 && d.dia < 80)  return 'var(--cn-ok)';
                                 if (d.sys < 130 && d.dia < 80)  return '#65a30d';
-                                if (d.sys < 140 || d.dia < 90)  return '#d97706';
+                                if (d.sys < 140 || d.dia < 90)  return 'var(--cn-warn)';
                                 if (d.sys < 160 || d.dia < 100) return '#ea580c';
-                                return '#dc2626';
+                                return 'var(--cn-danger)';
                               })();
                               return (
                                 <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', height:'60px', position:'relative' }}>
@@ -2387,13 +2411,13 @@
                           <div style={{ display:'flex' }}>
                             {bpWeek.map((d, i) => (
                               <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', lineHeight:'1.4' }}>
-                                {d.sys ? <><span style={{ color:'#dc2626', fontWeight:'700', display:'block' }}>{d.sys}</span><span style={{ color:'#2563eb', fontWeight:'700', display:'block' }}>{d.dia}</span></> : ''}
+                                {d.sys ? <><span style={{ color:'var(--cn-danger)', fontWeight:'700', display:'block' }}>{d.sys}</span><span style={{ color:'var(--cn-brand)', fontWeight:'700', display:'block' }}>{d.dia}</span></> : ''}
                               </div>
                             ))}
                           </div>
                           <div style={{ display:'flex', gap:'8px', marginTop:'6px', fontSize:'10px', color:'var(--text-sub)' }}>
-                            <span style={{ display:'flex', alignItems:'center', gap:'3px' }}><span style={{ width:'8px', height:'8px', background:'#dc2626', borderRadius:'2px', display:'inline-block' }}/> 수축기</span>
-                            <span style={{ display:'flex', alignItems:'center', gap:'3px' }}><span style={{ width:'8px', height:'8px', background:'#2563eb', borderRadius:'2px', display:'inline-block', opacity:0.6 }}/> 이완기</span>
+                            <span style={{ display:'flex', alignItems:'center', gap:'3px' }}><span style={{ width:'8px', height:'8px', background:'var(--cn-danger)', borderRadius:'2px', display:'inline-block' }}/> 수축기</span>
+                            <span style={{ display:'flex', alignItems:'center', gap:'3px' }}><span style={{ width:'8px', height:'8px', background:'var(--cn-brand)', borderRadius:'2px', display:'inline-block', opacity:0.6 }}/> 이완기</span>
                           </div>
                         </div>
                       );
@@ -2405,16 +2429,16 @@
               {/* 식사 */}
               <Card>
                 <STitle icon="🍽️" label="식사 기록" />
-                <div style={{ background:dm?'#0a1f12':'#f0fdf4', border:'1px solid #86efac', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'14px' }}>
-                  <div style={{ fontWeight:'700', color:'#16a34a', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
+                <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'14px' }}>
+                  <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
                   <div style={{ display:'flex', gap:'20px', flexWrap:'wrap' }}>
-                    <div><div style={{ color:'#16a34a', fontWeight:'700', marginBottom:'3px' }}>✅ 권장</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>현미·잡곡밥 · 닭가슴살 · 두부 · 생선<br/>채소류 · 달걀 · 콩류 · 견과류(소량)</div></div>
-                    <div><div style={{ color:'#dc2626', fontWeight:'700', marginBottom:'3px' }}>❌ 제한</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>흰쌀밥 · 흰빵 · 라면 · 과자<br/>사탕·주스 · 탄산음료 · 술</div></div>
+                    <div><div style={{ color:'var(--cn-ok)', fontWeight:'700', marginBottom:'3px' }}>✅ 권장</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>현미·잡곡밥 · 닭가슴살 · 두부 · 생선<br/>채소류 · 달걀 · 콩류 · 견과류(소량)</div></div>
+                    <div><div style={{ color:'var(--cn-danger)', fontWeight:'700', marginBottom:'3px' }}>❌ 제한</div><div style={{ color:'var(--text)', lineHeight:'1.8' }}>흰쌀밥 · 흰빵 · 라면 · 과자<br/>사탕·주스 · 탄산음료 · 술</div></div>
                   </div>
                 </div>
-                <div style={{ background:dm?'#1f1a00':'#fffbeb', border:dm?'1px solid #92400e':'1px solid #fcd34d', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
-                  <div style={{ fontWeight:'700', color:dm?'#fcd34d':'#92400e', marginBottom:'5px' }}>📝 식단 기입 방법</div>
-                  <div style={{ color:dm?'#fde68a':'#78350f', lineHeight:'1.8' }}>
+                <div style={{ background:dm?'var(--cn-warn-100)':'var(--cn-warn-100)', border:dm?'1px solid var(--cn-warn)':'1px solid var(--cn-warn)', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
+                  <div style={{ fontWeight:'700', color:dm?'var(--cn-warn)':'var(--cn-warn)', marginBottom:'5px' }}>📝 식단 기입 방법</div>
+                  <div style={{ color:dm?'var(--cn-warn)':'var(--cn-warn)', lineHeight:'1.8' }}>
                     <strong>형식:</strong> 음식명 + 양 + 탄수화물(g)<br/>
                     <strong>예:</strong> 현미밥 반공기(30g), 닭가슴살 100g, 브로콜리 1컵<br/>
                     <strong>한 끼 탄수화물 목표:</strong> 45–60g (하루 130–180g)
@@ -2426,17 +2450,17 @@
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px', flexWrap:'wrap', gap:'6px' }}>
                       <div style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>{m.icon} {m.label}</div>
                       {analyzing===m.id ? (
-                        <span style={{ fontSize:'14px', color:'#7c3aed', fontWeight:'700' }}>⏳ 분석 중...</span>
+                        <span style={{ fontSize:'14px', color:'var(--cn-low)', fontWeight:'700' }}>⏳ 분석 중...</span>
                       ) : (
                         <div style={{ display:'flex', gap:'6px' }}>
                           {/* 카메라 촬영 */}
                           <button onClick={() => camRefs[m.id].current?.click()} disabled={!!analyzing}
-                            style={{ background:dm?'#1a1030':'#faf5ff', border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', color:'#7c3aed', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'14px', fontWeight:'700' }}>
+                            style={{ background:dm?'var(--cn-low-100)':'var(--cn-low-100)', border:dm?'1px solid var(--cn-low)':'1px solid var(--cn-low)', color:'var(--cn-low)', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'14px', fontWeight:'700' }}>
                             📸 촬영
                           </button>
                           {/* 앨범 선택 */}
                           <button onClick={() => imgRefs[m.id].current?.click()} disabled={!!analyzing}
-                            style={{ background:dm?'#0c1a2e':'#eff6ff', border:'1px solid #93c5fd', color:'#2563eb', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'14px', fontWeight:'700' }}>
+                            style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', color:'var(--cn-brand)', borderRadius:'8px', padding:'5px 11px', cursor:'pointer', fontSize:'14px', fontWeight:'700' }}>
                             🖼️ 앨범
                           </button>
                         </div>
@@ -2453,24 +2477,24 @@
 
                     {/* 분석 결과 카드 */}
                     {analysisResult?.mealId === m.id && (
-                      <div style={{ border:dm?'1px solid #4c1d95':'1px solid #c4b5fd', borderRadius:'12px', marginBottom:'10px', overflow:'hidden' }}>
+                      <div style={{ border:dm?'1px solid var(--cn-low)':'1px solid var(--cn-low)', borderRadius:'12px', marginBottom:'10px', overflow:'hidden' }}>
                         {/* 헤더 */}
-                        <div style={{ background:'linear-gradient(135deg,#7c3aed,#a855f7)', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div style={{ background:'linear-gradient(135deg,var(--cn-low),#a855f7)', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                           <span style={{ color:'#fff', fontWeight:'700', fontSize:'16px' }}>🤖 AI 식단 분석 결과</span>
                           <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'16px' }}>Powered by Gemini</span>
                         </div>
                         {/* 내용 */}
-                        <div style={{ background:dm?'#1a1030':'#faf5ff', padding:'14px', fontSize:'16px', color:'var(--text)', whiteSpace:'pre-line', lineHeight:'1.9', maxHeight:'400px', overflowY:'auto' }}>
+                        <div style={{ background:dm?'var(--cn-low-100)':'var(--cn-low-100)', padding:'14px', fontSize:'16px', color:'var(--text)', whiteSpace:'pre-line', lineHeight:'1.9', maxHeight:'400px', overflowY:'auto' }}>
                           {analysisResult.text}
                         </div>
                         {/* 버튼 */}
                         <div style={{ background:'#f5f3ff', padding:'10px 14px', display:'flex', gap:'8px', borderTop:'1px solid #e9d5ff' }}>
                           <button onClick={() => applyAnalysis(m.id, analysisResult.text)}
-                            style={{ flex:2, padding:'9px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>
+                            style={{ flex:2, padding:'9px', background:'var(--cn-low)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'700', fontSize:'16px' }}>
                             ✅ 식사 기록에 추가
                           </button>
                           <button onClick={() => setAnalysisResult(null)}
-                            style={{ flex:1, padding:'9px', background:'var(--card-bg)', color:'var(--text-sub)', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', cursor:'pointer', fontSize:'16px' }}>
+                            style={{ flex:1, padding:'9px', background:'var(--card-bg)', color:'var(--text-sub)', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', cursor:'pointer', fontSize:'16px' }}>
                             닫기
                           </button>
                         </div>
@@ -2478,8 +2502,8 @@
                     )}
 
                     <textarea value={day.meals[m.id]||''} onChange={e=>updMeal(m.id,e.target.value)} placeholder={m.ph} rows={3}
-                      style={{ width:'100%', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:'1.6', background:'#fafafa', transition:'border-color 0.2s' }}
-                      onFocus={e=>e.target.style.borderColor='#2563eb'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
+                      style={{ width:'100%', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'10px 12px', fontSize:'16px', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:'1.6', background:'#fafafa', transition:'border-color 0.2s' }}
+                      onFocus={e=>e.target.style.borderColor='var(--cn-brand)'} onBlur={e=>e.target.style.borderColor='var(--card-border)'} />
                   </div>
                 ))}
               </Card>
@@ -2503,20 +2527,20 @@
               <BannerSlot slotId="sidebar_top" />
 
               {/* 요약 */}
-              <Card style={{ background:medPct===100?'#f0fdf4':'#fff' }}>
+              <Card style={{ background:medPct===100?'var(--cn-ok-100)':'#fff' }}>
                 <STitle icon="📊" label="오늘 요약" />
                 <div style={{ marginBottom:'16px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:'16px', marginBottom:'5px' }}>
                     <span style={{ fontWeight:'600' }}>복약 완료율</span>
-                    <span style={{ fontWeight:'800', color:medPct===100?'#16a34a':'#2563eb' }}>{medPct}%</span>
+                    <span style={{ fontWeight:'800', color:medPct===100?'var(--cn-ok)':'var(--cn-brand)' }}>{medPct}%</span>
                   </div>
-                  <div style={{ background:'#e2e8f0', borderRadius:'4px', height:'8px', overflow:'hidden' }}>
-                    <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'4px', background:medPct===100?'#16a34a':'#2563eb', transition:'width 0.5s' }}/>
+                  <div style={{ background:'var(--card-border)', borderRadius:'4px', height:'8px', overflow:'hidden' }}>
+                    <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'4px', background:medPct===100?'var(--cn-ok)':'var(--cn-brand)', transition:'width 0.5s' }}/>
                   </div>
                 </div>
                 <div style={{ background:'var(--input-bg)', borderRadius:'10px', padding:'14px', marginBottom:'14px' }}>
                   <div style={{ fontSize:'16px', color:'var(--text-sub)', marginBottom:'4px' }}>오늘 평균 혈당</div>
-                  <div style={{ fontSize:'31px', fontWeight:'900', color:bsAvg?bsColor(bsAvg):'#cbd5e1' }}>
+                  <div style={{ fontSize:'31px', fontWeight:'900', color:bsAvg?bsColor(bsAvg):'var(--text-mute)' }}>
                     {bsAvg||'---'}{bsAvg&&<span style={{ fontSize:'14px', fontWeight:'400', color:'var(--text-sub)' }}> mg/dL</span>}
                   </div>
                   {bsAvg&&<div style={{ fontSize:'14px', fontWeight:'700', color:bsColor(bsAvg), marginTop:'2px' }}>{bsLabel(bsAvg)}</div>}
@@ -2525,9 +2549,9 @@
                 <div style={{ display:'flex', gap:'6px' }}>
                   {MEALS.map(m => {
                     const filled = !!(day.meals[m.id]?.trim());
-                    return <div key={m.id} style={{ flex:1, textAlign:'center', borderRadius:'8px', padding:'8px 4px', background:filled?'#f0fdf4':'#f8fafc', border:`1px solid ${filled?'#86efac':'#e2e8f0'}` }}>
+                    return <div key={m.id} style={{ flex:1, textAlign:'center', borderRadius:'8px', padding:'8px 4px', background:filled?'var(--cn-ok-100)':'var(--input-bg)', border:`1px solid ${filled?'var(--cn-ok)':'var(--card-border)'}` }}>
                       <div style={{ fontSize:'14px' }}>{m.icon}</div>
-                      <div style={{ fontSize:'14px', color:filled?'#16a34a':'#94a3b8', fontWeight:'600', marginTop:'3px' }}>{filled?'완료':'미기록'}</div>
+                      <div style={{ fontSize:'14px', color:filled?'var(--cn-ok)':'var(--text-mute)', fontWeight:'600', marginTop:'3px' }}>{filled?'완료':'미기록'}</div>
                     </div>;
                   })}
                 </div>
@@ -2543,7 +2567,7 @@
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체중</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <input type="text" inputMode="decimal" value={day.weight||''} onChange={e=>upDay({weight:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
-                        style={{ width:'82px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
+                        style={{ width:'82px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
                       {_wArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_wArrowClr, flexShrink:0 }}>{_wArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>kg</span>
                     </div>
@@ -2553,7 +2577,7 @@
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>체지방율</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                       <input type="text" inputMode="decimal" value={day.bodyFat||''} onChange={e=>upDay({bodyFat:e.target.value.replace(/[^0-9.]/g,'')})} placeholder="00.0"
-                        style={{ width:'82px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'#7c3aed', outline:'none', textAlign:'center' }} />
+                        style={{ width:'82px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'8px 10px', fontSize:'22px', fontWeight:'800', color:'var(--cn-low)', outline:'none', textAlign:'center' }} />
                       {_bfArrow && <span style={{ fontSize:'20px', fontWeight:'800', color:_bfArrowClr, flexShrink:0 }}>{_bfArrow}</span>}
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px', flexShrink:0 }}>%</span>
                     </div>
@@ -2563,7 +2587,7 @@
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'4px' }}>키</div>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <input type="text" inputMode="decimal" value={height} onChange={e=>saveHeight(e.target.value.replace(/[^0-9.]/g,''))} placeholder="000"
-                        style={{ width:'72px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}`, borderRadius:'8px', padding:'8px 8px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
+                        style={{ width:'72px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}`, borderRadius:'8px', padding:'8px 8px', fontSize:'22px', fontWeight:'800', color:'var(--text)', outline:'none', textAlign:'center' }} />
                       <span style={{ color:'var(--text-sub)', fontWeight:'600', fontSize:'16px' }}>cm</span>
                     </div>
                   </div>
@@ -2579,11 +2603,11 @@
 
                   // 한국/아시아 기준
                   const ranges = [
-                    { label:'저체중',    max:18.5, color:'#3b82f6', bg:'#eff6ff' },
-                    { label:'정상',      max:23.0, color:'#16a34a', bg:'#f0fdf4' },
-                    { label:'과체중',    max:25.0, color:'#d97706', bg:'#fffbeb' },
+                    { label:'저체중',    max:18.5, color:'var(--cn-brand)', bg:'var(--cn-brand-100)' },
+                    { label:'정상',      max:23.0, color:'var(--cn-ok)', bg:'var(--cn-ok-100)' },
+                    { label:'과체중',    max:25.0, color:'var(--cn-warn)', bg:'var(--cn-warn-100)' },
                     { label:'비만',      max:30.0, color:'#ea580c', bg:'#fff7ed' },
-                    { label:'고도비만',  max:99,   color:'#dc2626', bg:'#fef2f2' },
+                    { label:'고도비만',  max:99,   color:'var(--cn-danger)', bg:'var(--cn-danger-100)' },
                   ];
                   const cur = ranges.find(r => bmiRounded < r.max) || ranges[ranges.length-1];
 
@@ -2591,7 +2615,7 @@
                   const pct = Math.min(100, Math.max(0, (bmiRounded - 13) / (35 - 13) * 100));
 
                   return (
-                    <div style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'14px', marginBottom:'12px', border:`1px solid ${dm?'#30363d':'#e2e8f0'}` }}>
+                    <div style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'14px', marginBottom:'12px', border:`1px solid ${dm?'var(--card-border)':'var(--card-border)'}` }}>
                       {/* 헤더 */}
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:'10px' }}>
                         <span style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)' }}>📐 BMI (한국 기준)</span>
@@ -2606,25 +2630,25 @@
                       <div style={{ position:'relative', marginBottom:'8px' }}>
                         <div style={{ display:'flex', borderRadius:'6px', overflow:'hidden', height:'10px' }}>
                           {[
-                            { w:'20%', color:'#93c5fd' },
-                            { w:'25%', color:'#86efac' },
-                            { w:'12%', color:'#fcd34d' },
+                            { w:'20%', color:'var(--cn-brand)' },
+                            { w:'25%', color:'var(--cn-ok)' },
+                            { w:'12%', color:'var(--cn-warn)' },
                             { w:'27%', color:'#fb923c' },
                             { w:'16%', color:'#f87171' },
                           ].map((s,i) => <div key={i} style={{ width:s.w, background:s.color }}/>)}
                         </div>
                         {/* 내 위치 마커 */}
-                        <div style={{ position:'absolute', top:'-3px', left:`calc(${pct}% - 6px)`, width:'12px', height:'16px', background:'#1e293b', borderRadius:'3px', border:'2px solid #fff', boxShadow:'0 1px 4px rgba(0,0,0,0.3)', transition:'left 0.4s ease' }}/>
+                        <div style={{ position:'absolute', top:'-3px', left:`calc(${pct}% - 6px)`, width:'12px', height:'16px', background:'var(--cn-ink)', borderRadius:'3px', border:'2px solid #fff', boxShadow:'0 1px 4px rgba(0,0,0,0.3)', transition:'left 0.4s ease' }}/>
                       </div>
 
                       {/* 범례 */}
                       <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
                         {[
-                          { label:'저체중', val:'~18.4', color:'#3b82f6' },
-                          { label:'정상',   val:'18.5~22.9', color:'#16a34a' },
-                          { label:'과체중', val:'23~24.9', color:'#d97706' },
+                          { label:'저체중', val:'~18.4', color:'var(--cn-brand)' },
+                          { label:'정상',   val:'18.5~22.9', color:'var(--cn-ok)' },
+                          { label:'과체중', val:'23~24.9', color:'var(--cn-warn)' },
                           { label:'비만',   val:'25~29.9', color:'#ea580c' },
-                          { label:'고도비만',val:'30~', color:'#dc2626' },
+                          { label:'고도비만',val:'30~', color:'var(--cn-danger)' },
                         ].map(r => (
                           <div key={r.label} style={{ display:'flex', alignItems:'center', gap:'3px' }}>
                             <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:r.color, flexShrink:0 }}/>
@@ -2634,10 +2658,10 @@
                       </div>
 
                       {/* 정상 체중 범위 안내 */}
-                      <div style={{ marginTop:'8px', fontSize:'11px', color:'var(--text-sub)', borderTop:`1px solid ${dm?'#21262d':'#f1f5f9'}`, paddingTop:'7px' }}>
-                        정상 체중 범위: <strong style={{ color:'#16a34a' }}>{(18.5 * (h/100)**2).toFixed(1)}~{(22.9 * (h/100)**2).toFixed(1)} kg</strong>
+                      <div style={{ marginTop:'8px', fontSize:'11px', color:'var(--text-sub)', borderTop:`1px solid ${dm?'var(--divider)':'var(--divider)'}`, paddingTop:'7px' }}>
+                        정상 체중 범위: <strong style={{ color:'var(--cn-ok)' }}>{(18.5 * (h/100)**2).toFixed(1)}~{(22.9 * (h/100)**2).toFixed(1)} kg</strong>
                         {w > 22.9 * (h/100)**2 &&
-                          <span style={{ color:'#d97706', marginLeft:'8px' }}>
+                          <span style={{ color:'var(--cn-warn)', marginLeft:'8px' }}>
                             목표까지 <strong>{(w - 22.9 * (h/100)**2).toFixed(1)} kg</strong> 감량
                           </span>
                         }
@@ -2666,13 +2690,13 @@
 
                       {/* 체중 차트 */}
                       {hasW && <>
-                        <div style={{ fontSize:'14px', color:'#2563eb', fontWeight:'600', marginBottom:'4px' }}>⚖️ 체중 (kg)</div>
+                        <div style={{ fontSize:'14px', color:'var(--cn-brand)', fontWeight:'600', marginBottom:'4px' }}>⚖️ 체중 (kg)</div>
                         <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
                           {wk.map((d,i) => {
                             const h = d.w ? Math.round(((d.w - minW)/(maxW - minW || 1)) * 38 + 6) : 4;
                             return (
                               <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
-                                <div style={{ width:'100%', height:`${h}px`, background: d.w ? '#2563eb' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
+                                <div style={{ width:'100%', height:`${h}px`, background: d.w ? 'var(--cn-brand)' : 'var(--card-border)', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
                                 <div style={{ fontSize:'9px', color:'var(--text-sub)', whiteSpace:'nowrap' }}>{d.label}</div>
                               </div>
                             );
@@ -2683,9 +2707,9 @@
                             const prev = i > 0 ? wk[i-1].w : null;
                             const diff = (prev && d.w) ? d.w - prev : null;
                             const arr  = diff === null ? '' : diff > 0.04 ? ' ↑' : diff < -0.04 ? ' ↓' : ' →';
-                            const clr  = diff === null ? '#2563eb' : diff > 0.04 ? '#ef4444' : diff < -0.04 ? '#2563eb' : '#94a3b8';
+                            const clr  = diff === null ? 'var(--cn-brand)' : diff > 0.04 ? '#ef4444' : diff < -0.04 ? 'var(--cn-brand)' : 'var(--text-mute)';
                             return (
-                              <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? clr : '#e2e8f0', fontWeight:'700' }}>
+                              <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.w ? clr : 'var(--card-border)', fontWeight:'700' }}>
                                 {d.w ? `${d.w.toFixed(1)}${arr}` : ''}
                               </div>
                             );
@@ -2695,13 +2719,13 @@
 
                       {/* 체지방 차트 */}
                       {hasBf && <div style={{ marginTop: hasW ? '10px' : '0' }}>
-                        <div style={{ fontSize:'14px', color:'#7c3aed', fontWeight:'600', marginBottom:'4px' }}>💪 체지방률 (%)</div>
+                        <div style={{ fontSize:'14px', color:'var(--cn-low)', fontWeight:'600', marginBottom:'4px' }}>💪 체지방률 (%)</div>
                         <div style={{ display:'flex', gap:'4px', alignItems:'flex-end', height:'48px' }}>
                           {wk.map((d,i) => {
                             const h = d.bf ? Math.round(((d.bf - minBf)/(maxBf - minBf || 1)) * 38 + 6) : 4;
                             return (
                               <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
-                                <div style={{ width:'100%', height:`${h}px`, background: d.bf ? '#7c3aed' : '#e2e8f0', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
+                                <div style={{ width:'100%', height:`${h}px`, background: d.bf ? 'var(--cn-low)' : 'var(--card-border)', borderRadius:'3px 3px 0 0', transition:'height 0.3s' }}/>
                                 <div style={{ fontSize:'9px', color:'var(--text-sub)', whiteSpace:'nowrap' }}>{d.label}</div>
                               </div>
                             );
@@ -2712,9 +2736,9 @@
                             const prev = i > 0 ? wk[i-1].bf : null;
                             const diff = (prev && d.bf) ? d.bf - prev : null;
                             const arr  = diff === null ? '' : diff > 0.04 ? ' ↑' : diff < -0.04 ? ' ↓' : ' →';
-                            const clr  = diff === null ? '#7c3aed' : diff > 0.04 ? '#ef4444' : diff < -0.04 ? '#2563eb' : '#94a3b8';
+                            const clr  = diff === null ? 'var(--cn-low)' : diff > 0.04 ? '#ef4444' : diff < -0.04 ? 'var(--cn-brand)' : 'var(--text-mute)';
                             return (
-                              <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.bf ? clr : '#e2e8f0', fontWeight:'700' }}>
+                              <div key={i} style={{ flex:1, textAlign:'center', fontSize:'9px', color: d.bf ? clr : 'var(--card-border)', fontWeight:'700' }}>
                                 {d.bf ? `${d.bf.toFixed(1)}${arr}` : ''}
                               </div>
                             );
@@ -2733,25 +2757,25 @@
                 <div style={{ display:'flex', gap:'8px', marginBottom:'4px' }}>
                   {/* iOS */}
                   <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                    style={{ flex:1, padding:'8px 6px', background: weightImporting?'#f1f5f9':'#f0f9ff', border:`1px solid ${weightImporting?'#e2e8f0':'#93c5fd'}`, color: weightImporting?'#94a3b8':'#1d4ed8', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
-                    🍎 iOS<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'#64748b' }}>건강앱 export.zip</span>
+                    style={{ flex:1, padding:'8px 6px', background: weightImporting?'var(--divider)':'var(--cn-brand-100)', border:`1px solid ${weightImporting?'var(--card-border)':'var(--cn-brand)'}`, color: weightImporting?'var(--text-mute)':'#1d4ed8', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
+                    🍎 iOS<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>건강앱 export.zip</span>
                   </button>
                   {/* Android */}
                   <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                    style={{ flex:1, padding:'8px 6px', background: androidImporting?'#f1f5f9':'#f0fdf4', border:`1px solid ${androidImporting?'#e2e8f0':'#86efac'}`, color: androidImporting?'#94a3b8':'#16a34a', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
-                    🤖 Android<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'#64748b' }}>삼성 헬스 ZIP</span>
+                    style={{ flex:1, padding:'8px 6px', background: androidImporting?'var(--divider)':'var(--cn-ok-100)', border:`1px solid ${androidImporting?'var(--card-border)':'var(--cn-ok)'}`, color: androidImporting?'var(--text-mute)':'var(--cn-ok)', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
+                    🤖 Android<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>삼성 헬스 ZIP</span>
                   </button>
                 </div>
 
                 {/* iOS 메시지 */}
                 {weightImportMsg && (
-                  <div style={{ fontSize:'13px', color: weightImportMsg.startsWith('✅')?'#16a34a': weightImportMsg.startsWith('❌')?'#dc2626':'#64748b', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
+                  <div style={{ fontSize:'13px', color: weightImportMsg.startsWith('✅')?'var(--cn-ok)': weightImportMsg.startsWith('❌')?'var(--cn-danger)':'var(--text-sub)', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
                     🍎 {weightImportMsg}
                   </div>
                 )}
                 {/* Android 메시지 */}
                 {androidImportMsg && (
-                  <div style={{ fontSize:'13px', color: androidImportMsg.startsWith('✅')?'#16a34a': androidImportMsg.startsWith('❌')?'#dc2626':'#64748b', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
+                  <div style={{ fontSize:'13px', color: androidImportMsg.startsWith('✅')?'var(--cn-ok)': androidImportMsg.startsWith('❌')?'var(--cn-danger)':'var(--text-sub)', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
                     🤖 {androidImportMsg}
                   </div>
                 )}
@@ -2763,11 +2787,11 @@
                     건강 앱 → 프로필 → 건강 데이터 내보내기 → export.zip 전송
                   </div>
                   <div style={{ fontSize:'10px', color:'var(--text-sub)', lineHeight:'1.6', background:'var(--input-bg)', borderRadius:'6px', padding:'6px 8px' }}>
-                    <strong style={{ color:'#16a34a' }}>🤖 Android</strong><br/>
+                    <strong style={{ color:'var(--cn-ok)' }}>🤖 Android</strong><br/>
                     삼성 헬스 → 설정(⚙️) → 개인 데이터 다운로드 → ZIP 전송
                   </div>
                 </div>
-                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
+                <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
               </Card>
 
               {/* 운동 */}
@@ -2781,7 +2805,7 @@
                   <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 시간 (분)</div>
                   <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt} />
                 </div>
-                <div style={{ fontSize:'11px', color:'#16a34a', fontWeight:'500', lineHeight:'1.7' }}>
+                <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', lineHeight:'1.7' }}>
                   💪 식후 30분 걷기 30분이 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
                 </div>
               </Card>
@@ -2794,15 +2818,15 @@
               </Card>
 
               {/* 목표 카드 */}
-              <Card style={{ background:'linear-gradient(135deg,#eff6ff,#f0fdf4)', border:'1px solid #bfdbfe' }}>
-                <div style={{ fontSize:'14px', fontWeight:'700', color:dm?'#93c5fd':'#1e40af', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
+              <Card style={{ background:'linear-gradient(135deg,var(--cn-brand-100),var(--cn-ok-100))', border:'1px solid #bfdbfe' }}>
+                <div style={{ fontSize:'14px', fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
                 <div style={{ fontSize:'14px', color:'var(--text)', lineHeight:'2' }}>
                   ✅ 혈당 꾸준히 기록 (리브레2 연동)<br/>
                   ✅ 탄수화물 조절 (한 끼 45–60g)<br/>
                   ✅ 식후 걷기 30분<br/>
                   ✅ 체중 점진적 감량<br/>
                   ✅ 주치의와 정기 상담<br/><br/>
-                  <span style={{ color:'#dc2626', fontWeight:'600', fontSize:'11px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
+                  <span style={{ color:'var(--cn-danger)', fontWeight:'600', fontSize:'11px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
                 </div>
               </Card>
             </div>
