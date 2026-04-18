@@ -1,0 +1,419 @@
+<\!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CARENOTE CMS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#6366f1;--brand-100:#eef2ff;--bg:#f1f5f9;--card:#fff;
+  --border:#e2e8f0;--text:#0f172a;--sub:#64748b;--mute:#94a3b8;
+  --ok:#10b981;--warn:#f59e0b;--danger:#ef4444;--radius:12px;
+  --shadow:0 1px 4px rgba(0,0,0,.08)
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-card{background:var(--card);border-radius:20px;padding:40px 36px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.1);text-align:center}
+.login-logo{font-size:36px;margin-bottom:8px}
+.login-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--sub);margin-bottom:28px}
+.input-field{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;outline:none;margin-bottom:12px;background:#f8fafc;color:var(--text)}
+.input-field:focus{border-color:var(--brand)}
+.btn-primary{width:100%;padding:13px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-primary:hover{opacity:.88}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.error-msg{color:var(--danger);font-size:13px;margin-top:8px}
+#app{display:none}
+.top-bar{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.top-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px}
+.top-logo .badge{background:var(--brand-100);color:var(--brand);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
+.top-right{display:flex;align-items:center;gap:10px}
+.top-email{font-size:13px;color:var(--sub)}
+.btn-logout{padding:6px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;background:var(--card);color:var(--sub)}
+.btn-logout:hover{background:var(--bg)}
+.main{max-width:1100px;margin:0 auto;padding:28px 20px}
+.nav-tabs{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap}
+.nav-tab{padding:9px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:2px solid var(--border);background:var(--card);color:var(--sub);transition:all .15s}
+.nav-tab.active{border-color:var(--brand);background:var(--brand-100);color:var(--brand)}
+.nav-tab:hover:not(.active){border-color:var(--mute)}
+.section-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.section-sub{font-size:13px;color:var(--sub);margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.stat-label{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px}
+.stat-val{font-size:30px;font-weight:900;color:var(--text);letter-spacing:-1px;line-height:1}
+.stat-note{font-size:11px;color:var(--mute);margin-top:4px}
+.fb-list{display:flex;flex-direction:column;gap:10px}
+.fb-item{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.fb-body{flex:1;min-width:0}
+.fb-meta{display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap}
+.fb-type{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.fb-email{font-size:12px;color:var(--sub)}
+.fb-date{font-size:11px;color:var(--mute)}
+.fb-content{font-size:13px;color:var(--text);line-height:1.6;word-break:break-all}
+.btn-del{padding:5px 11px;background:#fff;border:1px solid var(--danger);color:var(--danger);border-radius:8px;font-size:12px;cursor:pointer;flex-shrink:0}
+.btn-del:hover{background:#fef2f2}
+.type-bug{background:#fef2f2;color:var(--danger)}
+.type-feat{background:#eff6ff;color:#3b82f6}
+.type-etc{background:var(--brand-100);color:var(--brand)}
+.banner-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.banner-slot-card{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px}
+.banner-slot-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.banner-slot-name{font-size:13px;font-weight:700}
+.toggle{width:40px;height:22px;border-radius:11px;background:var(--border);cursor:pointer;position:relative;border:none;transition:background .2s}
+.toggle.on{background:var(--ok)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on::after{left:21px}
+.banner-url-preview{font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-edit{padding:5px 12px;background:var(--brand-100);border:1px solid var(--brand);color:var(--brand);border-radius:8px;font-size:12px;cursor:pointer;font-weight:700;margin-top:8px}
+.banner-edit-panel{background:var(--card);border:2px solid var(--brand);border-radius:14px;padding:22px;margin-bottom:20px}
+.banner-edit-title{font-size:15px;font-weight:800;margin-bottom:14px;color:var(--brand)}
+.form-row{margin-bottom:12px}
+.form-label{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:4px;display:block}
+.form-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:#f8fafc;color:var(--text)}
+.form-input:focus{border-color:var(--brand)}
+textarea.form-input{resize:vertical;line-height:1.6;min-height:80px}
+.btn-row{display:flex;gap:8px;margin-top:6px}
+.btn-save{padding:9px 22px;background:var(--brand);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-save:hover{opacity:.88}
+.btn-cancel{padding:9px 18px;background:var(--card);color:var(--sub);border:1px solid var(--border);border-radius:9px;font-size:14px;cursor:pointer}
+.notice-form{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
+.notice-list{display:flex;flex-direction:column;gap:10px}
+.notice-item{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.notice-body{flex:1;min-width:0}
+.notice-title-text{font-size:14px;font-weight:700;margin-bottom:3px}
+.notice-content-text{font-size:13px;color:var(--sub);line-height:1.5}
+.notice-meta{font-size:11px;color:var(--mute);margin-top:5px}
+.pub-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+.pub-on{background:#d1fae5;color:var(--ok)}
+.pub-off{background:#f1f5f9;color:var(--mute)}
+.notice-actions{display:flex;gap:6px;flex-shrink:0}
+.btn-pub{padding:5px 11px;background:#fff;border:1px solid var(--ok);color:var(--ok);border-radius:8px;font-size:12px;cursor:pointer}
+.btn-pub:hover{background:#ecfdf5}
+.btn-pub.unpub{border-color:var(--mute);color:var(--mute)}
+.color-row{display:flex;gap:10px;flex-wrap:wrap}
+.color-row .form-row{flex:1;min-width:120px}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-msg{text-align:center;color:var(--mute);font-size:13px;padding:28px 0}
+.alert{padding:10px 14px;border-radius:9px;font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--brand-100);color:var(--brand);border:1px solid #c7d2fe}
+@media(max-width:600px){
+  .main{padding:16px 12px}.top-bar{padding:0 14px}
+  .stats-grid{grid-template-columns:1fr 1fr}.banner-slots{grid-template-columns:1fr}.top-email{display:none}
+}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🩺</div>
+    <div class="login-title">CARENOTE CMS</div>
+    <div class="login-sub">관리자 전용 페이지입니다</div>
+    <input id="email-input" class="input-field" type="email" placeholder="이메일" />
+    <input id="pw-input" class="input-field" type="password" placeholder="비밀번호" />
+    <button id="login-btn" class="btn-primary">로그인</button>
+    <div id="login-error" class="error-msg"></div>
+  </div>
+</div>
+<div id="app">
+  <div class="top-bar">
+    <div class="top-logo">🩺 CARENOTE <span class="badge">CMS</span></div>
+    <div class="top-right">
+      <span class="top-email" id="top-email"></span>
+      <button class="btn-logout" id="logout-btn">로그아웃</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="stats">📊 사용자 통계</button>
+      <button class="nav-tab" data-tab="notices">📢 공지사항</button>
+      <button class="nav-tab" data-tab="feedback">💬 피드백</button>
+      <button class="nav-tab" data-tab="banners">🖼️ 배너 관리</button>
+    </div>
+    <div id="tab-stats" class="tab-content">
+      <div class="section-title">사용자 통계</div>
+      <div class="section-sub">피드백 및 공지 데이터 기준 현황입니다.</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">총 피드백</div><div class="stat-val" id="s-total">-</div><div class="stat-note">전체 기간</div></div>
+        <div class="stat-card"><div class="stat-label">버그 신고</div><div class="stat-val" id="s-bug">-</div><div class="stat-note">전체 기간</div></div>
+        <div class="stat-card"><div class="stat-label">기능 제안</div><div class="stat-val" id="s-feat">-</div><div class="stat-note">전체 기간</div></div>
+        <div class="stat-card"><div class="stat-label">게시된 공지</div><div class="stat-val" id="s-notices">-</div><div class="stat-note">현재 게시 중</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">최근 피드백 (5건)</div>
+        <div id="stats-recent-list"><div class="spinner"></div></div>
+      </div>
+    </div>
+    <div id="tab-notices" class="tab-content" style="display:none">
+      <div class="section-title">공지사항 관리</div>
+      <div class="section-sub">앱에 표시될 공지를 작성합니다.</div>
+      <div class="notice-form">
+        <div class="card-title">새 공지 작성</div>
+        <div class="form-row">
+          <label class="form-label">제목</label>
+          <input id="n-title" class="form-input" type="text" placeholder="공지 제목을 입력하세요" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">내용</label>
+          <textarea id="n-content" class="form-input" placeholder="공지 내용을 입력하세요" rows="3"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn-save" id="n-save-btn">바로 게시</button>
+          <button class="btn-cancel" id="n-draft-btn">임시저장</button>
+        </div>
+      </div>
+      <div id="notice-list"><div class="spinner"></div></div>
+    </div>
+    <div id="tab-feedback" class="tab-content" style="display:none">
+      <div class="section-title">피드백 관리</div>
+      <div class="section-sub">사용자가 앱에서 제출한 피드백입니다.</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="fb-filter-btn nav-tab active" data-type="all">전체</button>
+        <button class="fb-filter-btn nav-tab" data-type="버그신고">버그신고</button>
+        <button class="fb-filter-btn nav-tab" data-type="기능제안">기능제안</button>
+        <button class="fb-filter-btn nav-tab" data-type="기타">기타</button>
+      </div>
+      <div id="fb-list"><div class="spinner"></div></div>
+    </div>
+    <div id="tab-banners" class="tab-content" style="display:none">
+      <div class="section-title">배너 관리</div>
+      <div class="section-sub">앱 각 위치의 배너를 설정합니다. (로컬스토리지 저장)</div>
+      <div id="banner-edit-area"></div>
+      <div class="banner-slots" id="banner-slots"></div>
+    </div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://uvtrnkkzkxzujbvhhchl.supabase.co';
+const SUPABASE_KEY='sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+const ADMIN_EMAIL='cnkim74@gmail.com';
+const supa=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const BANNER_KEY='cn_banners';
+const BANNER_SLOTS=[
+  {id:'top',label:'앱 최상단'},
+  {id:'after_meds',label:'복약 아래'},
+  {id:'after_bs',label:'혈당 아래'},
+  {id:'sidebar_top',label:'사이드바 상단'},
+  {id:'bottom',label:'앱 하단'},
+];
+let currentUser=null,allFeedbacks=[],currentFbFilter='all',notices=[];
+let banners={},editingSlot=null;
+try{banners=JSON.parse(localStorage.getItem(BANNER_KEY)||'{}')}catch(e){}
+
+(async()=>{
+  const{data:{session}}=await supa.auth.getSession();
+  if(session?.user?.email===ADMIN_EMAIL){currentUser=session.user;showApp();}
+})();
+
+document.getElementById('login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('email-input').value.trim();
+  const pw=document.getElementById('pw-input').value;
+  const errEl=document.getElementById('login-error');
+  const btn=document.getElementById('login-btn');
+  errEl.textContent='';
+  if(\!email||\!pw){errEl.textContent='이메일과 비밀번호를 입력해 주세요.';return;}
+  btn.disabled=true;btn.textContent='로그인 중…';
+  const{data,error}=await supa.auth.signInWithPassword({email,password:pw});
+  btn.disabled=false;btn.textContent='로그인';
+  if(error){errEl.textContent=error.message;return;}
+  if(data.user.email\!==ADMIN_EMAIL){await supa.auth.signOut();errEl.textContent='관리자 계정이 아닙니다.';return;}
+  currentUser=data.user;showApp();
+});
+document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',async()=>{await supa.auth.signOut();location.reload();});
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('top-email').textContent=currentUser.email;
+  loadStats();loadFeedbacks();renderBanners();loadNotices();
+}
+
+document.querySelectorAll('.nav-tab[data-tab]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-tab[data-tab]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(el=>el.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+  });
+});
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function ea(s){return String(s||'').replace(/"/g,'&quot;')}
+
+async function loadStats(){
+  const{data:fb}=await supa.from('cn_feedback').select('type');
+  const ncRes=await supa.from('cn_notices').select('id',{count:'exact'}).eq('is_published',true);
+  const total=fb?.length||0,bugs=fb?.filter(x=>x.type==='버그신고').length||0,feats=fb?.filter(x=>x.type==='기능제안').length||0;
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-bug').textContent=bugs;
+  document.getElementById('s-feat').textContent=feats;
+  document.getElementById('s-notices').textContent=ncRes.count??ncRes.data?.length??0;
+  const{data:recent}=await supa.from('cn_feedback').select('*').order('created_at',{ascending:false}).limit(5);
+  const listEl=document.getElementById('stats-recent-list');
+  if(\!recent?.length){listEl.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
+  listEl.innerHTML='<div class="fb-list">'+recent.map(fb=>renderFbItem(fb,false)).join('')+'</div>';
+}
+
+function renderFbItem(fb,withDel){
+  const tc=fb.type==='버그신고'?'type-bug':fb.type==='기능제안'?'type-feat':'type-etc';
+  const date=fb.created_at?new Date(fb.created_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  return`<div class="fb-item"><div class="fb-body"><div class="fb-meta"><span class="fb-type ${tc}">${esc(fb.type||'기타')}</span><span class="fb-email">${esc(fb.user_email||'익명')}</span><span class="fb-date">${date}</span></div><div class="fb-content">${esc(fb.content||'')}</div></div>${withDel?`<button class="btn-del" data-del="${esc(fb.id)}">삭제</button>`:''}</div>`;
+}
+
+async function loadFeedbacks(){
+  const{data}=await supa.from('cn_feedback').select('*').order('created_at',{ascending:false}).limit(300);
+  allFeedbacks=data||[];renderFbList();
+}
+
+function renderFbList(){
+  const list=document.getElementById('fb-list');
+  const filtered=currentFbFilter==='all'?allFeedbacks:allFeedbacks.filter(f=>f.type===currentFbFilter);
+  if(\!filtered.length){list.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
+  list.innerHTML='<div class="fb-list">'+filtered.map(fb=>renderFbItem(fb,true)).join('')+'</div>';
+  list.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(\!confirm('정말 삭제할까요?'))return;
+      await supa.from('cn_feedback').delete().eq('id',btn.dataset.del);
+      allFeedbacks=allFeedbacks.filter(f=>f.id\!==btn.dataset.del);
+      renderFbList();loadStats();
+    });
+  });
+}
+
+document.querySelectorAll('.fb-filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.fb-filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');currentFbFilter=btn.dataset.type;renderFbList();
+  });
+});
+
+async function loadNotices(){
+  const{data,error}=await supa.from('cn_notices').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('notice-list').innerHTML=`<div class="alert alert-info">cn_notices 테이블이 없습니다. Supabase SQL Editor에서 아래 쿼리를 실행하세요:<br><br><code>CREATE TABLE cn_notices (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, title TEXT, content TEXT, is_published BOOLEAN DEFAULT true, created_at TIMESTAMPTZ DEFAULT now());</code></div>`;
+    return;
+  }
+  notices=data||[];renderNotices();
+}
+
+function renderNotices(){
+  const el=document.getElementById('notice-list');
+  if(\!notices.length){el.innerHTML='<div class="empty-msg">공지사항이 없습니다</div>';return;}
+  el.innerHTML='<div class="notice-list">'+notices.map(n=>`<div class="notice-item"><div class="notice-body"><div class="notice-title-text">${esc(n.title||'(제목 없음)')}</div><div class="notice-content-text">${esc(n.content||'')}</div><div class="notice-meta"><span class="pub-badge ${n.is_published?'pub-on':'pub-off'}">${n.is_published?'게시됨':'비공개'}</span> · ${n.created_at?new Date(n.created_at).toLocaleString('ko-KR'):''}</div></div><div class="notice-actions"><button class="btn-pub ${n.is_published?'unpub':''}" data-nid="${esc(n.id)}" data-pub="${n.is_published}">${n.is_published?'내리기':'게시'}</button><button class="btn-del" data-ndel="${esc(n.id)}">삭제</button></div></div>`).join('')+'</div>';
+  el.querySelectorAll('[data-nid]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const pub=btn.dataset.pub==='true';
+      await supa.from('cn_notices').update({is_published:\!pub}).eq('id',btn.dataset.nid);
+      await loadNotices();loadStats();
+    });
+  });
+  el.querySelectorAll('[data-ndel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(\!confirm('삭제할까요?'))return;
+      await supa.from('cn_notices').delete().eq('id',btn.dataset.ndel);
+      await loadNotices();loadStats();
+    });
+  });
+}
+
+document.getElementById('n-save-btn').addEventListener('click',()=>saveNotice(true));
+document.getElementById('n-draft-btn').addEventListener('click',()=>saveNotice(false));
+async function saveNotice(publish){
+  const title=document.getElementById('n-title').value.trim();
+  const content=document.getElementById('n-content').value.trim();
+  if(\!title){alert('제목을 입력해 주세요.');return;}
+  const{error}=await supa.from('cn_notices').insert({title,content,is_published:publish});
+  if(error){alert('저장 실패: '+error.message);return;}
+  document.getElementById('n-title').value='';
+  document.getElementById('n-content').value='';
+  await loadNotices();loadStats();
+}
+
+function renderBanners(){
+  banners={};try{banners=JSON.parse(localStorage.getItem(BANNER_KEY)||'{}')}catch(e){}
+  const slotsEl=document.getElementById('banner-slots');
+  slotsEl.innerHTML=BANNER_SLOTS.map(slot=>{
+    const b=banners[slot.id]||{};const isOn=\!\!(b.enabled&&b.url);
+    return`<div class="banner-slot-card"><div class="banner-slot-header"><span class="banner-slot-name">${slot.label}</span><button class="toggle ${isOn?'on':''}" data-slot-toggle="${slot.id}"></button></div><div class="banner-url-preview">${esc(b.url||'URL 없음')}</div><button class="btn-edit" data-slot-edit="${slot.id}">✏️ 편집</button></div>`;
+  }).join('');
+  slotsEl.querySelectorAll('[data-slot-toggle]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.dataset.slotToggle;
+      if(\!banners[sid])banners[sid]={};
+      banners[sid].enabled=\!banners[sid].enabled;
+      localStorage.setItem(BANNER_KEY,JSON.stringify(banners));
+      renderBanners();
+    });
+  });
+  slotsEl.querySelectorAll('[data-slot-edit]').forEach(btn=>{
+    btn.addEventListener('click',()=>startBannerEdit(btn.dataset.slotEdit));
+  });
+}
+
+function startBannerEdit(slotId){
+  editingSlot=slotId;
+  const slot=BANNER_SLOTS.find(s=>s.id===slotId);
+  const cur=banners[slotId]||{};
+  const d={type:'text',url:'',height:'200px',caption:'',link:'',bgColor:'#eff6ff',textColor:'#1d4ed8',borderColor:'#bfdbfe',...cur};
+  document.getElementById('banner-edit-area').innerHTML=`
+    <div class="banner-edit-panel">
+      <div class="banner-edit-title">✏️ ${slot?.label} 편집</div>
+      <div class="form-row"><label class="form-label">배너 타입</label>
+        <select id="b-type" class="form-input">
+          <option value="text"${d.type==='text'?' selected':''}>텍스트/공지</option>
+          <option value="image"${d.type==='image'?' selected':''}>이미지</option>
+          <option value="youtube"${d.type==='youtube'?' selected':''}>유튜브</option>
+        </select></div>
+      <div class="form-row"><label class="form-label" id="b-url-label">${d.type==='text'?'표시 텍스트':'URL'}</label>
+        <input id="b-url" class="form-input" type="text" value="${ea(d.url)}" placeholder="https:// 또는 텍스트" /></div>
+      <div class="form-row" id="b-height-row" style="${d.type==='youtube'?'':'display:none'}">
+        <label class="form-label">높이</label><input id="b-height" class="form-input" type="text" value="${ea(d.height)}" placeholder="200px" /></div>
+      <div id="b-color-rows" style="${d.type==='text'?'':'display:none'}">
+        <div class="color-row">
+          <div class="form-row"><label class="form-label">배경색</label><input id="b-bg" class="form-input" type="color" value="${ea(d.bgColor)}" style="height:40px;padding:4px" /></div>
+          <div class="form-row"><label class="form-label">텍스트색</label><input id="b-tc" class="form-input" type="color" value="${ea(d.textColor)}" style="height:40px;padding:4px" /></div>
+          <div class="form-row"><label class="form-label">테두리색</label><input id="b-bc" class="form-input" type="color" value="${ea(d.borderColor)}" style="height:40px;padding:4px" /></div>
+        </div></div>
+      <div class="form-row" id="b-link-row" style="${d.type==='image'?'':'display:none'}">
+        <label class="form-label">클릭 링크</label><input id="b-link" class="form-input" type="text" value="${ea(d.link)}" placeholder="https://" /></div>
+      <div class="form-row"><label class="form-label">캡션 (선택)</label>
+        <input id="b-caption" class="form-input" type="text" value="${ea(d.caption)}" placeholder="배너 하단 작은 글씨" /></div>
+      <div class="btn-row"><button class="btn-save" id="b-save-btn">저장</button><button class="btn-cancel" id="b-cancel-btn">취소</button></div>
+    </div>`;
+  document.getElementById('b-type').addEventListener('change',()=>{
+    const t=document.getElementById('b-type').value;
+    document.getElementById('b-height-row').style.display=t==='youtube'?'':'none';
+    document.getElementById('b-color-rows').style.display=t==='text'?'':'none';
+    document.getElementById('b-link-row').style.display=t==='image'?'':'none';
+    document.getElementById('b-url-label').textContent=t==='text'?'표시 텍스트':'URL';
+  });
+  document.getElementById('b-save-btn').addEventListener('click',()=>{
+    const t=document.getElementById('b-type').value;
+    if(\!banners[editingSlot])banners[editingSlot]={};
+    Object.assign(banners[editingSlot],{
+      type:t,
+      url:document.getElementById('b-url').value.trim(),
+      height:(document.getElementById('b-height')?.value||'200px').trim(),
+      caption:document.getElementById('b-caption').value.trim(),
+      link:(document.getElementById('b-link')?.value||'').trim(),
+      bgColor:document.getElementById('b-bg')?.value||'#eff6ff',
+      textColor:document.getElementById('b-tc')?.value||'#1d4ed8',
+      borderColor:document.getElementById('b-bc')?.value||'#bfdbfe',
+    });
+    localStorage.setItem(BANNER_KEY,JSON.stringify(banners));
+    document.getElementById('banner-edit-area').innerHTML='';
+    editingSlot=null;renderBanners();
+  });
+  document.getElementById('b-cancel-btn').addEventListener('click',()=>{
+    document.getElementById('banner-edit-area').innerHTML='';editingSlot=null;
+  });
+}
+</script>
+</body>
+</html>
