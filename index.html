@@ -1140,6 +1140,33 @@
           }
         }
 
+        // ⑤ 최후 수단: Supabase 일별 기록에서 복약 ID 스캔해 복구
+        try {
+          const { data: allRows } = await supa.from('diabetes_data')
+            .select('payload').eq('user_id', userId);
+          const medIdSet = new Set();
+          (allRows || []).forEach(r => {
+            if (r.payload?.meds) Object.keys(r.payload.meds).forEach(id => medIdSet.add(id));
+          });
+          if (medIdSet.size > 0) {
+            const SLOT_COLORS = [
+              { color:'var(--cn-brand)', bg:'var(--cn-brand-100)', border:'var(--cn-brand)' },
+              { color:'var(--cn-ok)',    bg:'var(--cn-ok-100)',    border:'var(--cn-ok)'    },
+              { color:'var(--cn-low)',   bg:'var(--cn-low-100)',   border:'var(--cn-low)'   },
+              { color:'var(--cn-danger)',bg:'var(--cn-danger-100)',border:'var(--cn-danger)'},
+              { color:'var(--cn-warn)',  bg:'var(--cn-warn-100)',  border:'var(--cn-warn)'  },
+            ];
+            const recovered = [{
+              slot: '복구된 복약 목록', key: 'recovered_' + Date.now(), icon: '💊',
+              ...SLOT_COLORS[0],
+              items: Array.from(medIdSet).map(id => ({ id, name: '약 이름 입력 필요', dose: '', startDate: '', endDate: '' }))
+            }];
+            setCfg(recovered);
+            setLoadMsg('🔍 기록에서 ' + medIdSet.size + '개 복약 항목을 발견했어요! 약 이름을 ✏️로 수정 후 저장하세요.');
+            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),6000); return;
+          }
+        } catch {}
+
         setLoadMsg('ℹ️ 저장된 복약 데이터가 없어요. 아래에서 직접 추가해 주세요.');
       } catch(e) {
         setLoadMsg('❌ 불러오기 실패: ' + (e.message||'오류'));
