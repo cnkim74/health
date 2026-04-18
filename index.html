@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health Care Dashboard</title>
+  <title>CARENOTE – 내 몸을 기록하는 노트</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
@@ -1056,16 +1056,18 @@
                   transition:'border-color 0.2s' };
 
     return (
-      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#eff6ff 0%,#f0f4f8 100%)',
+      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#1e40af 100%)',
                     display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
         <div style={{ background:'var(--card-bg)', borderRadius:'24px', padding:'36px 32px', maxWidth:'400px',
-                      width:'100%', boxShadow:'0 20px 60px rgba(37,99,235,0.12)' }}>
+                      width:'100%', boxShadow:'0 24px 70px rgba(0,0,0,0.35)' }}>
 
           {/* 로고 */}
           <div style={{ textAlign:'center', marginBottom:'28px' }}>
-            <div style={{ fontSize:'36px', marginBottom:'8px' }}>🏥</div>
-            <div style={{ fontSize:'26px', fontWeight:'800', color:'#1d4ed8' }}>Health Care Dashboard</div>
-            <div style={{ fontSize:'17px', color:'var(--text-sub)', marginTop:'4px' }}>건강 데이터를 한눈에 관리하세요</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:'10px' }}>
+              <CareNoteLogo size={52} />
+            </div>
+            <div style={{ fontSize:'26px', fontWeight:'800', color:'#0f172a', letterSpacing:'1px' }}>CARENOTE</div>
+            <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'4px', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
           </div>
 
           {/* 탭 */}
