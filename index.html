@@ -1093,34 +1093,59 @@
     const [loadingCloud, setLoadingCloud] = useState(false);
     const [loadMsg, setLoadMsg] = useState('');
 
-    // Supabase에서 최신 복약 설정 불러오기
+    // 복약 설정 불러오기 — 4단계 폴백
+    // ① 현재 Supabase 계정(authUser.id) → ② localStorage(authUser.id 키)
+    // → ③ 예전 기기 UUID(dm_user_id) Supabase → ④ 예전 localStorage 키
     const loadFromCloud = async () => {
       if (!userId) { setLoadMsg('⚠️ 로그인이 필요해요.'); setTimeout(()=>setLoadMsg(''),2500); return; }
       setLoadingCloud(true); setLoadMsg('');
       try {
-        const { data: row, error } = await supa.from('diabetes_data')
+        // ① 현재 계정 Supabase
+        const { data: row } = await supa.from('diabetes_data')
           .select('payload').eq('user_id', userId).eq('date', '_user_settings_').maybeSingle();
-        if (error) throw error;
         const fromSB = row?.payload?.medsConfig;
         if (fromSB && Array.isArray(fromSB) && fromSB.length > 0) {
           setCfg(JSON.parse(JSON.stringify(fromSB)));
-          setLoadMsg('✅ ' + fromSB.flatMap(s=>s.items).length + '개 약이 불러와졌어요!');
-        } else {
-          // localStorage도 확인
-          const ls = localStorage.getItem(`hcd_meds_config_${userId}`);
-          const fromLS = ls ? JSON.parse(ls) : null;
-          if (fromLS && Array.isArray(fromLS) && fromLS.length > 0) {
-            setCfg(JSON.parse(JSON.stringify(fromLS)));
-            setLoadMsg('✅ 로컬 저장 데이터(' + fromLS.flatMap(s=>s.items).length + '개 약)를 불러왔어요.');
-          } else {
-            setLoadMsg('저장된 복약 데이터가 없어요. 직접 추가해 주세요.');
+          setLoadMsg('✅ 계정 저장 데이터에서 ' + fromSB.flatMap(s=>s.items).length + '개 약을 불러왔어요!');
+          setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),3500); return;
+        }
+
+        // ② 현재 계정 localStorage
+        const ls1 = localStorage.getItem(`hcd_meds_config_${userId}`);
+        const fromLS1 = ls1 ? JSON.parse(ls1) : null;
+        if (fromLS1 && Array.isArray(fromLS1) && fromLS1.length > 0) {
+          setCfg(JSON.parse(JSON.stringify(fromLS1)));
+          setLoadMsg('✅ 이 기기의 로컬 데이터에서 ' + fromLS1.flatMap(s=>s.items).length + '개 약을 불러왔어요!');
+          setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),3500); return;
+        }
+
+        // ③ 예전 기기 UUID(dm_user_id)로 Supabase 조회
+        const legacyId = localStorage.getItem('dm_user_id');
+        if (legacyId && legacyId !== userId) {
+          const { data: legacyRow } = await supa.from('diabetes_data')
+            .select('payload').eq('user_id', legacyId).eq('date', '_user_settings_').maybeSingle();
+          const fromLegacySB = legacyRow?.payload?.medsConfig;
+          if (fromLegacySB && Array.isArray(fromLegacySB) && fromLegacySB.length > 0) {
+            setCfg(JSON.parse(JSON.stringify(fromLegacySB)));
+            setLoadMsg('✅ 이전 기기 데이터에서 ' + fromLegacySB.flatMap(s=>s.items).length + '개 약을 불러왔어요! (저장을 눌러 계정에 연결하세요)');
+            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),5000); return;
+          }
+          // ④ 예전 기기 localStorage 키
+          const ls2 = localStorage.getItem(`hcd_meds_config_${legacyId}`);
+          const fromLS2 = ls2 ? JSON.parse(ls2) : null;
+          if (fromLS2 && Array.isArray(fromLS2) && fromLS2.length > 0) {
+            setCfg(JSON.parse(JSON.stringify(fromLS2)));
+            setLoadMsg('✅ 이전 기기 로컬 데이터에서 ' + fromLS2.flatMap(s=>s.items).length + '개 약을 불러왔어요! (저장을 눌러 계정에 연결하세요)');
+            setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),5000); return;
           }
         }
+
+        setLoadMsg('ℹ️ 저장된 복약 데이터가 없어요. 아래에서 직접 추가해 주세요.');
       } catch(e) {
         setLoadMsg('❌ 불러오기 실패: ' + (e.message||'오류'));
       }
       setLoadingCloud(false);
-      setTimeout(()=>setLoadMsg(''), 3500);
+      setTimeout(()=>setLoadMsg(''), 4000);
     };
 
     const SLOT_COLORS = [
