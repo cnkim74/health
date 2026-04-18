@@ -128,11 +128,12 @@
   /* 기본: 모바일에서 모든 Card는 숨김. data-current-tab과 매치되는 것만 표시 */
   @media (max-width: 1023px) {
     body[data-current-tab] .cn-card[data-tab]:not([data-tab=""]) { display: none; }
-    body[data-current-tab="home"]      .cn-card[data-tab="home"],
-    body[data-current-tab="record"]    .cn-card[data-tab="record"],
-    body[data-current-tab="report"]    .cn-card[data-tab="report"],
-    body[data-current-tab="challenge"] .cn-card[data-tab="challenge"],
-    body[data-current-tab="profile"]   .cn-card[data-tab="profile"] { display: block; }
+    /* !important 필수: :not() 때문에 숨기는 규칙의 CSS 특이성이 더 높아서 덮어씌워짐 방지 */
+    body[data-current-tab="home"]      .cn-card[data-tab="home"]      { display: block !important; }
+    body[data-current-tab="record"]    .cn-card[data-tab="record"]    { display: block !important; }
+    body[data-current-tab="report"]    .cn-card[data-tab="report"]    { display: block !important; }
+    body[data-current-tab="challenge"] .cn-card[data-tab="challenge"] { display: block !important; }
+    body[data-current-tab="profile"]   .cn-card[data-tab="profile"]   { display: block !important; }
     /* 모바일에서 RIGHT 컬럼이 별도 보이지 않도록 그리드 단일컬럼 */
     .main-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
     /* 날짜 이동은 기록 탭에서만 의미있게 보이게, 다른 탭에선 전역 표시 유지 OK */
