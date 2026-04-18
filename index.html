@@ -2531,7 +2531,7 @@
     const maxEx = Math.max(...exDays7.map(x=>x.mins), 1);
 
     return (
-      <div data-tab="home">
+      <div className="cn-card" data-tab="home" style={{ background:'transparent', border:'none', borderRadius:0, padding:0, boxShadow:'none', margin:0 }}>
         {/* 건강 점수 */}
         <div className="dash-score-card">
           <CircleGauge value={score.total}/>
