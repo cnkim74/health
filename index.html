@@ -178,10 +178,12 @@
     .cn-hdr-sub     { display: none !important; }
     .cn-hdr-actions { display: none !important; }
     .cn-hdr-logo    { width: 30px !important; height: 30px !important; }
+    .cn-hdr-logo svg { width: 30px !important; height: 30px !important; }
+    .cn-hdr-title   { font-size: 16px !important; letter-spacing: 0.3px !important; }
     /* 메인 패딩 축소 */
-    .cn-main-pad    { padding: 8px 10px !important; }
+    .cn-main-pad    { padding: 8px 14px !important; }
     /* 카드 패딩 축소 */
-    .cn-card        { padding: 12px 12px !important; border-radius: 12px !important; margin-bottom: 10px !important; }
+    .cn-card        { padding: 14px 14px !important; border-radius: 12px !important; margin-bottom: 10px !important; }
     /* 탭바 높이 및 safe-area */
     .cn-tabbar {
       padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -3304,7 +3306,7 @@
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
 
         {/* ── CARENOTE Header ── */}
-        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 16px', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100, overflowX:'hidden' }}>
+        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 14px', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100, overflowX:'hidden' }}>
 
           {/* ─ 1행: 로고+브랜드 · 날짜 · 유저 ─ */}
           <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
@@ -3313,7 +3315,7 @@
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
               <div className="cn-hdr-logo"><CareNoteLogo size={40} /></div>
               <div>
-                <div style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
+                <div className="cn-hdr-title" style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
                 <div className="cn-hdr-sub" style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
               </div>
               <div style={{ marginLeft:'4px', display:'flex', gap:'4px', alignItems:'center' }}>
@@ -4084,10 +4086,10 @@
               ))}
             </div>
             {isAdmin && (
-              <button onClick={() => setShowAdmin(true)}
-                style={{ background:'none', border:'none', cursor:'pointer', fontSize:'11px', color:'var(--text-mute)', fontFamily:'inherit', padding:'2px 6px', textDecoration:'underline' }}>
-                관리자 설정
-              </button>
+              <a href="admin.html" target="_blank" rel="noopener noreferrer"
+                style={{ background:'none', border:'1px solid var(--card-border)', borderRadius:'20px', padding:'5px 14px', cursor:'pointer', fontSize:'12px', color:'var(--text-sub)', fontFamily:'inherit', fontWeight:'600', whiteSpace:'nowrap', textDecoration:'none', display:'inline-block' }}>
+                🛠️ 관리자 설정
+              </a>
             )}
             <div style={{ fontSize:'11px', color:'var(--text-mute)' }}>CARENOTE v2.0 · © 2025</div>
           </div>
