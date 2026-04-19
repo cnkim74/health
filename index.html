@@ -4000,7 +4000,7 @@
                     return (
                       <div key={f.id} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 10px', border:v?`2px solid ${c}`:'1px solid var(--card-border)', transition:'border-color 0.2s', minWidth:0, overflow:'hidden' }}>
                         <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'4px' }}>{f.icon} {f.label}</div>
-                        {/* 숫자 + 단위 + 배지 — 줄바꿈 허용 */}
+                        {/* 숫자 + 단위 + 배지 — 한 줄 */}
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap' }}>
                           {/* 3자리 기준 고정폭 컨테이너 */}
                           <div className="bs-input-wrap" style={{ width:'72px', flexShrink:0 }}>
@@ -4014,13 +4014,14 @@
                                 fontVariantNumeric:'tabular-nums' }}
                             />
                           </div>
-                          {/* 단위 */}
-                          <span style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', flexShrink:0 }}>mg/dL</span>
-                          {/* 상태 배지 또는 목표 — 공간 부족 시 줄 바꿈 */}
-                          {v
-                            ? <span style={{ background:c, color:'#fff', borderRadius:'20px', padding:'2px 7px', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>{bsLabel(v)}</span>
-                            : <span style={{ fontSize:'10px', color:dm?'var(--text-sub)':'#d1d5db', whiteSpace:'nowrap' }}>목표:{f.target}</span>
-                          }
+                          {/* 단위 + 상태 배지 — 오른쪽으로 여백 추가 */}
+                          <div style={{ display:'flex', alignItems:'center', gap:'5px', marginLeft:'8px' }}>
+                            <span style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', flexShrink:0 }}>mg/dL</span>
+                            {v
+                              ? <span style={{ background:c, color:'#fff', borderRadius:'20px', padding:'2px 7px', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>{bsLabel(v)}</span>
+                              : <span style={{ fontSize:'10px', color:dm?'var(--text-sub)':'#d1d5db', whiteSpace:'nowrap' }}>목표:{f.target}</span>
+                            }
+                          </div>
                         </div>
                       </div>
                     );
