@@ -4003,7 +4003,7 @@
                         {/* 숫자 + 단위 + 배지 — 한 줄 */}
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap' }}>
                           {/* 3자리 기준 고정폭 컨테이너 */}
-                          <div className="bs-input-wrap" style={{ width:'72px', flexShrink:0 }}>
+                          <div className="bs-input-wrap" style={{ width:'96px', flexShrink:0 }}>
                             <input
                               type="text" inputMode="numeric" pattern="[0-9]*"
                               value={v} onChange={e => { const n = e.target.value.replace(/[^0-9]/g,''); updBS(f.id, n); }}
