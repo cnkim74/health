@@ -3610,6 +3610,10 @@
             {bsAvg && <span style={{ background: bsColor(bsAvg), color:'#fff', borderRadius:'20px', padding:'3px 10px', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap', flexShrink:0 }}>🩸 {bsAvg} mg/dL</span>}
             {/* 데스크탑 전용 액션 버튼 */}
             <div className="cn-hdr-actions" style={{ display:'flex', gap:'6px', alignItems:'center', marginLeft:'auto' }}>
+              <a href="board.html" target="_blank" rel="noopener noreferrer"
+                style={{ background:'rgba(47,107,255,0.35)', border:'1px solid rgba(47,107,255,0.6)', color:'#fff', borderRadius:'7px', padding:'4px 12px', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'4px' }}>
+                👥 커뮤니티
+              </a>
               <button onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
                 ⚙️ 복약설정
               </button>
