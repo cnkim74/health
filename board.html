@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CARENOTE 커뮤니티</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#2F6BFF;--brand-dark:#1F4FD9;--brand-100:#EAF1FF;
+  --bg:#F4F6FB;--card:#fff;--border:#E5EAF2;
+  --text:#0B1B3B;--sub:#5B6B85;--mute:#8C98AD;
+  --ok:#10B981;--ok-100:#E6FAF4;--warn:#F59E0B;--warn-100:#FFF7E0;
+  --danger:#EF4444;--danger-100:#FFECEC;
+  --shadow:0 1px 3px rgba(11,27,59,.06),0 4px 16px rgba(11,27,59,.07);
+  --radius:14px;
+}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6;word-break:keep-all}
+
+/* ── HEADER ── */
+.hdr{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:0 5vw;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.hdr-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.hdr-logo-icon{width:28px;height:28px;background:linear-gradient(135deg,#2F6BFF,#10B981);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.hdr-logo-text{font-size:15px;font-weight:800;color:#fff;letter-spacing:.5px}
+.hdr-logo-badge{font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);padding:2px 7px;border-radius:20px;margin-left:2px;font-weight:600}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.hdr-app-link{color:rgba(255,255,255,.75);font-size:12px;font-weight:600;text-decoration:none;padding:5px 12px;border:1px solid rgba(255,255,255,.2);border-radius:8px;transition:all .15s}
+.hdr-app-link:hover{background:rgba(255,255,255,.1);color:#fff}
+.hdr-user{font-size:12px;color:rgba(255,255,255,.6);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-login{padding:6px 14px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s;font-family:inherit}
+.btn-login:hover{opacity:.88}
+.btn-logout-hdr{padding:5px 12px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.2);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit}
+
+/* ── MAIN ── */
+.wrap{max-width:720px;margin:0 auto;padding:24px 4vw 60px}
+
+/* ── PAGE HEADER ── */
+.page-hdr{margin-bottom:20px}
+.page-title{font-size:22px;font-weight:900;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--sub)}
+
+/* ── CAT TABS ── */
+.cat-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.cat-tab{padding:7px 16px;border-radius:20px;border:1.5px solid var(--border);background:var(--card);color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit;flex-shrink:0}
+.cat-tab.active{border-color:var(--brand);background:var(--brand-100);color:var(--brand)}
+.cat-tab:hover:not(.active){border-color:var(--mute)}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap}
+.post-count{font-size:13px;color:var(--sub);font-weight:600}
+.btn-write{padding:8px 18px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;display:flex;align-items:center;gap:5px}
+.btn-write:hover{background:var(--brand-dark)}
+
+/* ── POST LIST ── */
+.post-list{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.post-item{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;gap:12px;align-items:flex-start}
+.post-item:last-child{border-bottom:none}
+.post-item:hover{background:#f8faff}
+.post-pin{flex-shrink:0;margin-top:3px}
+.post-body{flex:1;min-width:0}
+.post-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.post-title.notice{color:var(--brand)}
+.post-preview{font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px}
+.post-meta{display:flex;gap:10px;font-size:11px;color:var(--mute);flex-wrap:wrap}
+.post-meta span{display:flex;align-items:center;gap:2px}
+.post-new{display:inline-block;background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:middle}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:48px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-text{font-size:14px;color:var(--sub);margin-bottom:16px}
+
+/* ── SPINNER ── */
+.spinner-wrap{text-align:center;padding:40px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── DETAIL ── */
+.detail-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.detail-hdr{padding:18px 20px;border-bottom:1px solid var(--border)}
+.detail-cat{display:inline-flex;align-items:center;padding:3px 10px;background:var(--brand-100);color:var(--brand);border-radius:20px;font-size:11px;font-weight:700;margin-bottom:10px}
+.detail-title{font-size:19px;font-weight:900;color:var(--text);line-height:1.4;margin-bottom:10px}
+.detail-meta{display:flex;gap:12px;font-size:12px;color:var(--mute);flex-wrap:wrap;align-items:center}
+.detail-avatar{width:28px;height:28px;border-radius:50%;background:var(--brand-100);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
+.detail-body{padding:20px;font-size:14px;line-height:1.85;color:var(--text);white-space:pre-wrap;border-bottom:1px solid var(--border);word-break:break-word;min-height:80px}
+
+/* ── COMMENTS ── */
+.comment-section{padding:18px 20px}
+.comment-title{font-size:13px;font-weight:800;color:var(--sub);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.comment-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.comment-item{background:var(--bg);border-radius:10px;padding:12px 14px}
+.comment-author{font-size:11px;font-weight:700;color:var(--sub);margin-bottom:3px}
+.comment-time{font-size:10px;color:var(--mute);margin-left:6px}
+.comment-text{font-size:13px;color:var(--text);line-height:1.6}
+.comment-input-row{display:flex;gap:8px}
+.comment-input{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;background:var(--card);color:var(--text);font-family:inherit;transition:border-color .2s;min-width:0}
+.comment-input:focus{border-color:var(--brand)}
+.btn-comment{padding:10px 16px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;transition:opacity .15s}
+.btn-comment:disabled{opacity:.5;cursor:default}
+.login-prompt{background:var(--brand-100);border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;font-size:13px;color:var(--brand);text-align:center;font-weight:600}
+.login-prompt a{color:var(--brand-dark);text-decoration:underline;cursor:pointer}
+
+/* ── WRITE ── */
+.write-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px 20px}
+.write-title-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;font-size:16px;font-weight:700;outline:none;color:var(--text);font-family:inherit;margin-bottom:10px;transition:border-color .2s;background:var(--bg)}
+.write-title-input:focus{border-color:var(--brand);background:#fff}
+.write-body-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;font-size:14px;outline:none;color:var(--text);font-family:inherit;resize:vertical;min-height:200px;line-height:1.8;transition:border-color .2s;background:var(--bg)}
+.write-body-input:focus{border-color:var(--brand);background:#fff}
+.write-footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px}
+.write-note{font-size:12px;color:var(--mute)}
+.write-btns{display:flex;gap:8px}
+.btn-cancel{padding:10px 18px;background:var(--bg);color:var(--sub);border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-submit{padding:10px 22px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-submit:disabled{opacity:.5;cursor:default}
+
+/* ── BACK BTN ── */
+.back-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer;margin-bottom:14px;font-family:inherit;transition:background .15s}
+.back-btn:hover{background:var(--bg)}
+
+/* ── LOGIN MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(11,27,59,.6);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+.modal-card{background:#fff;border-radius:20px;padding:32px 28px;width:100%;max-width:360px;box-shadow:0 24px 80px rgba(0,0,0,.2)}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--sub);margin-bottom:22px}
+.modal-inp{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;outline:none;margin-bottom:10px;font-family:inherit;transition:border-color .2s}
+.modal-inp:focus{border-color:var(--brand)}
+.modal-btn{width:100%;padding:12px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--mute)}
+.modal-err{color:var(--danger);font-size:12px;margin-top:4px}
+.modal-card-wrap{position:relative}
+
+/* ── ALERT ── */
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:14px}
+.alert-ok{background:var(--ok-100);color:#065f46;border:1px solid #6ee7b7}
+.alert-err{background:var(--danger-100);color:#991b1b;border:1px solid #fca5a5}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;justify-content:center;gap:6px;margin-top:16px;flex-wrap:wrap}
+.page-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-family:inherit}
+.page-btn.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.page-btn:hover:not(.active){background:var(--brand-100);border-color:var(--brand);color:var(--brand)}
+
+/* ── MOBILE ── */
+@media(max-width:600px){
+  .hdr{padding:0 4vw;height:50px}
+  .hdr-user{display:none}
+  .wrap{padding:16px 3vw 60px}
+  .detail-body{padding:16px}
+  .comment-section{padding:14px 16px}
+  .write-wrap{padding:18px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- 로그인 모달 -->
+<div class="modal-bg" id="login-modal" style="display:none">
+  <div class="modal-card-wrap">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close-btn">✕</button>
+      <div style="font-size:28px;margin-bottom:8px">🩺</div>
+      <div class="modal-title">CARENOTE 로그인</div>
+      <div class="modal-sub">게시글 작성 및 댓글을 남기려면 로그인하세요</div>
+      <input id="m-email" class="modal-inp" type="email" placeholder="이메일" />
+      <input id="m-pw" class="modal-inp" type="password" placeholder="비밀번호" />
+      <button class="modal-btn" id="m-login-btn">로그인</button>
+      <div class="modal-err" id="m-err"></div>
+      <div style="text-align:center;font-size:12px;color:var(--mute);margin-top:8px">
+        계정이 없으신가요? <a href="index.html" style="color:var(--brand);font-weight:700">앱에서 가입하기</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 헤더 -->
+<header class="hdr">
+  <a href="index.html" class="hdr-logo">
+    <div class="hdr-logo-icon">🩺</div>
+    <span class="hdr-logo-text">CARENOTE</span>
+    <span class="hdr-logo-badge">커뮤니티</span>
+  </a>
+  <div class="hdr-right">
+    <a href="index.html" class="hdr-app-link">📱 앱으로</a>
+    <span class="hdr-user" id="hdr-user"></span>
+    <button class="btn-login" id="hdr-login-btn" style="display:none">로그인</button>
+    <button class="btn-logout-hdr" id="hdr-logout-btn" style="display:none">로그아웃</button>
+  </div>
+</header>
+
+<!-- 메인 -->
+<main class="wrap" id="main-wrap">
+  <!-- JS로 렌더링 -->
+</main>
+
+<script>
+const SUPABASE_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+const ADMIN_EMAIL  = 'cnkim74@gmail.com';
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CATS = [
+  { id:'notice',   label:'📢 공지사항', adminOnly: true  },
+  { id:'health',   label:'💊 건강정보', adminOnly: false },
+  { id:'question', label:'❓ 질문',     adminOnly: false },
+  { id:'review',   label:'⭐ 후기',     adminOnly: false },
+];
+
+const PAGE_SIZE = 20;
+let currentUser = null;
+let currentCat  = 'notice';
+let currentPage = 1;
+let view        = 'list'; // 'list' | 'detail' | 'write'
+let currentPost = null;
+let allPosts    = [];
+let comments    = [];
+
+/* ── HELPERS ── */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function fmtAgo(d){
+  if(!d) return '';
+  const diff = Math.floor((Date.now() - new Date(d)) / 1000);
+  if(diff < 60)    return '방금 전';
+  if(diff < 3600)  return Math.floor(diff/60)+'분 전';
+  if(diff < 86400) return Math.floor(diff/3600)+'시간 전';
+  if(diff < 86400*7) return Math.floor(diff/86400)+'일 전';
+  return new Date(d).toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+}
+function isNew(d){ return d && (Date.now()-new Date(d)) < 86400000 * 1; }
+function initials(email){ return (email||'?')[0].toUpperCase(); }
+function isAdmin(){ return currentUser?.email === ADMIN_EMAIL; }
+function catLabel(id){ return CATS.find(c=>c.id===id)?.label || id; }
+
+/* ── AUTH ── */
+async function initAuth(){
+  const { data:{ session } } = await supa.auth.getSession();
+  if(session?.user){ currentUser = session.user; }
+  updateAuthUI();
+}
+
+function updateAuthUI(){
+  const loginBtn  = document.getElementById('hdr-login-btn');
+  const logoutBtn = document.getElementById('hdr-logout-btn');
+  const userEl    = document.getElementById('hdr-user');
+  if(currentUser){
+    loginBtn.style.display  = 'none';
+    logoutBtn.style.display = 'block';
+    userEl.textContent = currentUser.email.split('@')[0];
+  } else {
+    loginBtn.style.display  = 'block';
+    logoutBtn.style.display = 'none';
+    userEl.textContent = '';
+  }
+}
+
+document.getElementById('hdr-login-btn').addEventListener('click', () => {
+  document.getElementById('login-modal').style.display = 'flex';
+  document.getElementById('m-err').textContent = '';
+});
+document.getElementById('modal-close-btn').addEventListener('click', () => {
+  document.getElementById('login-modal').style.display = 'none';
+});
+document.getElementById('login-modal').addEventListener('click', e => {
+  if(e.target === document.getElementById('login-modal'))
+    document.getElementById('login-modal').style.display = 'none';
+});
+document.getElementById('m-login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('m-email').value.trim();
+  const pw    = document.getElementById('m-pw').value;
+  const errEl = document.getElementById('m-err');
+  const btn   = document.getElementById('m-login-btn');
+  errEl.textContent = '';
+  if(!email||!pw){ errEl.textContent='이메일과 비밀번호를 입력하세요.'; return; }
+  btn.disabled = true; btn.textContent = '로그인 중…';
+  const { data, error } = await supa.auth.signInWithPassword({ email, password: pw });
+  btn.disabled = false; btn.textContent = '로그인';
+  if(error){ errEl.textContent = error.message; return; }
+  currentUser = data.user;
+  document.getElementById('login-modal').style.display = 'none';
+  updateAuthUI();
+  render();
+});
+document.getElementById('m-pw').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('m-login-btn').click();
+});
+document.getElementById('hdr-logout-btn').addEventListener('click', async () => {
+  await supa.auth.signOut();
+  currentUser = null;
+  updateAuthUI();
+  render();
+});
+
+/* ── LOAD POSTS ── */
+async function loadPosts(cat){
+  const { data, error } = await supa
+    .from('cn_community')
+    .select('id,title,content,author_email,category,is_approved,created_at,view_count')
+    .eq('category', cat)
+    .eq('is_approved', true)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if(error){ allPosts = []; return; }
+  allPosts = data || [];
+}
+
+async function loadComments(postId){
+  const { data } = await supa
+    .from('cn_comments')
+    .select('id,content,author_email,created_at')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+  comments = data || [];
+}
+
+/* ── RENDER ── */
+function render(){ renderMain(); }
+
+function renderMain(){
+  const wrap = document.getElementById('main-wrap');
+  if(view === 'list')   { renderList(wrap); return; }
+  if(view === 'detail') { renderDetail(wrap); return; }
+  if(view === 'write')  { renderWrite(wrap); return; }
+}
+
+/* ── LIST ── */
+async function renderList(wrap){
+  wrap.innerHTML = `
+    <div class="page-hdr">
+      <div class="page-title">👥 커뮤니티</div>
+      <div class="page-sub">CARENOTE 회원들과 건강 정보를 나눠보세요</div>
+    </div>
+    <div class="cat-tabs" id="cat-tabs"></div>
+    <div class="toolbar">
+      <span class="post-count" id="post-count"></span>
+      <button class="btn-write" id="write-btn" style="display:none">✏️ 글쓰기</button>
+    </div>
+    <div id="post-area"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+    <div class="pagination" id="pagination"></div>`;
+
+  // 카테고리 탭
+  const tabsEl = document.getElementById('cat-tabs');
+  tabsEl.innerHTML = CATS.map(c =>
+    `<button class="cat-tab${c.id===currentCat?' active':''}" data-cat="${c.id}">${c.label}</button>`
+  ).join('');
+  tabsEl.querySelectorAll('.cat-tab').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      currentCat = btn.dataset.cat;
+      currentPage = 1;
+      await loadPosts(currentCat);
+      renderList(wrap);
+    });
+  });
+
+  // 글쓰기 버튼
+  const cat = CATS.find(c=>c.id===currentCat);
+  const canWrite = currentUser && (!cat.adminOnly || isAdmin());
+  const writeBtnEl = document.getElementById('write-btn');
+  if(canWrite){
+    writeBtnEl.style.display = 'flex';
+    writeBtnEl.onclick = () => { view='write'; render(); };
+  } else if(!currentUser && !cat.adminOnly){
+    writeBtnEl.style.display = 'flex';
+    writeBtnEl.textContent = '✏️ 글쓰기 (로그인 필요)';
+    writeBtnEl.style.background = 'var(--sub)';
+    writeBtnEl.onclick = () => { document.getElementById('login-modal').style.display='flex'; };
+  }
+
+  // 포스트 로드
+  await loadPosts(currentCat);
+  const postArea = document.getElementById('post-area');
+  const countEl  = document.getElementById('post-count');
+
+  if(!allPosts.length){
+    countEl.textContent = '0건';
+    postArea.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">아직 게시글이 없어요</div>
+        ${canWrite ? '<button class="btn-write" onclick="document.getElementById(\'write-btn\').click()" style="margin:0 auto">✏️ 첫 글 작성하기</button>' : ''}
+      </div>`;
+    return;
+  }
+
+  // 페이지네이션
+  const totalPages = Math.ceil(allPosts.length / PAGE_SIZE);
+  currentPage = Math.min(currentPage, totalPages);
+  const pagePosts = allPosts.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  countEl.textContent = `전체 ${allPosts.length}건`;
+
+  postArea.innerHTML = `<div class="post-list">${pagePosts.map(p => `
+    <div class="post-item" data-id="${p.id}">
+      ${p.category==='notice'?'<div class="post-pin">📌</div>':'<div style="width:20px;flex-shrink:0"></div>'}
+      <div class="post-body">
+        <div class="post-title${p.category==='notice'?' notice':''}">
+          ${esc(p.title)}
+          ${isNew(p.created_at)?'<span class="post-new">NEW</span>':''}
+        </div>
+        <div class="post-preview">${esc((p.content||'').slice(0,80))}</div>
+        <div class="post-meta">
+          <span>✍️ ${esc(p.author_email?.split('@')[0]||'익명')}</span>
+          <span>🕐 ${fmtAgo(p.created_at)}</span>
+          <span>👁 ${p.view_count||0}</span>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+
+  postArea.querySelectorAll('.post-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      const post = allPosts.find(p=>p.id===el.dataset.id);
+      if(!post) return;
+      currentPost = post;
+      // 조회수 증가
+      supa.from('cn_community').update({ view_count: (post.view_count||0)+1 }).eq('id', post.id).then(()=>{});
+      post.view_count = (post.view_count||0)+1;
+      view = 'detail';
+      await loadComments(post.id);
+      render();
+    });
+  });
+
+  // 페이지 버튼
+  if(totalPages > 1){
+    const pgEl = document.getElementById('pagination');
+    pgEl.innerHTML = Array.from({length:totalPages},(_,i)=>
+      `<button class="page-btn${i+1===currentPage?' active':''}" data-pg="${i+1}">${i+1}</button>`
+    ).join('');
+    pgEl.querySelectorAll('.page-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        currentPage = parseInt(btn.dataset.pg);
+        renderList(wrap);
+        window.scrollTo(0,0);
+      });
+    });
+  }
+}
+
+/* ── DETAIL ── */
+function renderDetail(wrap){
+  const p = currentPost;
+  const commentListHTML = comments.length
+    ? comments.map(c=>`
+        <div class="comment-item">
+          <div class="comment-author">${esc(c.author_email?.split('@')[0]||'익명')}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
+          <div class="comment-text">${esc(c.content)}</div>
+        </div>`).join('')
+    : '<div style="text-align:center;padding:16px 0;font-size:13px;color:var(--mute)">첫 댓글을 남겨보세요!</div>';
+
+  wrap.innerHTML = `
+    <button class="back-btn" id="back-btn">← 목록으로</button>
+    <div class="detail-wrap">
+      <div class="detail-hdr">
+        <div class="detail-cat">${catLabel(p.category)}</div>
+        <div class="detail-title">${esc(p.title)}</div>
+        <div class="detail-meta">
+          <div class="detail-avatar">${initials(p.author_email)}</div>
+          <span>✍️ ${esc(p.author_email?.split('@')[0]||'익명')}</span>
+          <span>🕐 ${fmtAgo(p.created_at)}</span>
+          <span>👁 ${p.view_count||0}</span>
+          <span>💬 ${comments.length}</span>
+        </div>
+      </div>
+      <div class="detail-body">${esc(p.content||'')}</div>
+      <div class="comment-section">
+        <div class="comment-title">💬 댓글 <span style="color:var(--brand)">${comments.length}</span></div>
+        <div class="comment-list" id="comment-list">${commentListHTML}</div>
+        ${currentUser
+          ? `<div class="comment-input-row">
+              <input class="comment-input" id="comment-input" placeholder="댓글을 입력하세요..." />
+              <button class="btn-comment" id="comment-submit">등록</button>
+             </div>`
+          : `<div class="login-prompt">
+               댓글을 남기려면 <a id="login-link">로그인</a>이 필요해요
+             </div>`
+        }
+      </div>
+    </div>`;
+
+  document.getElementById('back-btn').addEventListener('click', ()=>{ view='list'; render(); });
+
+  if(currentUser){
+    const input  = document.getElementById('comment-input');
+    const submit = document.getElementById('comment-submit');
+    const doComment = async () => {
+      const txt = input.value.trim();
+      if(!txt) return;
+      submit.disabled = true;
+      const { error } = await supa.from('cn_comments').insert({
+        post_id: p.id, content: txt,
+        author_email: currentUser.email, user_id: currentUser.id
+      });
+      if(!error){
+        input.value = '';
+        await loadComments(p.id);
+        // 댓글 목록만 업데이트
+        document.getElementById('comment-list').innerHTML = comments.map(c=>`
+          <div class="comment-item">
+            <div class="comment-author">${esc(c.author_email?.split('@')[0]||'익명')}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
+            <div class="comment-text">${esc(c.content)}</div>
+          </div>`).join('');
+        // 댓글 수 업데이트
+        wrap.querySelector('.comment-title').innerHTML = `💬 댓글 <span style="color:var(--brand)">${comments.length}</span>`;
+      }
+      submit.disabled = false;
+    };
+    submit.addEventListener('click', doComment);
+    input.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey) doComment(); });
+  } else {
+    document.getElementById('login-link')?.addEventListener('click', ()=>{
+      document.getElementById('login-modal').style.display='flex';
+    });
+  }
+}
+
+/* ── WRITE ── */
+function renderWrite(wrap){
+  const cat = CATS.find(c=>c.id===currentCat);
+  wrap.innerHTML = `
+    <button class="back-btn" id="back-write-btn">← 취소</button>
+    <div class="write-wrap">
+      <div style="font-size:16px;font-weight:800;margin-bottom:16px">✏️ 글쓰기 · ${cat.label}</div>
+      <div id="write-alert"></div>
+      <select id="write-cat" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;outline:none;background:var(--bg);color:var(--text);font-family:inherit;margin-bottom:10px;transition:border-color .2s">
+        ${CATS.filter(c=>!c.adminOnly || isAdmin()).map(c=>`<option value="${c.id}"${c.id===currentCat?' selected':''}>${c.label}</option>`).join('')}
+      </select>
+      <input class="write-title-input" id="write-title" placeholder="제목을 입력하세요" maxlength="100" />
+      <textarea class="write-body-input" id="write-body" placeholder="내용을 자유롭게 입력하세요..."></textarea>
+      <div class="write-footer">
+        <div class="write-note">${isAdmin()?'관리자 글은 바로 게시됩니다':'✅ 작성 후 관리자 승인 이후 게시됩니다'}</div>
+        <div class="write-btns">
+          <button class="btn-cancel" id="write-cancel">취소</button>
+          <button class="btn-submit" id="write-submit">게시하기</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('back-write-btn').addEventListener('click', ()=>{ view='list'; render(); });
+  document.getElementById('write-cancel').addEventListener('click', ()=>{ view='list'; render(); });
+  document.getElementById('write-cat').addEventListener('change', e=>{ currentCat = e.target.value; });
+
+  document.getElementById('write-submit').addEventListener('click', async () => {
+    const title   = document.getElementById('write-title').value.trim();
+    const content = document.getElementById('write-body').value.trim();
+    const cat     = document.getElementById('write-cat').value;
+    const alertEl = document.getElementById('write-alert');
+    alertEl.innerHTML = '';
+    if(!title)   { alertEl.innerHTML='<div class="alert alert-err">제목을 입력해 주세요.</div>'; return; }
+    if(!content) { alertEl.innerHTML='<div class="alert alert-err">내용을 입력해 주세요.</div>'; return; }
+    const btn = document.getElementById('write-submit');
+    btn.disabled = true; btn.textContent = '게시 중...';
+    const { error } = await supa.from('cn_community').insert({
+      title, content,
+      author_email: currentUser.email,
+      user_id: currentUser.id,
+      category: cat,
+      is_approved: isAdmin(),
+    });
+    btn.disabled = false; btn.textContent = '게시하기';
+    if(error){ alertEl.innerHTML=`<div class="alert alert-err">저장 실패: ${esc(error.message)}</div>`; return; }
+    alertEl.innerHTML = isAdmin()
+      ? '<div class="alert alert-ok">✅ 게시됐습니다!</div>'
+      : '<div class="alert alert-ok">✅ 작성됐습니다! 관리자 승인 후 게시돼요.</div>';
+    currentCat = cat;
+    setTimeout(()=>{ view='list'; render(); }, 1800);
+  });
+}
+
+/* ── INIT ── */
+(async () => {
+  await initAuth();
+  render();
+})();
+</script>
+</body>
+</html>

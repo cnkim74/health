@@ -2357,7 +2357,14 @@
         {/* 커뮤니티 게시판 */}
         <div className="cn-card" data-tab="challenge">
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-            <div style={{ fontSize:'16px', fontWeight:'800' }}>👥 커뮤니티</div>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <div style={{ fontSize:'16px', fontWeight:'800' }}>👥 커뮤니티</div>
+              <a href="board.html" target="_blank" rel="noopener noreferrer"
+                style={{ fontSize:'11px', fontWeight:'700', color:'var(--cn-brand)', background:'var(--cn-brand-100)',
+                  padding:'3px 10px', borderRadius:'20px', textDecoration:'none', letterSpacing:'.3px', whiteSpace:'nowrap' }}>
+                전체보기 →
+              </a>
+            </div>
             {userId && !currentCat?.adminOnly && (
               <button onClick={() => { setShowWrite(true); setWriteErr(''); setWriteTitle(''); setWriteBody(''); }}
                 style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
