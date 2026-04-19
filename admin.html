@@ -245,6 +245,45 @@ tr:hover td{background:#fafbff}
   </div>
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
+  <!-- 회원 편집 모달 -->
+  <div id="member-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:18px;padding:28px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div style="font-size:16px;font-weight:800">👤 회원 정보 수정</div>
+        <button onclick="closeMemberEdit()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;line-height:1">✕</button>
+      </div>
+      <div style="background:var(--brand-100);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--brand)">
+        <strong id="medit-email"></strong>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:700;color:var(--sub);display:block;margin-bottom:5px">이름</label>
+        <input id="medit-name" class="inp" type="text" placeholder="홍길동" />
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:700;color:var(--sub);display:block;margin-bottom:5px">전화번호</label>
+        <input id="medit-phone" class="inp" type="tel" placeholder="010-0000-0000" />
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:700;color:var(--sub);display:block;margin-bottom:5px">키 (cm) <span style="font-weight:400;color:var(--mute)">— BMI 계산용, 선택 사항</span></label>
+        <input id="medit-height" class="inp" type="number" placeholder="170" />
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;font-weight:700;color:var(--sub);display:block;margin-bottom:5px">회원 등급</label>
+        <select id="medit-grade" class="inp" style="cursor:pointer">
+          <option value="무료회원">무료회원</option>
+          <option value="유료회원">유료회원</option>
+          <option value="기업회원">기업회원</option>
+          <option value="관리자">관리자</option>
+        </select>
+      </div>
+      <div id="medit-msg" style="font-size:13px;text-align:center;margin-bottom:12px;min-height:20px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeMemberEdit()" class="btn btn-ghost" style="flex:1">취소</button>
+        <button onclick="saveMemberEdit()" id="medit-save-btn" class="btn btn-brand" style="flex:2">저장하기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="layout">
     <!-- 사이드바 -->
     <nav class="sidebar" id="sidebar">
@@ -647,6 +686,48 @@ async function loadOverview(){
     '<div class="empty-msg" style="padding:16px">가입 회원 없음 (cn_profiles 테이블 필요)</div>';
 }
 
+/* ── 회원 편집 모달 ── */
+let editingMemberId = null;
+function openMemberEdit(m){
+  editingMemberId = m.id;
+  document.getElementById('medit-email').textContent  = m.email || '-';
+  document.getElementById('medit-name').value         = m.name  || '';
+  document.getElementById('medit-phone').value        = m.phone || '';
+  document.getElementById('medit-height').value       = m.height|| '';
+  document.getElementById('medit-grade').value        = m.grade || '무료회원';
+  document.getElementById('medit-msg').textContent    = '';
+  const modal = document.getElementById('member-edit-modal');
+  modal.style.display = 'flex';
+}
+function closeMemberEdit(){
+  document.getElementById('member-edit-modal').style.display='none';
+  editingMemberId = null;
+}
+async function saveMemberEdit(){
+  if(!editingMemberId) return;
+  const btn = document.getElementById('medit-save-btn');
+  const msg = document.getElementById('medit-msg');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  const payload = {
+    name:   document.getElementById('medit-name').value.trim(),
+    phone:  document.getElementById('medit-phone').value.trim(),
+    height: parseFloat(document.getElementById('medit-height').value) || null,
+    grade:  document.getElementById('medit-grade').value,
+  };
+  const {error} = await supa.from('cn_profiles').update(payload).eq('id', editingMemberId);
+  btn.disabled = false; btn.textContent = '저장하기';
+  if(error){ msg.style.color='var(--danger)'; msg.textContent='❌ 저장 실패: '+error.message; return; }
+  msg.style.color='var(--ok)'; msg.textContent='✅ 저장됐습니다!';
+  // 로컬 데이터 업데이트
+  const m = allMembers.find(x=>x.id===editingMemberId);
+  if(m) Object.assign(m, payload);
+  renderMembers();
+  setTimeout(closeMemberEdit, 1000);
+}
+document.getElementById('member-edit-modal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) closeMemberEdit();
+});
+
 /* ── ② 회원관리 ── */
 async function loadMembers(){
   const{data,error}=await supa.from('cn_profiles').select('*').order('created_at',{ascending:false});
@@ -659,7 +740,7 @@ async function loadMembers(){
   renderMembers();
   document.getElementById('members-count').textContent='('+allMembers.length+'명)';
 }
-const GRADE_COLORS={일반:'badge-mute',우수:'badge-info',VIP:'badge-warn',관리자:'badge-ok'};
+const GRADE_COLORS={'무료회원':'badge-mute','유료회원':'badge-info','기업회원':'badge-warn','관리자':'badge-ok'};
 function renderMembers(){
   const q=memberSearch.toLowerCase();
   const list=q?allMembers.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q)||(m.phone||'').includes(q)):allMembers;
@@ -673,14 +754,15 @@ function renderMembers(){
       <td class="td-mute">${esc(m.phone||'-')}</td>
       <td class="td-mute">${m.height?m.height+'cm':'-'}</td>
       <td class="td-mute">${fmtDateShort(m.created_at)}</td>
-      <td><span class="badge ${GRADE_COLORS[m.grade||'일반']||'badge-mute'}">${esc(m.grade||'일반')}</span></td>
-      <td>
-        <select class="form-select" style="padding:3px 6px;font-size:11px;width:80px" data-grade-id="${esc(m.id)}" data-grade-val="${esc(m.grade||'일반')}">
-          <option value="일반" ${(m.grade||'일반')==='일반'?'selected':''}>일반</option>
-          <option value="우수" ${m.grade==='우수'?'selected':''}>우수</option>
-          <option value="VIP"  ${m.grade==='VIP'?'selected':''}>VIP</option>
-          <option value="관리자" ${m.grade==='관리자'?'selected':''}>관리자</option>
+      <td><span class="badge ${GRADE_COLORS[m.grade||'무료회원']||'badge-mute'}">${esc(m.grade||'무료회원')}</span></td>
+      <td style="display:flex;gap:4px;align-items:center">
+        <select class="form-select" style="padding:3px 6px;font-size:11px;width:90px" data-grade-id="${esc(m.id)}" data-grade-val="${esc(m.grade||'무료회원')}">
+          <option value="무료회원" ${(m.grade||'무료회원')==='무료회원'?'selected':''}>무료회원</option>
+          <option value="유료회원" ${m.grade==='유료회원'?'selected':''}>유료회원</option>
+          <option value="기업회원" ${m.grade==='기업회원'?'selected':''}>기업회원</option>
+          <option value="관리자"   ${m.grade==='관리자'?'selected':''}>관리자</option>
         </select>
+        <button class="btn btn-sm btn-ghost" data-medit="${esc(m.id)}">✏️</button>
       </td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-grade-id]').forEach(sel=>{
@@ -692,6 +774,12 @@ function renderMembers(){
       sel.dataset.gradeVal=grade;
       const m=allMembers.find(x=>x.id===id);if(m)m.grade=grade;
       renderMembers();
+    });
+  });
+  tbody.querySelectorAll('[data-medit]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const m=allMembers.find(x=>x.id===btn.dataset.medit);
+      if(m) openMemberEdit(m);
     });
   });
 }
