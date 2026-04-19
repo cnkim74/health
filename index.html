@@ -3360,6 +3360,7 @@
     const saveTimer   = useRef(null);
     const weightFileRef  = useRef(null);
     const androidFileRef = useRef(null);
+    const bpDiaRef       = useRef(null);
     const imgRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
     const camRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
 
@@ -4087,7 +4088,25 @@
                           <div style={{ display:'flex', alignItems:'baseline', gap:'4px' }}>
                             <input
                               type="text" inputMode="numeric" pattern="[0-9]*"
-                              value={bp.sys} onChange={e => updBP('sys', e.target.value.replace(/[^0-9]/g,''))}
+                              value={bp.sys}
+                              onChange={e => {
+                                const raw = e.target.value;
+                                // "120/80" 또는 "120 80" 형식 붙여넣기 처리
+                                const combined = raw.match(/^(\d{1,3})[\/\s](\d{1,3})$/);
+                                if (combined) {
+                                  upDay({ bp: { sys: combined[1], dia: combined[2] } });
+                                  setTimeout(() => bpDiaRef.current?.focus(), 0);
+                                  return;
+                                }
+                                updBP('sys', raw.replace(/[^0-9]/g,''));
+                              }}
+                              onKeyDown={e => {
+                                // "/" 키 → 이완기로 포커스 이동
+                                if (e.key === '/') {
+                                  e.preventDefault();
+                                  bpDiaRef.current?.focus();
+                                }
+                              }}
                               placeholder="---"
                               className="bp-num-input"
                               size={bp.sys ? Math.max(2, bp.sys.length) : 3}
@@ -4106,6 +4125,7 @@
                           <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'4px', fontWeight:'600' }}>이완기 (최저)</div>
                           <div style={{ display:'flex', alignItems:'baseline', gap:'4px' }}>
                             <input
+                              ref={bpDiaRef}
                               type="text" inputMode="numeric" pattern="[0-9]*"
                               value={bp.dia} onChange={e => updBP('dia', e.target.value.replace(/[^0-9]/g,''))}
                               placeholder="---"
