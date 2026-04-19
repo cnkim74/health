@@ -1982,19 +1982,18 @@
         } else {
           if (!name.trim()) throw new Error('이름을 입력해 주세요.');
           if (!phone.trim()) throw new Error('전화번호를 입력해 주세요.');
-          const { data, error } = await supa.auth.signUp({ email, password });
+          // metadata에 이름/전화번호/키를 같이 전달 → 트리거가 cn_profiles에 자동 저장
+          const { error } = await supa.auth.signUp({
+            email, password,
+            options: {
+              data: {
+                name:   name.trim(),
+                phone:  phone.trim(),
+                height: signupHeight || null,
+              }
+            }
+          });
           if (error) throw error;
-          // 프로필 저장 (signUp 직후 userId 획득)
-          const uid = data?.user?.id;
-          if (uid) {
-            await supa.from('cn_profiles').upsert({
-              id: uid, email,
-              name: name.trim(),
-              phone: phone.trim(),
-              height: signupHeight ? parseFloat(signupHeight) : null,
-              grade: '무료회원',
-            }, { onConflict: 'id' });
-          }
           setMessage('✅ 가입 확인 이메일을 보냈어요. 이메일을 확인하고 링크를 클릭해 주세요.');
         }
       } catch(e) {
