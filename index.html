@@ -2703,7 +2703,73 @@
   };
 
   /* ── 프로필 탭 ── */
+  /* ── 내 정보 수정 모달 ── */
+  const ProfileEditModal = ({ authUser, userId, onClose }) => {
+    const [profile, setProfile] = React.useState({ name:'', phone:'', height:'' });
+    const [loading, setLoading] = React.useState(true);
+    const [saving, setSaving] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
+
+    React.useEffect(() => {
+      if (!userId) { setLoading(false); return; }
+      supa.from('cn_profiles').select('name,phone,height,grade').eq('id', userId).single()
+        .then(({ data }) => {
+          if (data) setProfile({ name: data.name||'', phone: data.phone||'', height: data.height||'' });
+          setLoading(false);
+        });
+    }, [userId]);
+
+    const save = async () => {
+      setSaving(true); setMsg('');
+      const payload = { id: userId, email: authUser?.email, name: profile.name, phone: profile.phone, height: profile.height ? parseFloat(profile.height) : null };
+      const { error } = await supa.from('cn_profiles').upsert(payload, { onConflict: 'id' });
+      setSaving(false);
+      if (error) { setMsg('❌ 저장 실패: ' + error.message); }
+      else { setMsg('✅ 저장됐습니다!'); setTimeout(onClose, 1200); }
+    };
+
+    const inp = { width:'100%', padding:'10px 12px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
+      background:'var(--bg)', color:'var(--text)', fontSize:'14px', fontFamily:'inherit', outline:'none', boxSizing:'border-box' };
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}
+           onClick={e => e.target===e.currentTarget && onClose()}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'400px', boxShadow:'0 8px 40px rgba(0,0,0,0.25)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+            <div style={{ fontSize:'16px', fontWeight:'800' }}>👤 내 정보 수정</div>
+            <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'var(--text-mute)', lineHeight:1 }}>✕</button>
+          </div>
+          <div style={{ background:'var(--cn-brand-100)', borderRadius:'10px', padding:'10px 14px', marginBottom:'16px' }}>
+            <div style={{ fontSize:'11px', color:'var(--text-sub)' }}>로그인 계정 (변경 불가)</div>
+            <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'2px', wordBreak:'break-all' }}>{authUser?.email}</div>
+          </div>
+          {loading ? <div style={{ textAlign:'center', padding:'20px', color:'var(--text-sub)' }}>불러오는 중...</div> : (<>
+            <div style={{ marginBottom:'12px' }}>
+              <label style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', display:'block', marginBottom:'5px' }}>이름</label>
+              <input style={inp} type="text" placeholder="홍길동" value={profile.name} onChange={e=>setProfile(p=>({...p,name:e.target.value}))} />
+            </div>
+            <div style={{ marginBottom:'12px' }}>
+              <label style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', display:'block', marginBottom:'5px' }}>전화번호</label>
+              <input style={inp} type="tel" placeholder="010-0000-0000" value={profile.phone} onChange={e=>setProfile(p=>({...p,phone:e.target.value}))} />
+            </div>
+            <div style={{ marginBottom:'20px' }}>
+              <label style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', display:'block', marginBottom:'5px' }}>키 (cm)</label>
+              <input style={inp} type="number" placeholder="170" value={profile.height} onChange={e=>setProfile(p=>({...p,height:e.target.value}))} />
+            </div>
+            {msg && <div style={{ fontSize:'13px', textAlign:'center', marginBottom:'12px', color: msg.startsWith('✅') ? 'var(--cn-ok)' : 'var(--cn-danger)' }}>{msg}</div>}
+            <button onClick={save} disabled={saving}
+              style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'10px',
+                fontWeight:'700', fontSize:'15px', cursor:'pointer', opacity: saving?0.7:1, fontFamily:'inherit' }}>
+              {saving ? '저장 중...' : '저장하기'}
+            </button>
+          </>)}
+        </div>
+      </div>
+    );
+  };
+
   const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark }) => {
+    const [showEdit, setShowEdit] = React.useState(false);
     const Row = ({ icon, label, sub, onClick, accent }) => (
       <button onClick={onClick}
         style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px',
@@ -2720,11 +2786,19 @@
     );
     return (
       <div className="cn-card" data-tab="profile">
+        {showEdit && <ProfileEditModal authUser={authUser} userId={userId} onClose={() => setShowEdit(false)} />}
         <div style={{ background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', borderRadius:'12px',
-                     padding:'14px 16px', marginBottom:'12px', color:'#fff' }}>
-          <div style={{ fontSize:'12px', opacity:0.9 }}>로그인 계정</div>
-          <div style={{ fontSize:'15px', fontWeight:'700', marginTop:'3px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
-          <div style={{ fontSize:'11px', opacity:0.75, marginTop:'4px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+                     padding:'14px 16px', marginBottom:'12px', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <div style={{ fontSize:'12px', opacity:0.9 }}>로그인 계정</div>
+            <div style={{ fontSize:'15px', fontWeight:'700', marginTop:'3px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
+            <div style={{ fontSize:'11px', opacity:0.75, marginTop:'4px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+          </div>
+          <button onClick={() => setShowEdit(true)}
+            style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'8px',
+              padding:'6px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', fontFamily:'inherit' }}>
+            ✏️ 수정
+          </button>
         </div>
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>데이터</div>
         <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 · 삼성 헬스" onClick={onImport} />
@@ -2734,6 +2808,7 @@
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
+        <Row icon="👥" label="커뮤니티 게시판" sub="건강 정보 공유 · 질문 · 후기" onClick={() => window.open('board.html','_blank')} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
       </div>
     );
@@ -3567,6 +3642,12 @@
                 <div className="cn-hdr-title" style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
                 <div className="cn-hdr-sub" style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
               </div>
+              <a href="board.html" target="_blank" rel="noopener noreferrer"
+                style={{ marginLeft:'6px', background:'rgba(47,107,255,0.4)', border:'1px solid rgba(47,107,255,0.65)', color:'#fff',
+                  borderRadius:'8px', padding:'4px 10px', fontSize:'12px', fontWeight:'700', textDecoration:'none',
+                  display:'inline-flex', alignItems:'center', gap:'4px', whiteSpace:'nowrap', flexShrink:0 }}>
+                👥 커뮤니티
+              </a>
               <div style={{ marginLeft:'4px', display:'flex', gap:'4px', alignItems:'center' }}>
                 {saveStatus==='saving' && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
                 {saveStatus==='saved'  && <span style={{ fontSize:'11px', color:'var(--cn-ok)' }}>✓</span>}
@@ -4325,6 +4406,11 @@
               <span style={{ color:'var(--text-mute)', fontSize:'12px' }}>내 몸을 기록하는 노트</span>
             </div>
             <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', justifyContent:'center' }}>
+              <a href="board.html" target="_blank" rel="noopener noreferrer"
+                style={{ background:'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', borderRadius:'20px', padding:'5px 12px',
+                  fontSize:'12px', color:'var(--cn-brand)', fontWeight:'700', whiteSpace:'nowrap', textDecoration:'none', display:'inline-block' }}>
+                👥 커뮤니티 게시판
+              </a>
               {[
                 { label:'💬 피드백·버그신고', action:() => setShowFeedback(true) },
                 { label:'🔄 기기동기화', action:() => setShowSync(true) },
