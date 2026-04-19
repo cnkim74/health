@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CARENOTE CMS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#6366f1;--brand-dark:#4f46e5;--brand-100:#eef2ff;--brand-200:#e0e7ff;
+  --bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--border-strong:#cbd5e1;
+  --text:#0f172a;--sub:#64748b;--mute:#94a3b8;
+  --ok:#10b981;--ok-100:#d1fae5;--warn:#f59e0b;--warn-100:#fef3c7;
+  --danger:#ef4444;--danger-100:#fee2e2;--info:#3b82f6;--info-100:#dbeafe;
+  --sidebar-w:230px;--radius:12px;--shadow:0 1px 4px rgba(0,0,0,.08);
+  --shadow-md:0 4px 16px rgba(0,0,0,.1);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* ── AUTH SCREENS ── */
+#auth-loading{min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--sub);gap:10px}
+#login-screen{min-height:100vh;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e1b4b,#312e81)}
+.login-card{background:#fff;border-radius:20px;padding:40px 36px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.2);text-align:center}
+.login-logo{font-size:40px;margin-bottom:8px}
+.login-title{font-size:22px;font-weight:800;margin-bottom:3px;color:var(--text)}
+.login-sub{font-size:13px;color:var(--sub);margin-bottom:28px}
+.inp{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;outline:none;margin-bottom:10px;background:#f8fafc;transition:border-color .2s}
+.inp:focus{border-color:var(--brand)}
+.btn-primary{width:100%;padding:13px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.err-msg{color:var(--danger);font-size:13px;margin-top:8px}
+
+/* ── LAYOUT ── */
+#app{display:none;min-height:100vh}
+.layout{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(160deg,#1e1b4b 0%,#312e81 100%);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;transition:transform .25s ease}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{font-size:26px}
+.sidebar-logo-text{font-size:15px;font-weight:800;letter-spacing:.3px}
+.sidebar-logo-badge{font-size:10px;background:rgba(255,255,255,.15);padding:2px 7px;border-radius:20px;margin-left:2px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:10px 0}
+.nav-section-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);padding:14px 18px 4px;letter-spacing:.8px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 18px;cursor:pointer;border-radius:0;font-size:13px;font-weight:600;color:rgba(255,255,255,.7);transition:all .15s;position:relative;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:rgba(255,255,255,.8)}
+.nav-item .icon{width:20px;text-align:center;font-size:15px;flex-shrink:0}
+.nav-item .badge-count{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center}
+.nav-sub{padding-left:12px}
+.nav-sub .nav-item{font-size:12px;padding:7px 18px 7px 14px;border-left-color:transparent}
+.nav-sub .nav-item.active{border-left-color:rgba(255,255,255,.6)}
+.sidebar-bottom{padding:14px 18px;border-top:1px solid rgba(255,255,255,.1)}
+.sidebar-user{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout-side{width:100%;padding:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);border-radius:8px;font-size:12px;cursor:pointer;transition:background .15s}
+.btn-logout-side:hover{background:rgba(255,255,255,.18)}
+
+/* ── TOPBAR (mobile) ── */
+.topbar{display:none;background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;padding:0 16px;height:52px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:15px;font-weight:800}
+.hamburger{background:none;border:none;color:#fff;cursor:pointer;font-size:22px;padding:4px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150}
+.sidebar-overlay.open{display:block}
+
+/* ── MAIN CONTENT ── */
+.main-content{margin-left:var(--sidebar-w);flex:1;padding:28px 28px 60px;min-width:0}
+.page{display:none}
+.page.active{display:block}
+.page-header{margin-bottom:24px}
+.page-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--sub)}
+
+/* ── HOME BUTTON ── */
+.home-link{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.8);font-size:12px;font-weight:600;text-decoration:none;transition:background .15s;margin-bottom:6px}
+.home-link:hover{background:rgba(255,255,255,.18);color:#fff}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px;color:var(--text);display:flex;align-items:center;gap:7px}
+.card-title .cnt{font-size:12px;color:var(--sub);font-weight:600;margin-left:2px}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.08}
+.stat-card.c1::before{background:var(--brand)}
+.stat-card.c2::before{background:var(--ok)}
+.stat-card.c3::before{background:var(--warn)}
+.stat-card.c4::before{background:var(--danger)}
+.stat-card.c5::before{background:var(--info)}
+.stat-label{font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px;letter-spacing:.3px}
+.stat-val{font-size:32px;font-weight:900;color:var(--text);letter-spacing:-1.5px;line-height:1}
+.stat-note{font-size:11px;color:var(--mute);margin-top:4px}
+.stat-icon{position:absolute;bottom:12px;right:14px;font-size:24px;opacity:.15}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8fafc;padding:10px 14px;text-align:left;font-weight:700;font-size:11px;color:var(--sub);letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.td-mute{color:var(--mute);font-size:12px}
+.td-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-ok{background:var(--ok-100);color:#065f46}
+.badge-warn{background:var(--warn-100);color:#92400e}
+.badge-danger{background:var(--danger-100);color:#991b1b}
+.badge-info{background:var(--info-100);color:#1e40af}
+.badge-mute{background:#f1f5f9;color:var(--sub)}
+
+/* ── FORM ELEMENTS ── */
+.form-row{margin-bottom:12px}
+.form-label{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:4px;display:block}
+.form-input,.form-textarea,.form-select{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:#f8fafc;color:var(--text);font-family:inherit;transition:border-color .2s}
+.form-input:focus,.form-textarea:focus,.form-select:focus{border-color:var(--brand);background:#fff}
+.form-textarea{resize:vertical;line-height:1.6;min-height:80px}
+.form-row-inline{display:flex;gap:10px;flex-wrap:wrap}
+.form-row-inline .form-row{flex:1;min-width:140px}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn-brand{background:var(--brand);color:#fff}
+.btn-brand:hover{background:var(--brand-dark)}
+.btn-ok{background:var(--ok);color:#fff}
+.btn-ok:hover{background:#059669}
+.btn-warn{background:var(--warn);color:#fff}
+.btn-warn:hover{background:#d97706}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-ghost{background:var(--card);color:var(--sub);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* ── FILTERS ── */
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.filter-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--sub);transition:all .15s}
+.filter-btn.active{border-color:var(--brand);background:var(--brand-100);color:var(--brand)}
+.filter-btn:hover:not(.active){border-color:var(--mute)}
+
+/* ── FEEDBACK ── */
+.fb-list{display:flex;flex-direction:column;gap:8px}
+.fb-item{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.fb-body{flex:1;min-width:0}
+.fb-meta{display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap}
+.fb-type{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+.type-bug{background:#fef2f2;color:var(--danger)}
+.type-feat{background:#eff6ff;color:var(--info)}
+.type-etc{background:var(--brand-100);color:var(--brand)}
+.fb-email{font-size:12px;color:var(--sub)}
+.fb-date{font-size:11px;color:var(--mute)}
+.fb-content{font-size:13px;line-height:1.65;word-break:break-all}
+
+/* ── NOTICES ── */
+.notice-list{display:flex;flex-direction:column;gap:8px}
+.notice-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.notice-body{flex:1;min-width:0}
+.notice-title-text{font-size:14px;font-weight:700;margin-bottom:3px}
+.notice-content-text{font-size:13px;color:var(--sub);line-height:1.5;margin-bottom:6px;white-space:pre-wrap}
+.notice-meta{font-size:11px;color:var(--mute);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.notice-actions{display:flex;gap:6px;flex-shrink:0;flex-direction:column;align-items:flex-end}
+
+/* ── TOGGLE ── */
+.toggle-wrap{display:flex;align-items:center;gap:8px}
+.toggle{width:40px;height:22px;border-radius:11px;background:var(--border);cursor:pointer;position:relative;border:none;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--ok)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on::after{left:21px}
+
+/* ── BANNERS / SLIDER ── */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.slot-card{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px}
+.slot-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.slot-name{font-size:13px;font-weight:700}
+.slot-url{font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px}
+.edit-panel{background:var(--brand-100);border:2px solid var(--brand);border-radius:14px;padding:22px;margin-bottom:20px}
+.edit-panel-title{font-size:15px;font-weight:800;margin-bottom:14px;color:var(--brand)}
+.color-row{display:flex;gap:10px;flex-wrap:wrap}
+.color-row .form-row{flex:1;min-width:110px}
+
+/* ── ALERT ── */
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;line-height:1.6;margin-bottom:14px}
+.alert code{background:rgba(0,0,0,.08);padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace}
+.alert-info{background:var(--info-100);color:#1e40af;border:1px solid #bfdbfe}
+.alert-warn{background:var(--warn-100);color:#92400e;border:1px solid #fcd34d}
+.alert-setup{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+
+/* ── EMPTY ── */
+.empty-msg{text-align:center;color:var(--mute);font-size:13px;padding:32px 0}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;margin:24px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── SEARCH ── */
+.search-bar{position:relative;margin-bottom:14px}
+.search-bar input{width:100%;padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--card);font-family:inherit;transition:border-color .2s}
+.search-bar input:focus{border-color:var(--brand)}
+.search-bar::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px}
+
+/* ── STATUS CHIPS ── */
+.status-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.chip-pending{background:var(--warn-100);color:#92400e}
+.chip-approved{background:var(--ok-100);color:#065f46}
+.chip-rejected{background:var(--danger-100);color:#991b1b}
+
+/* ── MOBILE ── */
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0;padding:16px 14px 60px}
+  .topbar{display:flex}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .login-card{width:100%;margin:16px;padding:28px 20px}
+}
+</style>
+</head>
+<body>
+
+<div id="auth-loading"><div class="spinner" style="margin:0"></div> 인증 확인 중...</div>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🩺</div>
+    <div class="login-title">CARENOTE CMS</div>
+    <div class="login-sub">관리자 전용 페이지입니다</div>
+    <input id="email-input" class="inp" type="email" placeholder="관리자 이메일" />
+    <input id="pw-input" class="inp" type="password" placeholder="비밀번호" />
+    <button id="login-btn" class="btn-primary">로그인</button>
+    <div id="login-error" class="err-msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <!-- 모바일 상단 바 -->
+  <div class="topbar">
+    <span class="topbar-title">🩺 CARENOTE CMS</span>
+    <button class="hamburger" id="hamburger-btn">☰</button>
+  </div>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <div class="layout">
+    <!-- 사이드바 -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-icon">🩺</span>
+        <div>
+          <span class="sidebar-logo-text">CARENOTE</span>
+          <span class="sidebar-logo-badge">CMS</span>
+        </div>
+      </div>
+      <a href="index.html" class="home-link" style="margin:10px 14px 0">🏠 앱으로 돌아가기</a>
+      <div class="sidebar-nav">
+
+        <div class="nav-section-label">메인</div>
+        <div class="nav-item active" data-page="overview"><span class="icon">📊</span> 시스템 개요</div>
+
+        <div class="nav-section-label">사용자</div>
+        <div class="nav-item" data-page="members"><span class="icon">👥</span> 회원관리</div>
+
+        <div class="nav-section-label">게시판</div>
+        <div class="nav-item" data-page="notices"><span class="icon">📢</span> 공지사항</div>
+        <div class="nav-item" data-page="community"><span class="icon">💬</span> 커뮤니티</div>
+        <div class="nav-item" data-page="promo"><span class="icon">📣</span> 홍보 신청 <span class="badge-count" id="promo-badge" style="display:none">0</span></div>
+
+        <div class="nav-section-label">관리</div>
+        <div class="nav-item" data-page="feedback"><span class="icon">📬</span> 피드백 관리 <span class="badge-count" id="fb-badge" style="display:none">0</span></div>
+        <div class="nav-item" data-page="slider"><span class="icon">🎨</span> 로고 슬라이더</div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="sidebar-user" id="sidebar-email">--</div>
+        <button class="btn-logout-side" id="logout-btn">로그아웃</button>
+      </div>
+    </nav>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="main-content">
+
+      <!-- ① 시스템 개요 -->
+      <div class="page active" id="page-overview">
+        <div class="page-header">
+          <div class="page-title">📊 시스템 개요</div>
+          <div class="page-sub">CARENOTE 서비스 현황 요약입니다.</div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card c1"><div class="stat-label">총 회원수</div><div class="stat-val" id="ov-members">-</div><div class="stat-note">가입 완료</div><span class="stat-icon">👥</span></div>
+          <div class="stat-card c2"><div class="stat-label">게시된 공지</div><div class="stat-val" id="ov-notices">-</div><div class="stat-note">현재 게시 중</div><span class="stat-icon">📢</span></div>
+          <div class="stat-card c3"><div class="stat-label">총 피드백</div><div class="stat-val" id="ov-feedback">-</div><div class="stat-note">전체 기간</div><span class="stat-icon">📬</span></div>
+          <div class="stat-card c4"><div class="stat-label">홍보 신청</div><div class="stat-val" id="ov-promo">-</div><div class="stat-note">검토 대기</div><span class="stat-icon">📣</span></div>
+          <div class="stat-card c5"><div class="stat-label">커뮤니티 글</div><div class="stat-val" id="ov-community">-</div><div class="stat-note">전체 게시글</div><span class="stat-icon">💬</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex-wrap:wrap">
+          <div class="card" style="min-width:0">
+            <div class="card-title">📬 최근 피드백</div>
+            <div id="ov-recent-fb"><div class="spinner"></div></div>
+          </div>
+          <div class="card" style="min-width:0">
+            <div class="card-title">👥 최근 가입 회원</div>
+            <div id="ov-recent-members"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 회원관리 -->
+      <div class="page" id="page-members">
+        <div class="page-header">
+          <div class="page-title">👥 회원관리</div>
+          <div class="page-sub">가입된 사용자 목록입니다. <code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px">cn_profiles</code> 테이블 기준</div>
+        </div>
+        <div id="members-setup-alert" style="display:none">
+          <div class="alert alert-info">
+            <strong>⚙️ 회원 테이블 설정 필요</strong><br>
+            Supabase SQL Editor에서 아래 쿼리를 실행하세요:<br><br>
+            <code>CREATE TABLE cn_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT,
+  email TEXT,
+  phone TEXT,
+  height NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT now()
+);</code><br><br>
+            <code>ALTER TABLE cn_profiles ENABLE ROW LEVEL SECURITY;</code><br>
+            <code>CREATE POLICY "admin_all" ON cn_profiles USING (true) WITH CHECK (true);</code>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">회원 목록 <span class="cnt" id="members-count"></span></div>
+            <button class="btn btn-ghost btn-sm" id="members-refresh">🔄 새로고침</button>
+          </div>
+          <div class="search-bar"><input type="text" id="members-search" placeholder="이름, 이메일, 전화번호 검색..." /></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>#</th><th>이름</th><th>이메일</th><th>전화번호</th><th>키 (cm)</th><th>BMI 설정</th><th>가입일</th></tr></thead>
+              <tbody id="members-tbody"><tr><td colspan="7"><div class="spinner"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 공지사항 -->
+      <div class="page" id="page-notices">
+        <div class="page-header">
+          <div class="page-title">📢 공지사항</div>
+          <div class="page-sub">앱에 표시될 공지를 작성하고 관리합니다.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">✏️ 새 공지 작성</div>
+          <div class="form-row"><label class="form-label">제목 *</label><input id="n-title" class="form-input" type="text" placeholder="공지 제목을 입력하세요" /></div>
+          <div class="form-row"><label class="form-label">내용</label><textarea id="n-content" class="form-textarea" placeholder="공지 내용을 입력하세요" rows="3"></textarea></div>
+          <div class="form-row">
+            <label class="form-label">유형</label>
+            <select id="n-type" class="form-select">
+              <option value="일반">📋 일반</option>
+              <option value="업데이트">🆕 업데이트</option>
+              <option value="점검">🔧 점검</option>
+              <option value="이벤트">🎉 이벤트</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-brand" id="n-save-btn">📤 바로 게시</button>
+            <button class="btn btn-ghost" id="n-draft-btn">💾 임시저장</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">공지 목록 <span class="cnt" id="notices-count"></span></div>
+            <button class="btn btn-ghost btn-sm" id="notices-refresh">🔄 새로고침</button>
+          </div>
+          <div id="notice-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ④ 커뮤니티 -->
+      <div class="page" id="page-community">
+        <div class="page-header">
+          <div class="page-title">💬 커뮤니티</div>
+          <div class="page-sub">사용자가 작성한 게시글을 관리합니다. (<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px">cn_community</code> 테이블)</div>
+        </div>
+        <div id="community-setup-alert" style="display:none">
+          <div class="alert alert-info">
+            <strong>⚙️ 커뮤니티 테이블 설정 필요</strong><br>
+            <code>CREATE TABLE cn_community (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT,
+  author_email TEXT,
+  user_id UUID,
+  is_approved BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);</code>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <button class="filter-btn active" data-cfilter="all">전체</button>
+          <button class="filter-btn" data-cfilter="pending">검토 대기</button>
+          <button class="filter-btn" data-cfilter="approved">승인됨</button>
+        </div>
+        <div class="card">
+          <div id="community-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ⑤ 홍보 신청 -->
+      <div class="page" id="page-promo">
+        <div class="page-header">
+          <div class="page-title">📣 홍보 신청</div>
+          <div class="page-sub">앱 내 배너/홍보를 신청한 내역입니다. (<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px">cn_promo_requests</code> 테이블)</div>
+        </div>
+        <div id="promo-setup-alert" style="display:none">
+          <div class="alert alert-info">
+            <strong>⚙️ 홍보 신청 테이블 설정 필요</strong><br>
+            <code>CREATE TABLE cn_promo_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company TEXT NOT NULL,
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  message TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT now()
+);</code>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <button class="filter-btn active" data-pfilter="all">전체</button>
+          <button class="filter-btn" data-pfilter="pending">검토 대기</button>
+          <button class="filter-btn" data-pfilter="approved">승인</button>
+          <button class="filter-btn" data-pfilter="rejected">거절</button>
+        </div>
+        <div class="card">
+          <div id="promo-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ⑥ 피드백 관리 -->
+      <div class="page" id="page-feedback">
+        <div class="page-header">
+          <div class="page-title">📬 피드백 관리</div>
+          <div class="page-sub">사용자가 앱에서 제출한 피드백입니다.</div>
+        </div>
+        <div class="filter-bar">
+          <button class="filter-btn active" data-fbfilter="all">전체</button>
+          <button class="filter-btn" data-fbfilter="버그신고">🐛 버그신고</button>
+          <button class="filter-btn" data-fbfilter="기능제안">💡 기능제안</button>
+          <button class="filter-btn" data-fbfilter="기타">📌 기타</button>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">피드백 목록 <span class="cnt" id="fb-count"></span></div>
+            <button class="btn btn-ghost btn-sm" id="fb-refresh">🔄 새로고침</button>
+          </div>
+          <div id="fb-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ⑦ 로고 슬라이더 -->
+      <div class="page" id="page-slider">
+        <div class="page-header">
+          <div class="page-title">🎨 로고 슬라이더</div>
+          <div class="page-sub">앱에 표시될 파트너/제휴 로고를 관리합니다. (<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px">cn_logos</code> 테이블)</div>
+        </div>
+        <div id="slider-setup-alert" style="display:none">
+          <div class="alert alert-info">
+            <strong>⚙️ 로고 슬라이더 테이블 설정 필요</strong><br>
+            <code>CREATE TABLE cn_logos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  logo_url TEXT,
+  link_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);</code>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">➕ 로고 추가</div>
+          <div class="form-row-inline">
+            <div class="form-row"><label class="form-label">브랜드명 *</label><input id="sl-name" class="form-input" type="text" placeholder="예: 삼성서울병원" /></div>
+            <div class="form-row"><label class="form-label">로고 이미지 URL</label><input id="sl-logo" class="form-input" type="text" placeholder="https://..." /></div>
+          </div>
+          <div class="form-row-inline">
+            <div class="form-row"><label class="form-label">링크 URL</label><input id="sl-link" class="form-input" type="text" placeholder="https://..." /></div>
+            <div class="form-row"><label class="form-label">정렬 순서</label><input id="sl-order" class="form-input" type="number" placeholder="0" value="0" style="width:80px" /></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-brand" id="sl-add-btn">➕ 추가</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">로고 목록</div>
+            <button class="btn btn-ghost btn-sm" id="sl-refresh">🔄 새로고침</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>순서</th><th>브랜드명</th><th>로고</th><th>링크</th><th>활성</th><th>관리</th></tr></thead>
+              <tbody id="slider-tbody"><tr><td colspan="6"><div class="spinner"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main><!-- /main-content -->
+  </div><!-- /layout -->
+</div><!-- /app -->
+
+<script>
+const SUPABASE_URL='https://uvtrnkkzkxzujbvhhchl.supabase.co';
+const SUPABASE_KEY='sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+const ADMIN_EMAIL='cnkim74@gmail.com';
+const supa=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentUser=null;
+let allFeedbacks=[], fbFilter='all';
+let allMembers=[], memberSearch='';
+let allCommunity=[], cFilter='all';
+let allPromo=[], pFilter='all';
+let notices=[];
+
+/* ── AUTH ── */
+(async()=>{
+  try{
+    const{data:{session}}=await supa.auth.getSession();
+    if(session?.user?.email===ADMIN_EMAIL){
+      currentUser=session.user;
+      document.getElementById('auth-loading').style.display='none';
+      showApp();return;
+    }
+  }catch(e){}
+  document.getElementById('auth-loading').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+})();
+
+document.getElementById('login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('email-input').value.trim();
+  const pw=document.getElementById('pw-input').value;
+  const errEl=document.getElementById('login-error');
+  const btn=document.getElementById('login-btn');
+  errEl.textContent='';
+  if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력해 주세요.';return;}
+  btn.disabled=true;btn.textContent='로그인 중…';
+  const{data,error}=await supa.auth.signInWithPassword({email,password:pw});
+  btn.disabled=false;btn.textContent='로그인';
+  if(error){errEl.textContent=error.message;return;}
+  if(data.user.email!==ADMIN_EMAIL){await supa.auth.signOut();errEl.textContent='관리자 계정이 아닙니다.';return;}
+  currentUser=data.user;showApp();
+});
+document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',async()=>{await supa.auth.signOut();location.reload();});
+
+/* ── SHOW APP ── */
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('sidebar-email').textContent=currentUser.email;
+  loadAll();
+}
+
+function loadAll(){
+  loadOverview();
+  loadMembers();
+  loadNotices();
+  loadFeedbacks();
+  loadCommunity();
+  loadPromo();
+  loadSlider();
+}
+
+/* ── NAVIGATION ── */
+document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const page=item.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
+    // 모바일: 사이드바 닫기
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  });
+});
+
+/* 모바일 햄버거 */
+document.getElementById('hamburger-btn').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+});
+document.getElementById('sidebar-overlay').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+});
+
+/* ── HELPERS ── */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtDate(d){if(!d)return'-';const dt=new Date(d);return dt.toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(/\. /g,'/')}
+function fmtDateShort(d){if(!d)return'-';return new Date(d).toLocaleDateString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit'})}
+function bmi(h,w){if(!h||!w)return'-';const b=w/((h/100)**2);return b.toFixed(1)}
+
+/* ── ① 시스템 개요 ── */
+async function loadOverview(){
+  const[membersRes,noticesRes,fbRes,promoRes,communityRes]= await Promise.allSettled([
+    supa.from('cn_profiles').select('id',{count:'exact',head:true}),
+    supa.from('cn_notices').select('id',{count:'exact',head:true}).eq('is_published',true),
+    supa.from('cn_feedback').select('id',{count:'exact',head:true}),
+    supa.from('cn_promo_requests').select('id',{count:'exact',head:true}).eq('status','pending'),
+    supa.from('cn_community').select('id',{count:'exact',head:true}),
+  ]);
+  const getCount=r=>r.status==='fulfilled'?(r.value.count??'-'):'?';
+  document.getElementById('ov-members').textContent=getCount(membersRes);
+  document.getElementById('ov-notices').textContent=getCount(noticesRes);
+  document.getElementById('ov-feedback').textContent=getCount(fbRes);
+  document.getElementById('ov-promo').textContent=getCount(promoRes);
+  document.getElementById('ov-community').textContent=getCount(communityRes);
+
+  // 최근 피드백
+  const{data:recentFb}=await supa.from('cn_feedback').select('type,content,user_email,created_at').order('created_at',{ascending:false}).limit(4);
+  const fbEl=document.getElementById('ov-recent-fb');
+  fbEl.innerHTML=recentFb?.length?recentFb.map(f=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start">
+      <span class="fb-type ${f.type==='버그신고'?'type-bug':f.type==='기능제안'?'type-feat':'type-etc'}">${esc(f.type||'기타')}</span>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.content||'')}</div>
+      <div style="font-size:11px;color:var(--mute);margin-top:2px">${fmtDate(f.created_at)}</div></div></div>`).join('')+'':
+    '<div class="empty-msg">피드백 없음</div>';
+
+  // 최근 회원
+  const{data:recentM}=await supa.from('cn_profiles').select('name,email,created_at').order('created_at',{ascending:false}).limit(4);
+  const mEl=document.getElementById('ov-recent-members');
+  mEl.innerHTML=recentM?.length?recentM.map(m=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${esc((m.name||m.email||'?')[0]).toUpperCase()}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name||'(이름 없음)')}</div>
+      <div style="font-size:11px;color:var(--mute)">${esc(m.email||'')} · ${fmtDateShort(m.created_at)}</div></div></div>`).join('')+'':
+    '<div class="empty-msg" style="padding:16px">가입 회원 없음 (cn_profiles 테이블 필요)</div>';
+}
+
+/* ── ② 회원관리 ── */
+async function loadMembers(){
+  const{data,error}=await supa.from('cn_profiles').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('members-setup-alert').style.display='block';
+    document.getElementById('members-tbody').innerHTML='<tr><td colspan="7"><div class="empty-msg">cn_profiles 테이블이 없습니다</div></td></tr>';
+    return;
+  }
+  allMembers=data||[];
+  renderMembers();
+  document.getElementById('members-count').textContent='('+allMembers.length+'명)';
+}
+function renderMembers(){
+  const q=memberSearch.toLowerCase();
+  const list=q?allMembers.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q)||(m.phone||'').includes(q)):allMembers;
+  const tbody=document.getElementById('members-tbody');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty-msg">해당하는 회원이 없습니다</div></td></tr>';return;}
+  tbody.innerHTML=list.map((m,i)=>`
+    <tr>
+      <td class="td-mute">${i+1}</td>
+      <td><strong>${esc(m.name||'-')}</strong></td>
+      <td class="td-email td-mute">${esc(m.email||'-')}</td>
+      <td class="td-mute">${esc(m.phone||'-')}</td>
+      <td class="td-mute">${m.height?m.height+'cm':'-'}</td>
+      <td class="td-mute">${m.height&&m.weight?bmi(m.height,m.weight):'-'}</td>
+      <td class="td-mute">${fmtDateShort(m.created_at)}</td>
+    </tr>`).join('');
+}
+document.getElementById('members-search').addEventListener('input',e=>{memberSearch=e.target.value;renderMembers();});
+document.getElementById('members-refresh').addEventListener('click',loadMembers);
+
+/* ── ③ 공지사항 ── */
+async function loadNotices(){
+  const{data,error}=await supa.from('cn_notices').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('notice-list').innerHTML=`<div class="alert alert-info"><strong>cn_notices 테이블이 없습니다.</strong><br><code>CREATE TABLE cn_notices (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, title TEXT, content TEXT, type TEXT DEFAULT '일반', is_published BOOLEAN DEFAULT true, created_at TIMESTAMPTZ DEFAULT now());</code></div>`;
+    return;
+  }
+  notices=data||[];
+  document.getElementById('notices-count').textContent='('+notices.length+'건)';
+  renderNotices();
+}
+function renderNotices(){
+  const el=document.getElementById('notice-list');
+  if(!notices.length){el.innerHTML='<div class="empty-msg">공지사항이 없습니다</div>';return;}
+  const typeIcon={일반:'📋',업데이트:'🆕',점검:'🔧',이벤트:'🎉'};
+  el.innerHTML='<div class="notice-list">'+notices.map(n=>`
+    <div class="notice-item">
+      <div class="notice-body">
+        <div class="notice-title-text">${typeIcon[n.type]||'📋'} ${esc(n.title||'(제목 없음)')}</div>
+        <div class="notice-content-text">${esc(n.content||'')}</div>
+        <div class="notice-meta">
+          <span class="badge ${n.is_published?'badge-ok':'badge-mute'}">${n.is_published?'게시됨':'비공개'}</span>
+          <span>${fmtDate(n.created_at)}</span>
+          ${n.type?`<span class="badge badge-info">${esc(n.type)}</span>`:''}
+        </div>
+      </div>
+      <div class="notice-actions">
+        <button class="btn btn-sm ${n.is_published?'btn-warn':'btn-ok'}" data-ntoggle="${esc(n.id)}" data-pub="${n.is_published}">${n.is_published?'내리기':'게시'}</button>
+        <button class="btn btn-sm btn-danger" data-ndel="${esc(n.id)}">삭제</button>
+      </div>
+    </div>`).join('')+'</div>';
+  el.querySelectorAll('[data-ntoggle]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const pub=btn.dataset.pub==='true';
+      await supa.from('cn_notices').update({is_published:!pub}).eq('id',btn.dataset.ntoggle);
+      loadNotices();loadOverview();
+    });
+  });
+  el.querySelectorAll('[data-ndel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('이 공지를 삭제할까요?'))return;
+      await supa.from('cn_notices').delete().eq('id',btn.dataset.ndel);
+      loadNotices();loadOverview();
+    });
+  });
+}
+document.getElementById('n-save-btn').addEventListener('click',()=>saveNotice(true));
+document.getElementById('n-draft-btn').addEventListener('click',()=>saveNotice(false));
+async function saveNotice(publish){
+  const title=document.getElementById('n-title').value.trim();
+  const content=document.getElementById('n-content').value.trim();
+  const type=document.getElementById('n-type').value;
+  if(!title){alert('제목을 입력해 주세요.');return;}
+  const{error}=await supa.from('cn_notices').insert({title,content,type,is_published:publish});
+  if(error){alert('저장 실패: '+error.message);return;}
+  document.getElementById('n-title').value='';
+  document.getElementById('n-content').value='';
+  loadNotices();loadOverview();
+}
+document.getElementById('notices-refresh').addEventListener('click',loadNotices);
+
+/* ── ④ 커뮤니티 ── */
+async function loadCommunity(){
+  const{data,error}=await supa.from('cn_community').select('*').order('created_at',{ascending:false}).limit(200);
+  if(error){
+    document.getElementById('community-setup-alert').style.display='block';
+    document.getElementById('community-list').innerHTML='<div class="empty-msg">cn_community 테이블 필요</div>';return;
+  }
+  allCommunity=data||[];renderCommunity();
+}
+function renderCommunity(){
+  const list=cFilter==='all'?allCommunity:cFilter==='pending'?allCommunity.filter(c=>!c.is_approved):allCommunity.filter(c=>c.is_approved);
+  const el=document.getElementById('community-list');
+  if(!list.length){el.innerHTML='<div class="empty-msg">게시글이 없습니다</div>';return;}
+  el.innerHTML=list.map(c=>`
+    <div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+          <span class="status-chip ${c.is_approved?'chip-approved':'chip-pending'}">${c.is_approved?'승인됨':'검토 대기'}</span>
+          <strong style="font-size:13px">${esc(c.title||'(제목 없음)')}</strong>
+        </div>
+        <div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(c.content||'').slice(0,120)}${(c.content||'').length>120?'…':''}</div>
+        <div style="font-size:11px;color:var(--mute)">${esc(c.author_email||'익명')} · ${fmtDate(c.created_at)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        ${!c.is_approved?`<button class="btn btn-sm btn-ok" data-capprove="${esc(c.id)}">승인</button>`:''}
+        <button class="btn btn-sm btn-danger" data-cdelete="${esc(c.id)}">삭제</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-capprove]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      await supa.from('cn_community').update({is_approved:true}).eq('id',btn.dataset.capprove);
+      loadCommunity();loadOverview();
+    });
+  });
+  el.querySelectorAll('[data-cdelete]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('게시글을 삭제할까요?'))return;
+      await supa.from('cn_community').delete().eq('id',btn.dataset.cdelete);
+      loadCommunity();loadOverview();
+    });
+  });
+}
+document.querySelectorAll('[data-cfilter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-cfilter]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');cFilter=btn.dataset.cfilter;renderCommunity();
+  });
+});
+
+/* ── ⑤ 홍보 신청 ── */
+async function loadPromo(){
+  const{data,error}=await supa.from('cn_promo_requests').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('promo-setup-alert').style.display='block';
+    document.getElementById('promo-list').innerHTML='<div class="empty-msg">cn_promo_requests 테이블 필요</div>';return;
+  }
+  allPromo=data||[];
+  const pending=allPromo.filter(p=>p.status==='pending').length;
+  const badge=document.getElementById('promo-badge');
+  if(pending>0){badge.textContent=pending;badge.style.display='flex';}else{badge.style.display='none';}
+  renderPromo();
+}
+function renderPromo(){
+  const list=pFilter==='all'?allPromo:allPromo.filter(p=>p.status===pFilter);
+  const el=document.getElementById('promo-list');
+  if(!list.length){el.innerHTML='<div class="empty-msg">신청 내역이 없습니다</div>';return;}
+  el.innerHTML=list.map(p=>`
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+            <span class="status-chip ${p.status==='pending'?'chip-pending':p.status==='approved'?'chip-approved':'chip-rejected'}">${p.status==='pending'?'검토 대기':p.status==='approved'?'✓ 승인':'✗ 거절'}</span>
+            <strong style="font-size:14px">${esc(p.company||'(업체명 없음)')}</strong>
+          </div>
+          <div style="font-size:13px;color:var(--sub);margin-bottom:4px">담당자: ${esc(p.contact_name||'-')} · ${esc(p.contact_email||'-')} · ${esc(p.contact_phone||'-')}</div>
+          <div style="font-size:13px;line-height:1.6;margin-bottom:4px">${esc(p.message||'')}</div>
+          <div style="font-size:11px;color:var(--mute)">${fmtDate(p.created_at)}</div>
+        </div>
+        ${p.status==='pending'?`
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-sm btn-ok" data-papprove="${esc(p.id)}">승인</button>
+          <button class="btn btn-sm btn-danger" data-preject="${esc(p.id)}">거절</button>
+        </div>`:''}
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-papprove]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      await supa.from('cn_promo_requests').update({status:'approved'}).eq('id',btn.dataset.papprove);
+      loadPromo();loadOverview();
+    });
+  });
+  el.querySelectorAll('[data-preject]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('이 신청을 거절하시겠습니까?'))return;
+      await supa.from('cn_promo_requests').update({status:'rejected'}).eq('id',btn.dataset.preject);
+      loadPromo();loadOverview();
+    });
+  });
+}
+document.querySelectorAll('[data-pfilter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-pfilter]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');pFilter=btn.dataset.pfilter;renderPromo();
+  });
+});
+
+/* ── ⑥ 피드백 ── */
+async function loadFeedbacks(){
+  const{data}=await supa.from('cn_feedback').select('*').order('created_at',{ascending:false}).limit(300);
+  allFeedbacks=data||[];
+  const cnt=allFeedbacks.length;
+  document.getElementById('fb-count').textContent='('+cnt+'건)';
+  const badge=document.getElementById('fb-badge');
+  if(cnt>0){badge.textContent=cnt;badge.style.display='flex';}else{badge.style.display='none';}
+  renderFbList();
+}
+function renderFbList(){
+  const filtered=fbFilter==='all'?allFeedbacks:allFeedbacks.filter(f=>f.type===fbFilter);
+  const el=document.getElementById('fb-list');
+  if(!filtered.length){el.innerHTML='<div class="empty-msg">피드백이 없습니다</div>';return;}
+  el.innerHTML='<div class="fb-list">'+filtered.map(f=>`
+    <div class="fb-item">
+      <div class="fb-body">
+        <div class="fb-meta">
+          <span class="fb-type ${f.type==='버그신고'?'type-bug':f.type==='기능제안'?'type-feat':'type-etc'}">${esc(f.type||'기타')}</span>
+          <span class="fb-email">${esc(f.user_email||'익명')}</span>
+          <span class="fb-date">${fmtDate(f.created_at)}</span>
+        </div>
+        <div class="fb-content">${esc(f.content||'')}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" data-fbdel="${esc(f.id)}">삭제</button>
+    </div>`).join('')+'</div>';
+  el.querySelectorAll('[data-fbdel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('삭제할까요?'))return;
+      await supa.from('cn_feedback').delete().eq('id',btn.dataset.fbdel);
+      allFeedbacks=allFeedbacks.filter(f=>f.id!==btn.dataset.fbdel);
+      document.getElementById('fb-count').textContent='('+allFeedbacks.length+'건)';
+      renderFbList();loadOverview();
+    });
+  });
+}
+document.querySelectorAll('[data-fbfilter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-fbfilter]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');fbFilter=btn.dataset.fbfilter;renderFbList();
+  });
+});
+document.getElementById('fb-refresh').addEventListener('click',loadFeedbacks);
+
+/* ── ⑦ 로고 슬라이더 ── */
+async function loadSlider(){
+  const{data,error}=await supa.from('cn_logos').select('*').order('sort_order',{ascending:true});
+  if(error){
+    document.getElementById('slider-setup-alert').style.display='block';
+    document.getElementById('slider-tbody').innerHTML='<tr><td colspan="6"><div class="empty-msg">cn_logos 테이블 필요</div></td></tr>';return;
+  }
+  const tbody=document.getElementById('slider-tbody');
+  if(!data?.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty-msg">로고가 없습니다</div></td></tr>';return;}
+  tbody.innerHTML=data.map(l=>`
+    <tr>
+      <td class="td-mute">${l.sort_order??0}</td>
+      <td><strong>${esc(l.name||'-')}</strong></td>
+      <td>${l.logo_url?`<img src="${esc(l.logo_url)}" alt="${esc(l.name)}" style="height:32px;max-width:80px;object-fit:contain;border-radius:4px;background:#f1f5f9;padding:2px" onerror="this.style.display='none'" />`:'<span class="td-mute">없음</span>'}</td>
+      <td class="td-mute">${l.link_url?`<a href="${esc(l.link_url)}" target="_blank" style="color:var(--brand)">링크</a>`:'-'}</td>
+      <td><button class="toggle ${l.is_active?'on':''}" data-ltoggle="${esc(l.id)}" data-active="${l.is_active}"></button></td>
+      <td><button class="btn btn-sm btn-danger" data-ldel="${esc(l.id)}">삭제</button></td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-ltoggle]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const active=btn.dataset.active==='true';
+      await supa.from('cn_logos').update({is_active:!active}).eq('id',btn.dataset.ltoggle);
+      loadSlider();
+    });
+  });
+  tbody.querySelectorAll('[data-ldel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('로고를 삭제할까요?'))return;
+      await supa.from('cn_logos').delete().eq('id',btn.dataset.ldel);
+      loadSlider();
+    });
+  });
+}
+document.getElementById('sl-add-btn').addEventListener('click',async()=>{
+  const name=document.getElementById('sl-name').value.trim();
+  if(!name){alert('브랜드명을 입력해 주세요.');return;}
+  const logo_url=document.getElementById('sl-logo').value.trim();
+  const link_url=document.getElementById('sl-link').value.trim();
+  const sort_order=parseInt(document.getElementById('sl-order').value)||0;
+  const{error}=await supa.from('cn_logos').insert({name,logo_url,link_url,sort_order,is_active:true});
+  if(error){alert('추가 실패: '+error.message);return;}
+  document.getElementById('sl-name').value='';
+  document.getElementById('sl-logo').value='';
+  document.getElementById('sl-link').value='';
+  document.getElementById('sl-order').value='0';
+  loadSlider();
+});
+document.getElementById('sl-refresh').addEventListener('click',loadSlider);
+</script>
+</body>
+</html>
