@@ -2125,19 +2125,18 @@
 
   /* ── App ──────────────────────────────────────────────── */
 
-  /* ── 챌린지 탭 ── */
-  const ChallengeTab = ({ data, date, userId }) => {
-    // 연속 기록 streak 계산
+  /* ── 커뮤니티 탭 (챌린지 통합) ── */
+  const ChallengeTab = ({ data, date, userId, userEmail, darkMode: dm }) => {
+    const _dm = dm;
+
+    // ── 챌린지 stats ──
     const streak = React.useMemo(() => {
-      let count = 0;
-      let d = date;
+      let count = 0, d = date;
       for (let i = 0; i < 365; i++) {
         const dd = data[d];
         if (!dd) break;
-        const hasBs = Object.values(dd.bs || {}).some(v => parseInt(v) > 0);
-        if (!hasBs) break;
-        count++;
-        d = shiftDate(d, -1);
+        if (!Object.values(dd.bs || {}).some(v => parseInt(v) > 0)) break;
+        count++; d = shiftDate(d, -1);
       }
       return count;
     }, [data, date]);
@@ -2146,48 +2145,282 @@
       let inRange = 0, total = 0;
       for (let i = 0; i < 7; i++) {
         const d = shiftDate(date, -i);
-        const dd = data[d];
-        if (!dd) continue;
-        Object.values(dd.bs || {}).forEach(v => {
-          const n = parseInt(v);
-          if (n > 0) { total++; if (n >= 70 && n <= 140) inRange++; }
-        });
+        const dd = data[d]; if (!dd) continue;
+        Object.values(dd.bs || {}).forEach(v => { const n = parseInt(v); if (n > 0) { total++; if (n >= 70 && n <= 140) inRange++; } });
       }
       return { inRange, total, pct: total ? Math.round((inRange / total) * 100) : 0 };
     }, [data, date]);
 
     const medStreak = React.useMemo(() => {
-      let count = 0;
-      let d = date;
+      let count = 0, d = date;
       for (let i = 0; i < 30; i++) {
         const dd = data[d];
         if (!dd || !dd.meds || !Object.values(dd.meds).some(Boolean)) break;
-        count++;
-        d = shiftDate(d, -1);
+        count++; d = shiftDate(d, -1);
       }
       return count;
     }, [data, date]);
 
-    return (
+    // ── 커뮤니티 state ──
+    const COMM_CATS = [
+      { id:'notice',  label:'📢 공지사항', adminOnly: true  },
+      { id:'health',  label:'💊 건강정보', adminOnly: false },
+      { id:'question',label:'❓ 질문',     adminOnly: false },
+      { id:'review',  label:'⭐ 후기',     adminOnly: false },
+    ];
+    const [commCat,    setCommCat]    = React.useState('notice');
+    const [posts,      setPosts]      = React.useState([]);
+    const [postsLoading, setPostsLoading] = React.useState(false);
+    const [showWrite,  setShowWrite]  = React.useState(false);
+    const [writeTitle, setWriteTitle] = React.useState('');
+    const [writeBody,  setWriteBody]  = React.useState('');
+    const [writeBusy,  setWriteBusy]  = React.useState(false);
+    const [writeErr,   setWriteErr]   = React.useState('');
+    const [detailPost, setDetailPost] = React.useState(null);
+    const [comments,   setComments]   = React.useState([]);
+    const [commentText,setCommentText]= React.useState('');
+    const [commentBusy,setCommentBusy]= React.useState(false);
+
+    const ADMIN_EMAIL_COMM = 'cnkim74@gmail.com';
+    const isAdmin = userEmail === ADMIN_EMAIL_COMM;
+    const currentCat = COMM_CATS.find(c => c.id === commCat);
+
+    const loadPosts = React.useCallback(async (cat) => {
+      setPostsLoading(true); setPosts([]);
+      try {
+        const { data: rows, error } = await supa
+          .from('cn_community')
+          .select('id,title,content,author_email,category,is_approved,created_at,view_count')
+          .eq('category', cat)
+          .eq('is_approved', true)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (!error) setPosts(rows || []);
+      } catch(e) {}
+      setPostsLoading(false);
+    }, []);
+
+    React.useEffect(() => { loadPosts(commCat); }, [commCat]);
+
+    const loadComments = async (postId) => {
+      const { data: rows } = await supa
+        .from('cn_comments')
+        .select('id,content,author_email,created_at')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+      setComments(rows || []);
+    };
+
+    const openDetail = async (post) => {
+      setDetailPost(post); setCommentText(''); setComments([]);
+      await supa.from('cn_community').update({ view_count: (post.view_count || 0) + 1 }).eq('id', post.id);
+      loadComments(post.id);
+    };
+
+    const submitComment = async () => {
+      if (!commentText.trim() || !userId) return;
+      setCommentBusy(true);
+      await supa.from('cn_comments').insert({
+        post_id: detailPost.id, content: commentText.trim(),
+        author_email: userEmail, user_id: userId
+      });
+      setCommentText('');
+      loadComments(detailPost.id);
+      setCommentBusy(false);
+    };
+
+    const submitPost = async () => {
+      if (!writeTitle.trim()) { setWriteErr('제목을 입력해 주세요.'); return; }
+      if (!writeBody.trim())  { setWriteErr('내용을 입력해 주세요.'); return; }
+      setWriteBusy(true); setWriteErr('');
+      const { error } = await supa.from('cn_community').insert({
+        title: writeTitle.trim(), content: writeBody.trim(),
+        author_email: userEmail, user_id: userId,
+        category: commCat,
+        is_approved: isAdmin, // 관리자 글은 바로 승인
+      });
+      setWriteBusy(false);
+      if (error) { setWriteErr('저장 실패: ' + error.message); return; }
+      setWriteTitle(''); setWriteBody(''); setShowWrite(false);
+      loadPosts(commCat);
+    };
+
+    const fmtAgo = (d) => {
+      if (!d) return '';
+      const diff = Math.floor((Date.now() - new Date(d)) / 1000);
+      if (diff < 60)   return '방금 전';
+      if (diff < 3600) return Math.floor(diff/60) + '분 전';
+      if (diff < 86400)return Math.floor(diff/3600) + '시간 전';
+      return new Date(d).toLocaleDateString('ko-KR', { month:'short', day:'numeric' });
+    };
+
+    // ── 상세 보기 ──
+    if (detailPost) return (
       <div className="cn-card" data-tab="challenge">
-        <div className="cn-challenge-card">
-          <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'4px' }}>🔥 연속 기록</div>
-          <div className="cn-streak-big">{streak}</div>
-          <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'3px' }}>일 연속 혈당 기록 중</div>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
+          <button onClick={() => setDetailPost(null)}
+            style={{ background:'var(--bg-soft)', border:'none', borderRadius:'8px', padding:'6px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'700', color:'var(--text-sub)' }}>
+            ← 목록
+          </button>
+          <span style={{ fontSize:'11px', color:'var(--text-mute)' }}>{COMM_CATS.find(c=>c.id===detailPost.category)?.label}</span>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px', padding:'10px 12px' }}>
-            <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>최근 7일 정상범위</div>
-            <div style={{ fontFamily:'var(--font-num)', fontSize:'24px', fontWeight:'700', color: last7.pct >= 70 ? 'var(--cn-ok)' : 'var(--cn-warn)', marginTop:'4px' }}>{last7.pct}%</div>
-            <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{last7.inRange}/{last7.total}회 ({last7.pct>=70?'✅ 목표달성':'목표 70%'})</div>
-          </div>
-          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px', padding:'10px 12px' }}>
-            <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>복약 연속</div>
-            <div style={{ fontFamily:'var(--font-num)', fontSize:'24px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'4px' }}>{medStreak}<span style={{ fontSize:'13px', color:'var(--text-sub)', marginLeft:'3px' }}>일</span></div>
-            <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{medStreak>=7?'✅ 일주일 달성':medStreak>=1?`${7-medStreak}일 더!`:'오늘부터 시작'}</div>
-          </div>
+        <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)', marginBottom:'6px', lineHeight:1.4 }}>{detailPost.title}</div>
+        <div style={{ display:'flex', gap:'10px', fontSize:'12px', color:'var(--text-mute)', marginBottom:'14px', flexWrap:'wrap' }}>
+          <span>✍️ {detailPost.author_email?.split('@')[0]}</span>
+          <span>🕐 {fmtAgo(detailPost.created_at)}</span>
+          <span>👁 {detailPost.view_count || 0}</span>
         </div>
+        <div style={{ fontSize:'14px', lineHeight:1.8, color:'var(--text)', whiteSpace:'pre-wrap', paddingBottom:'16px', borderBottom:'1px solid var(--divider)', marginBottom:'16px' }}>
+          {detailPost.content}
+        </div>
+
+        {/* 댓글 */}
+        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'10px' }}>
+          💬 댓글 {comments.length}
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'14px' }}>
+          {comments.length === 0 && <div style={{ fontSize:'13px', color:'var(--text-mute)', textAlign:'center', padding:'12px 0' }}>첫 댓글을 남겨보세요!</div>}
+          {comments.map(c => (
+            <div key={c.id} style={{ background:'var(--bg-soft)', borderRadius:'10px', padding:'10px 12px' }}>
+              <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'4px', display:'flex', gap:'8px' }}>
+                <span style={{ fontWeight:'700', color:'var(--text-sub)' }}>{c.author_email?.split('@')[0]}</span>
+                <span>{fmtAgo(c.created_at)}</span>
+              </div>
+              <div style={{ fontSize:'13px', color:'var(--text)', lineHeight:1.6 }}>{c.content}</div>
+            </div>
+          ))}
+        </div>
+        {userId ? (
+          <div style={{ display:'flex', gap:'8px' }}>
+            <input value={commentText} onChange={e=>setCommentText(e.target.value)}
+              onKeyDown={e => e.key==='Enter' && !e.shiftKey && submitComment()}
+              placeholder="댓글 입력..."
+              style={{ flex:1, border:'1px solid var(--input-border)', borderRadius:'8px', padding:'9px 12px', fontSize:'13px', outline:'none', background:'var(--input-bg)', color:'var(--text)', fontFamily:'inherit', minWidth:0 }} />
+            <button onClick={submitComment} disabled={commentBusy || !commentText.trim()}
+              style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700', flexShrink:0, opacity: commentBusy||!commentText.trim()?0.5:1 }}>
+              등록
+            </button>
+          </div>
+        ) : (
+          <div style={{ fontSize:'13px', color:'var(--text-mute)', textAlign:'center', padding:'8px' }}>로그인 후 댓글을 남길 수 있어요</div>
+        )}
       </div>
+    );
+
+    // ── 글쓰기 ──
+    if (showWrite) return (
+      <div className="cn-card" data-tab="challenge">
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'16px' }}>
+          <button onClick={() => { setShowWrite(false); setWriteErr(''); }}
+            style={{ background:'var(--bg-soft)', border:'none', borderRadius:'8px', padding:'6px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'700', color:'var(--text-sub)' }}>
+            ← 취소
+          </button>
+          <span style={{ fontSize:'15px', fontWeight:'800' }}>✏️ 글쓰기 · {currentCat?.label}</span>
+        </div>
+        {writeErr && <div style={{ background:'var(--cn-danger-100)', border:'1px solid var(--cn-danger)', borderRadius:'8px', padding:'10px 12px', fontSize:'13px', color:'var(--cn-danger)', marginBottom:'12px' }}>{writeErr}</div>}
+        <input value={writeTitle} onChange={e=>{setWriteTitle(e.target.value);setWriteErr('');}}
+          placeholder="제목을 입력하세요"
+          style={{ width:'100%', border:'1px solid var(--input-border)', borderRadius:'10px', padding:'11px 14px', fontSize:'15px', fontWeight:'700', outline:'none', background:'var(--input-bg)', color:'var(--text)', fontFamily:'inherit', marginBottom:'10px', boxSizing:'border-box' }} />
+        <textarea value={writeBody} onChange={e=>{setWriteBody(e.target.value);setWriteErr('');}}
+          placeholder="내용을 입력하세요..."
+          rows={8}
+          style={{ width:'100%', border:'1px solid var(--input-border)', borderRadius:'10px', padding:'11px 14px', fontSize:'14px', outline:'none', background:'var(--input-bg)', color:'var(--text)', fontFamily:'inherit', resize:'vertical', lineHeight:1.7, marginBottom:'12px', boxSizing:'border-box' }} />
+        {!isAdmin && <div style={{ fontSize:'12px', color:'var(--text-mute)', marginBottom:'12px' }}>✍️ 작성 후 관리자 승인 이후 게시됩니다.</div>}
+        <button onClick={submitPost} disabled={writeBusy}
+          style={{ width:'100%', background: writeBusy?'var(--divider)':'var(--cn-brand)', color: writeBusy?'var(--text-mute)':'#fff', border:'none', borderRadius:'10px', padding:'13px', fontSize:'15px', fontWeight:'800', cursor: writeBusy?'default':'pointer' }}>
+          {writeBusy ? '게시 중...' : '게시하기'}
+        </button>
+      </div>
+    );
+
+    // ── 메인 ──
+    return (
+      <>
+        {/* 챌린지 요약 (컴팩트) */}
+        <div className="cn-card" data-tab="challenge" style={{ marginBottom:'8px' }}>
+          <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+            <div style={{ flex:1, textAlign:'center', background:'var(--cn-brand-100)', borderRadius:'10px', padding:'10px 8px' }}>
+              <div style={{ fontSize:'10px', color:'var(--cn-brand)', fontWeight:'700', marginBottom:'2px' }}>🔥 혈당 연속</div>
+              <div style={{ fontFamily:'var(--font-num)', fontSize:'22px', fontWeight:'900', color:'var(--cn-brand)' }}>{streak}<span style={{ fontSize:'11px', marginLeft:'2px' }}>일</span></div>
+            </div>
+            <div style={{ flex:1, textAlign:'center', background:'var(--cn-ok-100,#e6faf4)', borderRadius:'10px', padding:'10px 8px' }}>
+              <div style={{ fontSize:'10px', color:'var(--cn-ok)', fontWeight:'700', marginBottom:'2px' }}>✅ 정상범위</div>
+              <div style={{ fontFamily:'var(--font-num)', fontSize:'22px', fontWeight:'900', color:'var(--cn-ok)' }}>{last7.pct}<span style={{ fontSize:'11px', marginLeft:'2px' }}>%</span></div>
+            </div>
+            <div style={{ flex:1, textAlign:'center', background:'var(--cn-low-100,#f3edff)', borderRadius:'10px', padding:'10px 8px' }}>
+              <div style={{ fontSize:'10px', color:'var(--cn-low)', fontWeight:'700', marginBottom:'2px' }}>💊 복약 연속</div>
+              <div style={{ fontFamily:'var(--font-num)', fontSize:'22px', fontWeight:'900', color:'var(--cn-low)' }}>{medStreak}<span style={{ fontSize:'11px', marginLeft:'2px' }}>일</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 커뮤니티 게시판 */}
+        <div className="cn-card" data-tab="challenge">
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+            <div style={{ fontSize:'16px', fontWeight:'800' }}>👥 커뮤니티</div>
+            {userId && !currentCat?.adminOnly && (
+              <button onClick={() => { setShowWrite(true); setWriteErr(''); setWriteTitle(''); setWriteBody(''); }}
+                style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                ✏️ 글쓰기
+              </button>
+            )}
+            {userId && currentCat?.adminOnly && isAdmin && (
+              <button onClick={() => { setShowWrite(true); setWriteErr(''); setWriteTitle(''); setWriteBody(''); }}
+                style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                ✏️ 공지 작성
+              </button>
+            )}
+          </div>
+
+          {/* 카테고리 탭 */}
+          <div style={{ display:'flex', gap:'6px', marginBottom:'14px', overflowX:'auto', paddingBottom:'2px' }}>
+            {COMM_CATS.map(c => (
+              <button key={c.id} onClick={() => setCommCat(c.id)}
+                style={{ padding:'6px 12px', borderRadius:'20px', border:`1.5px solid ${commCat===c.id?'var(--cn-brand)':'var(--card-border)'}`,
+                  background: commCat===c.id?'var(--cn-brand-100)':'var(--card-bg)',
+                  color: commCat===c.id?'var(--cn-brand)':'var(--text-sub)',
+                  fontSize:'12px', fontWeight:'700', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 게시글 목록 */}
+          {postsLoading ? (
+            <div style={{ textAlign:'center', padding:'24px 0', color:'var(--text-mute)', fontSize:'13px' }}>불러오는 중...</div>
+          ) : posts.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'32px 0' }}>
+              <div style={{ fontSize:'32px', marginBottom:'8px' }}>📭</div>
+              <div style={{ fontSize:'13px', color:'var(--text-mute)' }}>아직 게시글이 없어요</div>
+              {userId && !currentCat?.adminOnly && (
+                <button onClick={() => { setShowWrite(true); setWriteErr(''); setWriteTitle(''); setWriteBody(''); }}
+                  style={{ marginTop:'12px', background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 18px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+                  첫 글 작성하기
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0' }}>
+              {posts.map((post, idx) => (
+                <div key={post.id} onClick={() => openDetail(post)}
+                  style={{ padding:'12px 0', borderBottom: idx < posts.length-1 ? '1px solid var(--divider)' : 'none',
+                    cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--bg-soft)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)', marginBottom:'4px', lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {post.title}
+                  </div>
+                  <div style={{ fontSize:'12px', color:'var(--text-mute)', display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap' }}>
+                    <span>✍️ {post.author_email?.split('@')[0]}</span>
+                    <span>🕐 {fmtAgo(post.created_at)}</span>
+                    <span>👁 {post.view_count || 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
     );
   };
 
@@ -4058,7 +4291,7 @@
         {/* ── 모바일 전용: 챌린지 + 프로필 탭 ── */}
         <div className="cn-tab-only-mobile">
           <div style={{ maxWidth:'1140px', margin:'0 auto', padding:'0 16px' }}>
-            <ChallengeTab data={data} date={date} userId={userId} />
+            <ChallengeTab data={data} date={date} userId={userId} userEmail={authUser?.email} darkMode={darkMode} />
             <ProfileTab
               authUser={authUser} userId={userId}
               onSync={() => setShowSync(true)}
@@ -4110,7 +4343,7 @@
             { id:'home',      label:'홈',    icon:<><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></>    },
             { id:'record',    label:'기록',   icon:<><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></> },
             { id:'report',    label:'리포트', icon:<><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></>       },
-            { id:'challenge', label:'챌린지', icon:<><circle cx="12" cy="8" r="6"/><path d="M8.5 13L7 22l5-3 5 3-1.5-9"/></> },
+            { id:'challenge', label:'커뮤니티', icon:<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></> },
             { id:'profile',   label:'프로필', icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></> },
           ].map(t => (
             <button key={t.id} className={'cn-tab-btn' + (currentTab===t.id?' active':'')}
