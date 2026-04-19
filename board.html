@@ -59,6 +59,8 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
 .post-item{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;gap:12px;align-items:flex-start}
 .post-item:last-child{border-bottom:none}
 .post-item:hover{background:#f8faff}
+.post-item.pinned{background:#fffbeb;border-left:3px solid #f59e0b}
+.post-item.pinned:hover{background:#fff8e0}
 .post-pin{flex-shrink:0;margin-top:3px}
 .post-body{flex:1;min-width:0}
 .post-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
@@ -296,9 +298,10 @@ document.getElementById('hdr-logout-btn').addEventListener('click', async () => 
 async function loadPosts(cat){
   const { data, error } = await supa
     .from('cn_community')
-    .select('id,title,content,author_email,category,is_approved,created_at,view_count')
+    .select('id,title,content,user_email,author_email,category,is_approved,is_pinned,created_at,view_count')
     .eq('category', cat)
     .eq('is_approved', true)
+    .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(200);
   if(error){ allPosts = []; return; }
@@ -308,7 +311,7 @@ async function loadPosts(cat){
 async function loadComments(postId){
   const { data } = await supa
     .from('cn_comments')
-    .select('id,content,author_email,created_at')
+    .select('id,content,user_email,author_email,created_at')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
   comments = data || [];
@@ -390,16 +393,16 @@ async function renderList(wrap){
   countEl.textContent = `전체 ${allPosts.length}건`;
 
   postArea.innerHTML = `<div class="post-list">${pagePosts.map(p => `
-    <div class="post-item" data-id="${p.id}">
-      ${p.category==='notice'?'<div class="post-pin">📌</div>':'<div style="width:20px;flex-shrink:0"></div>'}
+    <div class="post-item${p.is_pinned?' pinned':''}" data-id="${p.id}">
+      ${p.is_pinned?'<div class="post-pin">📌</div>':'<div style="width:20px;flex-shrink:0"></div>'}
       <div class="post-body">
-        <div class="post-title${p.category==='notice'?' notice':''}">
+        <div class="post-title${p.is_pinned?' notice':''}">
           ${esc(p.title)}
           ${isNew(p.created_at)?'<span class="post-new">NEW</span>':''}
         </div>
         <div class="post-preview">${esc((p.content||'').slice(0,80))}</div>
         <div class="post-meta">
-          <span>✍️ ${esc(p.author_email?.split('@')[0]||'익명')}</span>
+          <span>✍️ ${esc((p.user_email||p.author_email||'익명').split('@')[0])}</span>
           <span>🕐 ${fmtAgo(p.created_at)}</span>
           <span>👁 ${p.view_count||0}</span>
         </div>
@@ -442,7 +445,7 @@ function renderDetail(wrap){
   const commentListHTML = comments.length
     ? comments.map(c=>`
         <div class="comment-item">
-          <div class="comment-author">${esc(c.author_email?.split('@')[0]||'익명')}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
+          <div class="comment-author">${esc((c.user_email||c.author_email||'익명').split('@')[0])}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
           <div class="comment-text">${esc(c.content)}</div>
         </div>`).join('')
     : '<div style="text-align:center;padding:16px 0;font-size:13px;color:var(--mute)">첫 댓글을 남겨보세요!</div>';
@@ -454,8 +457,8 @@ function renderDetail(wrap){
         <div class="detail-cat">${catLabel(p.category)}</div>
         <div class="detail-title">${esc(p.title)}</div>
         <div class="detail-meta">
-          <div class="detail-avatar">${initials(p.author_email)}</div>
-          <span>✍️ ${esc(p.author_email?.split('@')[0]||'익명')}</span>
+          <div class="detail-avatar">${initials(p.user_email||p.author_email)}</div>
+          <span>✍️ ${esc((p.user_email||p.author_email||'익명').split('@')[0])}</span>
           <span>🕐 ${fmtAgo(p.created_at)}</span>
           <span>👁 ${p.view_count||0}</span>
           <span>💬 ${comments.length}</span>
@@ -488,7 +491,7 @@ function renderDetail(wrap){
       submit.disabled = true;
       const { error } = await supa.from('cn_comments').insert({
         post_id: p.id, content: txt,
-        author_email: currentUser.email, user_id: currentUser.id
+        user_email: currentUser.email, author_email: currentUser.email, user_id: currentUser.id
       });
       if(!error){
         input.value = '';
@@ -496,7 +499,7 @@ function renderDetail(wrap){
         // 댓글 목록만 업데이트
         document.getElementById('comment-list').innerHTML = comments.map(c=>`
           <div class="comment-item">
-            <div class="comment-author">${esc(c.author_email?.split('@')[0]||'익명')}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
+            <div class="comment-author">${esc((c.user_email||c.author_email||'익명').split('@')[0])}<span class="comment-time">${fmtAgo(c.created_at)}</span></div>
             <div class="comment-text">${esc(c.content)}</div>
           </div>`).join('');
         // 댓글 수 업데이트
@@ -551,10 +554,13 @@ function renderWrite(wrap){
     btn.disabled = true; btn.textContent = '게시 중...';
     const { error } = await supa.from('cn_community').insert({
       title, content,
+      user_email: currentUser.email,
       author_email: currentUser.email,
       user_id: currentUser.id,
       category: cat,
       is_approved: isAdmin(),
+      is_pinned: false,
+      view_count: 0,
     });
     btn.disabled = false; btn.textContent = '게시하기';
     if(error){ alertEl.innerHTML=`<div class="alert alert-err">저장 실패: ${esc(error.message)}</div>`; return; }

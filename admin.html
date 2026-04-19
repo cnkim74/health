@@ -338,8 +338,8 @@ tr:hover td{background:#fafbff}
           <div class="search-bar"><input type="text" id="members-search" placeholder="이름, 이메일, 전화번호 검색..." /></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>#</th><th>이름</th><th>이메일</th><th>전화번호</th><th>키 (cm)</th><th>BMI 설정</th><th>가입일</th></tr></thead>
-              <tbody id="members-tbody"><tr><td colspan="7"><div class="spinner"></div></td></tr></tbody>
+              <thead><tr><th>#</th><th>이름</th><th>이메일</th><th>전화번호</th><th>키 (cm)</th><th>가입일</th><th>등급</th><th>관리</th></tr></thead>
+              <tbody id="members-tbody"><tr><td colspan="8"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -398,10 +398,15 @@ tr:hover td{background:#fafbff}
 );</code>
           </div>
         </div>
-        <div class="filter-bar">
+        <div class="filter-bar" style="flex-wrap:wrap;gap:6px 4px">
           <button class="filter-btn active" data-cfilter="all">전체</button>
           <button class="filter-btn" data-cfilter="pending">검토 대기</button>
           <button class="filter-btn" data-cfilter="approved">승인됨</button>
+          <span style="width:1px;background:var(--border);margin:0 4px;align-self:stretch"></span>
+          <button class="filter-btn" data-cfilter="cat:notice">📢 공지</button>
+          <button class="filter-btn" data-cfilter="cat:health">💊 건강정보</button>
+          <button class="filter-btn" data-cfilter="cat:question">❓ 질문</button>
+          <button class="filter-btn" data-cfilter="cat:review">⭐ 후기</button>
         </div>
         <div class="card">
           <div id="community-list"><div class="spinner"></div></div>
@@ -654,11 +659,12 @@ async function loadMembers(){
   renderMembers();
   document.getElementById('members-count').textContent='('+allMembers.length+'명)';
 }
+const GRADE_COLORS={일반:'badge-mute',우수:'badge-info',VIP:'badge-warn',관리자:'badge-ok'};
 function renderMembers(){
   const q=memberSearch.toLowerCase();
   const list=q?allMembers.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q)||(m.phone||'').includes(q)):allMembers;
   const tbody=document.getElementById('members-tbody');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty-msg">해당하는 회원이 없습니다</div></td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-msg">해당하는 회원이 없습니다</div></td></tr>';return;}
   tbody.innerHTML=list.map((m,i)=>`
     <tr>
       <td class="td-mute">${i+1}</td>
@@ -666,9 +672,28 @@ function renderMembers(){
       <td class="td-email td-mute">${esc(m.email||'-')}</td>
       <td class="td-mute">${esc(m.phone||'-')}</td>
       <td class="td-mute">${m.height?m.height+'cm':'-'}</td>
-      <td class="td-mute">${m.height&&m.weight?bmi(m.height,m.weight):'-'}</td>
       <td class="td-mute">${fmtDateShort(m.created_at)}</td>
+      <td><span class="badge ${GRADE_COLORS[m.grade||'일반']||'badge-mute'}">${esc(m.grade||'일반')}</span></td>
+      <td>
+        <select class="form-select" style="padding:3px 6px;font-size:11px;width:80px" data-grade-id="${esc(m.id)}" data-grade-val="${esc(m.grade||'일반')}">
+          <option value="일반" ${(m.grade||'일반')==='일반'?'selected':''}>일반</option>
+          <option value="우수" ${m.grade==='우수'?'selected':''}>우수</option>
+          <option value="VIP"  ${m.grade==='VIP'?'selected':''}>VIP</option>
+          <option value="관리자" ${m.grade==='관리자'?'selected':''}>관리자</option>
+        </select>
+      </td>
     </tr>`).join('');
+  tbody.querySelectorAll('[data-grade-id]').forEach(sel=>{
+    sel.addEventListener('change',async()=>{
+      const id=sel.dataset.gradeId;
+      const grade=sel.value;
+      const{error}=await supa.from('cn_profiles').update({grade}).eq('id',id);
+      if(error){alert('등급 변경 실패: '+error.message);sel.value=sel.dataset.gradeVal;return;}
+      sel.dataset.gradeVal=grade;
+      const m=allMembers.find(x=>x.id===id);if(m)m.grade=grade;
+      renderMembers();
+    });
+  });
 }
 document.getElementById('members-search').addEventListener('input',e=>{memberSearch=e.target.value;renderMembers();});
 document.getElementById('members-refresh').addEventListener('click',loadMembers);
@@ -743,22 +768,33 @@ async function loadCommunity(){
   }
   allCommunity=data||[];renderCommunity();
 }
+const CAT_LABEL={notice:'📢 공지',health:'💊 건강정보',question:'❓ 질문',review:'⭐ 후기'};
 function renderCommunity(){
-  const list=cFilter==='all'?allCommunity:cFilter==='pending'?allCommunity.filter(c=>!c.is_approved):allCommunity.filter(c=>c.is_approved);
+  let list=allCommunity;
+  if(cFilter==='pending') list=list.filter(c=>!c.is_approved);
+  else if(cFilter==='approved') list=list.filter(c=>c.is_approved);
+  else if(cFilter.startsWith('cat:')) list=list.filter(c=>c.category===cFilter.slice(4));
+  // 핀 먼저
+  list=[...list.filter(c=>c.is_pinned),...list.filter(c=>!c.is_pinned)];
   const el=document.getElementById('community-list');
   if(!list.length){el.innerHTML='<div class="empty-msg">게시글이 없습니다</div>';return;}
   el.innerHTML=list.map(c=>`
-    <div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start">
+    <div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start${c.is_pinned?';background:#fffbeb;margin:0 -20px;padding:12px 20px':''}">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+          ${c.is_pinned?'<span class="badge badge-warn">📌 고정</span>':''}
           <span class="status-chip ${c.is_approved?'chip-approved':'chip-pending'}">${c.is_approved?'승인됨':'검토 대기'}</span>
+          <span class="badge badge-mute" style="font-size:10px">${CAT_LABEL[c.category]||c.category||'미분류'}</span>
           <strong style="font-size:13px">${esc(c.title||'(제목 없음)')}</strong>
         </div>
         <div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(c.content||'').slice(0,120)}${(c.content||'').length>120?'…':''}</div>
-        <div style="font-size:11px;color:var(--mute)">${esc(c.author_email||'익명')} · ${fmtDate(c.created_at)}</div>
+        <div style="font-size:11px;color:var(--mute)">
+          ${esc(c.user_email||c.author_email||'익명')} · ${fmtDate(c.created_at)} · 조회 ${c.view_count||0}
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
         ${!c.is_approved?`<button class="btn btn-sm btn-ok" data-capprove="${esc(c.id)}">승인</button>`:''}
+        <button class="btn btn-sm ${c.is_pinned?'btn-warn':'btn-ghost'}" data-cpin="${esc(c.id)}" data-pinval="${c.is_pinned}">${c.is_pinned?'📌 고정 해제':'📌 고정'}</button>
         <button class="btn btn-sm btn-danger" data-cdelete="${esc(c.id)}">삭제</button>
       </div>
     </div>`).join('');
@@ -766,6 +802,13 @@ function renderCommunity(){
     btn.addEventListener('click',async()=>{
       await supa.from('cn_community').update({is_approved:true}).eq('id',btn.dataset.capprove);
       loadCommunity();loadOverview();
+    });
+  });
+  el.querySelectorAll('[data-cpin]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const pinned=btn.dataset.pinval==='true';
+      await supa.from('cn_community').update({is_pinned:!pinned}).eq('id',btn.dataset.cpin);
+      loadCommunity();
     });
   });
   el.querySelectorAll('[data-cdelete]').forEach(btn=>{
