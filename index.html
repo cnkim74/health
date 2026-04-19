@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CARENOTE – 내 몸을 기록하는 노트</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2728,11 +2731,20 @@
 
     const save = async () => {
       setSaving(true); setMsg('');
-      const payload = { id: userId, email: authUser?.email, name: profile.name, phone: profile.phone, height: profile.height ? parseFloat(profile.height) : null };
+      const h = profile.height ? parseFloat(profile.height) : null;
+      const payload = { id: userId, email: authUser?.email, name: profile.name, phone: profile.phone, height: h };
       const { error } = await supa.from('cn_profiles').upsert(payload, { onConflict: 'id' });
       setSaving(false);
       if (error) { setMsg('❌ 저장 실패: ' + error.message); }
-      else { setMsg('✅ 저장됐습니다!'); setTimeout(onClose, 1200); }
+      else {
+        // localStorage도 즉시 동기화 → 대시보드 BMI 바로 반영
+        if (h) {
+          localStorage.setItem('hcd_height', String(h));
+          if (userId) localStorage.setItem(`hcd_height_${userId}`, String(h));
+        }
+        setMsg('✅ 저장됐습니다!');
+        setTimeout(onClose, 1200);
+      }
     };
 
     const inp = { width:'100%', padding:'10px 12px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
@@ -3552,17 +3564,31 @@
     }, [medsConfig, userId, medsReadyFor]);
     const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
 
-    // 키(신장): 유저별 로드/저장 (두 키 모두 확인 — 이전 저장 실패 시 복구)
+    // 키(신장): Supabase cn_profiles 우선, 없으면 localStorage 폴백
     useEffect(() => {
       if (!userId) return;
-      const h = localStorage.getItem(`hcd_height_${userId}`) || localStorage.getItem('hcd_height');
-      if (h) setHeight(h);
+      (async () => {
+        // 1) Supabase에서 키 로드 시도
+        const { data: prof } = await supa.from('cn_profiles').select('height').eq('id', userId).maybeSingle();
+        if (prof?.height) {
+          const hStr = String(prof.height);
+          setHeight(hStr);
+          // localStorage도 최신화
+          localStorage.setItem('hcd_height', hStr);
+          localStorage.setItem(`hcd_height_${userId}`, hStr);
+          return;
+        }
+        // 2) localStorage 폴백
+        const h = localStorage.getItem(`hcd_height_${userId}`) || localStorage.getItem('hcd_height');
+        if (h) setHeight(h);
+      })();
     }, [userId]);
     const saveHeight = (v) => {
       setHeight(v);
-      // 유저별 키와 범용 키 모두 저장 (어느 쪽이든 복구 가능하도록)
       localStorage.setItem('hcd_height', v);
       if (userId) localStorage.setItem(`hcd_height_${userId}`, v);
+      // Supabase에도 동기화
+      if (userId) supa.from('cn_profiles').update({ height: parseFloat(v) || null }).eq('id', userId);
     };
 
     /* Stats */
