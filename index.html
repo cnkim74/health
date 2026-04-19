@@ -2843,9 +2843,9 @@
       setUploading(true); setMsg('');
       const ext = file.name.split('.').pop();
       const path = `${userId}/avatar.${ext}`;
-      const { error: upErr } = await supa.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+      const { error: upErr } = await supa.storage.from('avatar').upload(path, file, { upsert: true, contentType: file.type });
       if (upErr) { setMsg('❌ 업로드 실패: ' + upErr.message); setUploading(false); return; }
-      const { data: { publicUrl } } = supa.storage.from('avatars').getPublicUrl(path);
+      const { data: { publicUrl } } = supa.storage.from('avatar').getPublicUrl(path);
       const url = publicUrl + '?t=' + Date.now();
       await supa.from('cn_profiles').update({ avatar_url: url }).eq('id', userId);
       setProfile(p => ({ ...p, avatar_url: url }));
