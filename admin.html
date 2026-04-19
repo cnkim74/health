@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>CARENOTE CMS</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -372,13 +374,28 @@ tr:hover td{background:#fafbff}
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
             <div class="card-title" style="margin-bottom:0">회원 목록 <span class="cnt" id="members-count"></span></div>
-            <button class="btn btn-ghost btn-sm" id="members-refresh">🔄 새로고침</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <select id="members-sort" class="form-select" style="padding:5px 8px;font-size:12px;width:auto">
+                <option value="date_desc">가입일 최신순</option>
+                <option value="date_asc">가입일 오래된순</option>
+                <option value="name_asc">이름 가나다순</option>
+                <option value="grade">등급순</option>
+              </select>
+              <select id="members-grade-filter" class="form-select" style="padding:5px 8px;font-size:12px;width:auto">
+                <option value="all">전체 등급</option>
+                <option value="무료회원">무료회원</option>
+                <option value="유료회원">유료회원</option>
+                <option value="기업회원">기업회원</option>
+                <option value="관리자">관리자</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" id="members-refresh">🔄 새로고침</button>
+            </div>
           </div>
           <div class="search-bar"><input type="text" id="members-search" placeholder="이름, 이메일, 전화번호 검색..." /></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>#</th><th>이름</th><th>이메일</th><th>전화번호</th><th>키 (cm)</th><th>가입일</th><th>등급</th><th>관리</th></tr></thead>
-              <tbody id="members-tbody"><tr><td colspan="8"><div class="spinner"></div></td></tr></tbody>
+              <thead><tr><th>#</th><th>사진</th><th>이름</th><th>이메일</th><th>전화번호</th><th>키</th><th>가입일</th><th>등급</th><th>관리</th></tr></thead>
+              <tbody id="members-tbody"><tr><td colspan="9"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -730,7 +747,7 @@ document.getElementById('member-edit-modal').addEventListener('click', e=>{
 
 /* ── ② 회원관리 ── */
 async function loadMembers(){
-  const{data,error}=await supa.from('cn_profiles').select('*').order('created_at',{ascending:false});
+  const{data,error}=await supa.from('cn_profiles').select('id,email,name,phone,height,grade,avatar_url,created_at').order('created_at',{ascending:false});
   if(error){
     document.getElementById('members-setup-alert').style.display='block';
     document.getElementById('members-tbody').innerHTML='<tr><td colspan="7"><div class="empty-msg">cn_profiles 테이블이 없습니다</div></td></tr>';
@@ -741,14 +758,31 @@ async function loadMembers(){
   document.getElementById('members-count').textContent='('+allMembers.length+'명)';
 }
 const GRADE_COLORS={'무료회원':'badge-mute','유료회원':'badge-info','기업회원':'badge-warn','관리자':'badge-ok'};
+const GRADE_ORDER={'무료회원':0,'유료회원':1,'기업회원':2,'관리자':3};
 function renderMembers(){
   const q=memberSearch.toLowerCase();
-  const list=q?allMembers.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q)||(m.phone||'').includes(q)):allMembers;
+  const gradeFilter=document.getElementById('members-grade-filter')?.value||'all';
+  const sortVal=document.getElementById('members-sort')?.value||'date_desc';
+  let list=q?allMembers.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q)||(m.phone||'').includes(q)):allMembers;
+  if(gradeFilter!=='all') list=list.filter(m=>(m.grade||'무료회원')===gradeFilter);
+  list=[...list].sort((a,b)=>{
+    if(sortVal==='date_asc')  return new Date(a.created_at)-new Date(b.created_at);
+    if(sortVal==='date_desc') return new Date(b.created_at)-new Date(a.created_at);
+    if(sortVal==='name_asc')  return (a.name||'').localeCompare(b.name||'','ko');
+    if(sortVal==='grade'){
+      const ga=GRADE_ORDER[a.grade||'무료회원']??0;
+      const gb=GRADE_ORDER[b.grade||'무료회원']??0;
+      return gb-ga; // 관리자→기업→유료→무료
+    }
+    return 0;
+  });
   const tbody=document.getElementById('members-tbody');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-msg">해당하는 회원이 없습니다</div></td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty-msg">해당하는 회원이 없습니다</div></td></tr>';return;}
   tbody.innerHTML=list.map((m,i)=>`
     <tr>
       <td class="td-mute">${i+1}</td>
+      <td>${m.avatar_url?`<img src="${esc(m.avatar_url)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">`:
+        `<div style="width:32px;height:32px;border-radius:50%;background:var(--brand-100);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--brand);font-size:13px">${(m.name||m.email||'?')[0].toUpperCase()}</div>`}</td>
       <td><strong>${esc(m.name||'-')}</strong></td>
       <td class="td-email td-mute">${esc(m.email||'-')}</td>
       <td class="td-mute">${esc(m.phone||'-')}</td>
@@ -784,6 +818,8 @@ function renderMembers(){
   });
 }
 document.getElementById('members-search').addEventListener('input',e=>{memberSearch=e.target.value;renderMembers();});
+document.getElementById('members-sort').addEventListener('change',renderMembers);
+document.getElementById('members-grade-filter').addEventListener('change',renderMembers);
 document.getElementById('members-refresh').addEventListener('click',loadMembers);
 
 /* ── ③ 공지사항 ── */

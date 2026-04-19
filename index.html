@@ -1965,6 +1965,9 @@
     const [mode,     setMode]     = useState('login'); // 'login' | 'signup'
     const [email,    setEmail]    = useState('');
     const [password, setPassword] = useState('');
+    const [name,     setName]     = useState('');
+    const [phone,    setPhone]    = useState('');
+    const [signupHeight, setSignupHeight] = useState('');
     const [busy,     setBusy]     = useState(false);
     const [error,    setError]    = useState('');
     const [message,  setMessage]  = useState('');
@@ -1977,8 +1980,21 @@
           const { error } = await supa.auth.signInWithPassword({ email, password });
           if (error) throw error;
         } else {
-          const { error } = await supa.auth.signUp({ email, password });
+          if (!name.trim()) throw new Error('이름을 입력해 주세요.');
+          if (!phone.trim()) throw new Error('전화번호를 입력해 주세요.');
+          const { data, error } = await supa.auth.signUp({ email, password });
           if (error) throw error;
+          // 프로필 저장 (signUp 직후 userId 획득)
+          const uid = data?.user?.id;
+          if (uid) {
+            await supa.from('cn_profiles').upsert({
+              id: uid, email,
+              name: name.trim(),
+              phone: phone.trim(),
+              height: signupHeight ? parseFloat(signupHeight) : null,
+              grade: '무료회원',
+            }, { onConflict: 'id' });
+          }
           setMessage('✅ 가입 확인 이메일을 보냈어요. 이메일을 확인하고 링크를 클릭해 주세요.');
         }
       } catch(e) {
@@ -2081,13 +2097,28 @@
               placeholder="비밀번호 (6자 이상)" required style={inp}
               onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
               onBlur={e=>e.target.style.borderColor=borderCol} />
-            {mode === 'signup' && (
-              <div style={{ background: dm ? 'rgba(37,99,235,0.12)' : 'var(--cn-brand-100)', border:'1px solid rgba(47,107,255,0.3)',
-                            borderRadius:'10px', padding:'10px 14px', fontSize:'12px', color: dm ? 'var(--cn-brand)' : '#1d4ed8', lineHeight:'1.6' }}>
-                💡 <strong>키(cm) 정보</strong>는 회원가입 후 프로필에서 입력할 수 있어요.<br/>
-                선택 사항이지만 입력하시면 <strong>BMI 자동 계산</strong> 기능을 사용할 수 있어요.
+            {mode === 'signup' && (<>
+              <input type="text" value={name} onChange={e=>setName(e.target.value)}
+                placeholder="이름 (필수)" required style={inp}
+                onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
+                onBlur={e=>e.target.style.borderColor=borderCol} />
+              <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)}
+                placeholder="전화번호 (필수, 예: 010-1234-5678)" required style={inp}
+                onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
+                onBlur={e=>e.target.style.borderColor=borderCol} />
+              <div style={{ position:'relative' }}>
+                <input type="number" value={signupHeight} onChange={e=>setSignupHeight(e.target.value)}
+                  placeholder="키 (cm) — 선택 사항, BMI 자동 계산에 활용" style={{...inp, paddingRight:'50px'}}
+                  onFocus={e=>e.target.style.borderColor='var(--cn-brand)'}
+                  onBlur={e=>e.target.style.borderColor=borderCol} />
+                <span style={{ position:'absolute', right:'14px', top:'50%', transform:'translateY(-50%)',
+                  fontSize:'12px', color: dm?'var(--text-sub)':'var(--text-mute)', pointerEvents:'none' }}>cm</span>
               </div>
-            )}
+              <div style={{ background: dm?'rgba(37,99,235,0.12)':'var(--cn-brand-100)', border:'1px solid rgba(47,107,255,0.25)',
+                borderRadius:'10px', padding:'9px 13px', fontSize:'12px', color: dm?'var(--cn-brand)':'#1d4ed8', lineHeight:'1.5' }}>
+                💡 키는 선택 사항이에요. 입력하면 <strong>BMI가 자동 계산</strong>돼요.
+              </div>
+            </>)}
             <button type="submit" disabled={busy}
               style={{ padding:'13px', border:'none', borderRadius:'12px',
                        fontSize:'15px', fontWeight:'700', cursor: busy?'default':'pointer',
@@ -2714,20 +2745,40 @@
 
   /* ── 프로필 탭 ── */
   /* ── 내 정보 수정 모달 ── */
-  const ProfileEditModal = ({ authUser, userId, onClose }) => {
-    const [profile, setProfile] = React.useState({ name:'', phone:'', height:'' });
+  const ProfileEditModal = ({ authUser, userId, onClose, onAvatarUpdate }) => {
+    const [profile, setProfile] = React.useState({ name:'', phone:'', height:'', avatar_url:'' });
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
+    const [uploading, setUploading] = React.useState(false);
     const [msg, setMsg] = React.useState('');
+    const avatarRef = React.useRef(null);
 
     React.useEffect(() => {
       if (!userId) { setLoading(false); return; }
-      supa.from('cn_profiles').select('name,phone,height,grade').eq('id', userId).single()
+      supa.from('cn_profiles').select('name,phone,height,grade,avatar_url').eq('id', userId).single()
         .then(({ data }) => {
-          if (data) setProfile({ name: data.name||'', phone: data.phone||'', height: data.height||'' });
+          if (data) setProfile({ name: data.name||'', phone: data.phone||'', height: data.height||'', avatar_url: data.avatar_url||'' });
           setLoading(false);
         });
     }, [userId]);
+
+    const handleAvatarChange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { setMsg('❌ 사진은 2MB 이하만 가능해요.'); return; }
+      setUploading(true); setMsg('');
+      const ext = file.name.split('.').pop();
+      const path = `${userId}/avatar.${ext}`;
+      const { error: upErr } = await supa.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) { setMsg('❌ 업로드 실패: ' + upErr.message); setUploading(false); return; }
+      const { data: { publicUrl } } = supa.storage.from('avatars').getPublicUrl(path);
+      const url = publicUrl + '?t=' + Date.now();
+      await supa.from('cn_profiles').update({ avatar_url: url }).eq('id', userId);
+      setProfile(p => ({ ...p, avatar_url: url }));
+      if (onAvatarUpdate) onAvatarUpdate(url);
+      setUploading(false);
+      setMsg('✅ 사진이 업데이트됐어요!');
+    };
 
     const save = async () => {
       setSaving(true); setMsg('');
@@ -2737,7 +2788,6 @@
       setSaving(false);
       if (error) { setMsg('❌ 저장 실패: ' + error.message); }
       else {
-        // localStorage도 즉시 동기화 → 대시보드 BMI 바로 반영
         if (h) {
           localStorage.setItem('hcd_height', String(h));
           if (userId) localStorage.setItem(`hcd_height_${userId}`, String(h));
@@ -2753,11 +2803,30 @@
     return (
       <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}
            onClick={e => e.target===e.currentTarget && onClose()}>
-        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'400px', boxShadow:'0 8px 40px rgba(0,0,0,0.25)' }}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'420px', boxShadow:'0 8px 40px rgba(0,0,0,0.25)', maxHeight:'90vh', overflowY:'auto' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
             <div style={{ fontSize:'16px', fontWeight:'800' }}>👤 내 정보 수정</div>
             <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'var(--text-mute)', lineHeight:1 }}>✕</button>
           </div>
+
+          {/* 프로필 사진 */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:'20px' }}>
+            <div style={{ position:'relative', cursor:'pointer' }} onClick={() => avatarRef.current?.click()}>
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt="프로필" style={{ width:'80px', height:'80px', borderRadius:'50%', objectFit:'cover', border:'3px solid var(--cn-brand)' }} />
+                : <div style={{ width:'80px', height:'80px', borderRadius:'50%', background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'28px', color:'#fff', fontWeight:'700', border:'3px solid var(--cn-brand)' }}>
+                    {(profile.name||authUser?.email||'?')[0].toUpperCase()}
+                  </div>}
+              <div style={{ position:'absolute', bottom:0, right:0, background:'var(--cn-brand)', borderRadius:'50%', width:'24px', height:'24px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', border:'2px solid var(--card-bg)' }}>📷</div>
+            </div>
+            <input ref={avatarRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleAvatarChange} />
+            <button onClick={() => avatarRef.current?.click()} disabled={uploading}
+              style={{ marginTop:'8px', background:'none', border:'1px solid var(--card-border)', borderRadius:'8px', padding:'4px 12px', fontSize:'12px', color:'var(--text-sub)', cursor:'pointer', fontFamily:'inherit' }}>
+              {uploading ? '업로드 중...' : '📷 사진 변경'}
+            </button>
+            <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'3px' }}>JPG·PNG·WEBP, 2MB 이하</div>
+          </div>
+
           <div style={{ background:'var(--cn-brand-100)', borderRadius:'10px', padding:'10px 14px', marginBottom:'16px' }}>
             <div style={{ fontSize:'11px', color:'var(--text-sub)' }}>로그인 계정 (변경 불가)</div>
             <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--cn-brand)', marginTop:'2px', wordBreak:'break-all' }}>{authUser?.email}</div>
@@ -2791,6 +2860,13 @@
 
   const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark }) => {
     const [showEdit, setShowEdit] = React.useState(false);
+    const [avatarUrl, setAvatarUrl] = React.useState('');
+    const [profileName, setProfileName] = React.useState('');
+    React.useEffect(() => {
+      if (!userId) return;
+      supa.from('cn_profiles').select('avatar_url,name,grade').eq('id', userId).maybeSingle()
+        .then(({ data }) => { if (data) { setAvatarUrl(data.avatar_url||''); setProfileName(data.name||''); } });
+    }, [userId]);
     const Row = ({ icon, label, sub, onClick, accent }) => (
       <button onClick={onClick}
         style={{ width:'100%', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'10px',
@@ -2807,17 +2883,26 @@
     );
     return (
       <div className="cn-card" data-tab="profile">
-        {showEdit && <ProfileEditModal authUser={authUser} userId={userId} onClose={() => setShowEdit(false)} />}
+        {showEdit && <ProfileEditModal authUser={authUser} userId={userId}
+          onClose={() => setShowEdit(false)}
+          onAvatarUpdate={url => setAvatarUrl(url)} />}
         <div style={{ background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', borderRadius:'12px',
-                     padding:'14px 16px', marginBottom:'12px', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <div>
-            <div style={{ fontSize:'12px', opacity:0.9 }}>로그인 계정</div>
-            <div style={{ fontSize:'15px', fontWeight:'700', marginTop:'3px', wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
-            <div style={{ fontSize:'11px', opacity:0.75, marginTop:'4px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+                     padding:'14px 16px', marginBottom:'12px', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="프로필" style={{ width:'48px', height:'48px', borderRadius:'50%', objectFit:'cover', border:'2px solid rgba(255,255,255,0.6)', flexShrink:0 }} />
+              : <div style={{ width:'48px', height:'48px', borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', fontWeight:'700', flexShrink:0 }}>
+                  {(profileName||authUser?.email||'?')[0].toUpperCase()}
+                </div>}
+            <div>
+              {profileName && <div style={{ fontSize:'15px', fontWeight:'800', marginBottom:'2px' }}>{profileName}</div>}
+              <div style={{ fontSize:'12px', opacity:0.85, wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
+              <div style={{ fontSize:'10px', opacity:0.6, marginTop:'2px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
+            </div>
           </div>
           <button onClick={() => setShowEdit(true)}
             style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'8px',
-              padding:'6px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', fontFamily:'inherit' }}>
+              padding:'6px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', fontFamily:'inherit', flexShrink:0 }}>
             ✏️ 수정
           </button>
         </div>
