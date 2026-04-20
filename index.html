@@ -484,7 +484,10 @@
   };
 
   const localFoodEstimate = (mealText) => {
-    const items = mealText.split(/[,\n·]+/).map(s => s.trim()).filter(Boolean);
+    const items = mealText.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+      .filter(s => !/kcal|칼로리|탄수화물|단백질|지방|혈당|적합|개선|총\s*영양|음식\s*목록|Powered/i.test(s))
+      .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s))
+      .flatMap(s => s.split(',').map(x => x.trim()).filter(Boolean));
     const results = [];
     let totalCal = 0;
 
@@ -3399,7 +3402,10 @@
       /* 칼로리 섭취 추정 (내장 DB 기반) */
       const estimateCalFromText = (text) => {
         if (!text?.trim()) return 0;
-        const items = text.split(/[,\n·]+/).map(s => s.trim()).filter(Boolean);
+        const items = text.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+          .filter(s => !/kcal|칼로리|탄수화물|단백질|지방|혈당|적합|개선|총\s*영양|음식\s*목록|Powered/i.test(s))
+          .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s))
+          .flatMap(s => s.split(',').map(x => x.trim()).filter(Boolean));
         let total = 0;
         items.forEach(item => {
           const qMatch = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분|개분)/);
@@ -4499,7 +4505,12 @@
                   // 식사 섭취 칼로리 추정
                   const estCal = (text) => {
                     if (!text?.trim()) return 0;
-                    const items = text.split(/[,\n·]+/).map(s=>s.trim()).filter(Boolean);
+                    const items = text.split(/[\n]+/).map(s=>s.trim()).filter(Boolean)
+                      // AI 분석 결과 줄 제외: kcal/cal 포함, 이모지 헤더, 대시 목록
+                      .filter(s => !/kcal|칼로리|탄수화물|단백질|지방|혈당|적합|개선|총\s*영양|음식\s*목록|Powered/i.test(s))
+                      .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s))
+                      // 쉼표 재분리
+                      .flatMap(s => s.split(',').map(x=>x.trim()).filter(Boolean));
                     let tot = 0;
                     items.forEach(item => {
                       const q = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분)/);
