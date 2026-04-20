@@ -342,7 +342,7 @@
   const bsColor = (v) => { const n=parseInt(v); if(!n) return 'var(--text-mute)'; if(n<70) return 'var(--cn-low)'; if(n<=140) return 'var(--cn-ok)'; if(n<=180) return 'var(--cn-warn)'; return 'var(--cn-danger)'; };
   const bsLabel = (v) => { const n=parseInt(v); if(!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
   const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
-  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, exercise:{type:'',mins:''}, weight:'', bodyFat:'', note:'' });
+  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', dist:'', weight:'', bodyFat:'', note:'' });
 
   /* ── 공통 UI 컴포넌트 (App 밖에 정의해야 리렌더링 버그 없음) ── */
   /* ── 다크모드 모듈 변수 ─────────────────────────────────── */
@@ -3029,7 +3029,10 @@
     // 운동
     const exDays = dates.filter(d => {
       const ex = data[d] && data[d].exercise;
-      return ex && (parseInt(ex.mins) > 0 || (ex.type && ex.type.trim()));
+      const steps = data[d] && data[d].steps;
+      const hasLog = ex && ((ex.logs||[]).some(l => l.type || parseInt(l.mins)>0) || parseInt(ex.mins)>0 || (ex.type&&ex.type.trim()));
+      const hasSteps = steps && parseInt(steps) >= 3000;
+      return hasLog || hasSteps;
     });
     const exScore = dates.length ? Math.round((exDays.length / dates.length) * 100) : 0;
     const total = Math.round(bpScore*0.30 + glScore*0.30 + medsScore*0.25 + exScore*0.15);
@@ -3490,13 +3493,19 @@
     useEffect(() => {
       // URL 파라미터 읽기 — userId가 비동기로 설정되므로 sessionStorage에 보존
       const params = new URLSearchParams(window.location.search);
-      const w  = params.get('w');
-      const bf = params.get('bf');
-      const bp = params.get('bp');  // 혈압 (예: 120/80)
+      const w      = params.get('w');
+      const bf     = params.get('bf');
+      const bp     = params.get('bp');     // 혈압 (예: 120/80)
+      const steps  = params.get('steps'); // 걸음수
+      const cal    = params.get('cal');   // 칼로리 (kcal)
+      const dist   = params.get('dist'); // 거리 (km)
       const d  = params.get('d');  // 측정 날짜 (YYYY-MM-DD)
       const freshPatch = {};
       if (w  && !isNaN(parseFloat(w)))  freshPatch.weight  = String(parseFloat(w));
       if (bf && !isNaN(parseFloat(bf))) freshPatch.bodyFat = String(parseFloat(bf));
+      if (steps && !isNaN(parseInt(steps)))   freshPatch.steps = String(Math.round(parseFloat(steps)));
+      if (cal   && !isNaN(parseFloat(cal)))   freshPatch.cal   = String(Math.round(parseFloat(cal)));
+      if (dist  && !isNaN(parseFloat(dist)))  freshPatch.dist  = String(Math.round(parseFloat(dist)*100)/100);
       if (bp) {
         const bpMatch = bp.match(/^(\d{1,3}(?:\.\d+)?)[\/\s](\d{1,3}(?:\.\d+)?)$/);
         if (bpMatch) freshPatch.bp = { sys: String(Math.round(parseFloat(bpMatch[1]))), dia: String(Math.round(parseFloat(bpMatch[2]))) };
@@ -3644,7 +3653,10 @@
     const updBS   = (id, v) => upDay({ bs: { ...day.bs, [id]: v } });
     const updBP   = (k, v) => upDay({ bp: { ...(day.bp||{sys:'',dia:''}), [k]: v } });
     const updMeal = (id, v) => upDay({ meals: { ...day.meals, [id]: v } });
-    const updEx   = (k, v) => upDay({ exercise: { ...day.exercise, [k]: v } });
+    const updEx       = (k, v) => upDay({ exercise: { ...(day.exercise||{}), [k]: v } });
+    const addExLog    = (type='') => { const logs = [...(day.exercise?.logs||[]), {type, mins:''}]; upDay({ exercise: {...(day.exercise||{}), logs} }); };
+    const updateExLog = (i,k,v)  => { const logs = (day.exercise?.logs||[]).map((l,idx)=>idx===i?{...l,[k]:v}:l); upDay({ exercise: {...(day.exercise||{}), logs} }); };
+    const removeExLog = (i)      => { const logs = (day.exercise?.logs||[]).filter((_,idx)=>idx!==i); upDay({ exercise: {...(day.exercise||{}), logs} }); };
 
     /* 가져오기: 기존 수동 입력 유지, 빈 슬롯만 채움 */
     const handleImport = async (importedData) => {
@@ -4579,19 +4591,83 @@
                 <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
               </Card>
 
-              {/* 운동 */}
+              {/* 운동 & 활동 */}
               <Card tab="record">
-                <STitle icon="🏃" label="운동 기록" />
-                <div style={{ marginBottom:'10px' }}>
-                  <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 종류</div>
-                  <input type="text" value={day.exercise?.type||''} onChange={e=>updEx('type',e.target.value)} placeholder="예: 걷기, 수영, 자전거…" style={inpSt} />
+                <STitle icon="🏃" label="활동 & 운동 기록" />
+
+                {/* 걸음수 / 칼로리 / 거리 카드 */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
+                  {[
+                    { key:'steps', icon:'👟', label:'걸음수', val: day.steps ? Number(day.steps).toLocaleString() : '---', color:'var(--cn-brand)' },
+                    { key:'cal',   icon:'🔥', label:'kcal',   val: day.cal   ? Math.round(Number(day.cal)).toLocaleString() : '---', color:'var(--cn-danger)' },
+                    { key:'dist',  icon:'📍', label:'km',     val: day.dist  ? Number(day.dist).toFixed(1) : '---', color:'var(--cn-ok)' },
+                  ].map(item => (
+                    <div key={item.key} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 8px', textAlign:'center', border:`1px solid var(--card-border)` }}>
+                      <div style={{ fontSize:'20px', fontWeight:'900', color: (day[item.key] ? item.color : 'var(--text-mute)'), letterSpacing:'-0.5px' }}>{item.val}</div>
+                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'3px' }}>{item.icon} {item.label}</div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ marginBottom:'10px' }}>
-                  <div style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'4px' }}>운동 시간 (분)</div>
-                  <input type="number" min="0" value={day.exercise?.mins||''} onChange={e=>updEx('mins',e.target.value)} placeholder="30" style={inpSt} />
+
+                {/* 걸음수 목표 진행 바 */}
+                {day.steps ? (() => {
+                  const pct = Math.min(100, Math.round(Number(day.steps) / 100));
+                  const done = Number(day.steps) >= 10000;
+                  return (
+                    <div style={{ marginBottom:'14px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:'11px', color:'var(--text-sub)', marginBottom:'4px' }}>
+                        <span>목표 10,000 걸음</span>
+                        <span style={{ fontWeight:'700', color: done ? 'var(--cn-ok)' : 'var(--text-sub)' }}>{done ? '🎉 달성!' : `${pct}%`}</span>
+                      </div>
+                      <div style={{ background:'var(--card-border)', borderRadius:'4px', height:'7px', overflow:'hidden' }}>
+                        <div style={{ width:`${pct}%`, background: done ? 'var(--cn-ok)' : 'var(--cn-brand)', height:'100%', borderRadius:'4px', transition:'width 0.5s' }}/>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'center', marginBottom:'14px', padding:'6px', background:'var(--input-bg)', borderRadius:'8px', border:'1px dashed var(--card-border)' }}>
+                    📲 건강앱 단축어로 걸음수를 자동 가져올 수 있어요
+                  </div>
+                )}
+
+                {/* 구분선 */}
+                <div style={{ borderTop:'1px solid var(--card-border)', marginBottom:'12px' }}/>
+
+                {/* 특별 운동 기록 */}
+                <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>💪 특별 운동 기록</div>
+
+                {/* 프리셋 버튼 */}
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'10px' }}>
+                  {[['🚶','걷기'],['🏃','달리기'],['🏊','수영'],['🚴','자전거'],['💪','근력'],['🧘','요가'],['⛳','골프'],['🏋️','헬스']].map(([ic,nm]) => (
+                    <button key={nm} onClick={() => addExLog(nm)}
+                      style={{ padding:'6px 11px', borderRadius:'20px', border:'1px solid var(--card-border)', background:'var(--input-bg)', fontSize:'12px', fontWeight:'600', color:'var(--text)', cursor:'pointer', whiteSpace:'nowrap' }}>
+                      {ic} {nm}
+                    </button>
+                  ))}
                 </div>
+
+                {/* 운동 목록 */}
+                {(day.exercise?.logs||[]).map((log, i) => (
+                  <div key={i} style={{ display:'flex', gap:'6px', alignItems:'center', marginBottom:'8px' }}>
+                    <input type="text" value={log.type} onChange={e=>updateExLog(i,'type',e.target.value)}
+                      placeholder="운동 종류"
+                      style={{ ...inpSt, flex:1, marginBottom:0 }} />
+                    <input type="number" min="0" value={log.mins} onChange={e=>updateExLog(i,'mins',e.target.value)}
+                      placeholder="분"
+                      style={{ ...inpSt, width:'64px', marginBottom:0, textAlign:'center' }} />
+                    <button onClick={() => removeExLog(i)}
+                      style={{ flexShrink:0, width:'30px', height:'30px', borderRadius:'50%', border:'1px solid var(--card-border)', background:'var(--input-bg)', color:'var(--text-mute)', cursor:'pointer', fontSize:'14px', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                  </div>
+                ))}
+
+                {/* + 직접 추가 버튼 */}
+                <button onClick={() => addExLog('')}
+                  style={{ width:'100%', padding:'8px', borderRadius:'10px', border:'1px dashed var(--card-border)', background:'transparent', color:'var(--text-sub)', fontSize:'13px', fontWeight:'600', cursor:'pointer', marginBottom:'10px' }}>
+                  + 직접 추가
+                </button>
+
                 <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', lineHeight:'1.7' }}>
-                  💪 식후 30분 걷기 30분이 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
+                  💪 식후 30분 걷기가 혈당 조절에 가장 효과적<br/>🎯 하루 최소 30분, 주 5일 목표
                 </div>
               </Card>
 
