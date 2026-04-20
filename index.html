@@ -123,6 +123,22 @@
     body.dark input::placeholder,
     body.dark textarea::placeholder { color: var(--text-sub) !important; opacity: 1 !important; }
 
+    /* ── 혈압 숫자 입력 — iOS Safari 블랙 배경 방지 ── */
+    .bp-num-input {
+      background: transparent !important;
+      -webkit-appearance: none;
+      appearance: none;
+      color-scheme: inherit;
+    }
+    body:not(.dark) .bp-num-input {
+      background: transparent !important;
+      color-scheme: light;
+    }
+    body.dark .bp-num-input {
+      background: transparent !important;
+      color-scheme: dark;
+    }
+
     @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr !important; } }
 
     /* 혈당 입력 스피너 제거 (숫자와 단위 겹침 방지) */
@@ -266,7 +282,7 @@
     .bs-num-input { font-size: 30px !important; }
     .bs-input-wrap { width: 58px !important; }
     /* ─ 기록 탭: 혈압 입력 ─ */
-    .bp-num-input { font-size: 34px !important; }
+    .bp-num-input { font-size: 34px !important; background: transparent !important; color-scheme: inherit; -webkit-appearance: none; }
     /* ─ 기록 탭: 혈압 범례 축소 ─ */
     .bp-legend { font-size: 10px !important; gap: 5px !important; margin-bottom: 10px !important; }
 
@@ -4784,7 +4800,7 @@
                               placeholder="---"
                               className="bp-num-input"
                               size={bp.sys ? Math.max(2, bp.sys.length) : 3}
-                              style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
+                              style={{ width:'auto', border:'none', background:'inherit', fontSize:'44px', fontWeight:'900',
                                 color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
                             />
                             <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'500' }}>mmHg</span>
@@ -4805,7 +4821,7 @@
                               placeholder="---"
                               className="bp-num-input"
                               size={bp.dia ? Math.max(2, bp.dia.length) : 3}
-                              style={{ width:'auto', border:'none', background:'transparent', fontSize:'44px', fontWeight:'900',
+                              style={{ width:'auto', border:'none', background:'inherit', fontSize:'44px', fontWeight:'900',
                                 color: hasBP&&bpInfo ? bpInfo.color : 'var(--text-mute)', outline:'none', padding:0, lineHeight:1.1, letterSpacing:'-1px' }}
                             />
                             <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'500' }}>mmHg</span>
