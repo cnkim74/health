@@ -4545,9 +4545,9 @@
                     { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()              : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
                   ];
                   return (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', width:'100%', minWidth:0 }}>
                       {cards.map(item => (
-                        <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)' }}>
+                        <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)', minWidth:0, overflow:'hidden' }}>
                           <div style={{ fontSize:'22px', marginBottom:'4px' }}>{item.icon}</div>
                           <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', marginBottom:'2px' }}>{item.label}</div>
                           <div style={{ fontSize:'20px', fontWeight:'900', color: item.hasData ? item.color : 'var(--text-mute)', letterSpacing:'-0.5px', lineHeight:1.1 }}>{item.val}</div>
