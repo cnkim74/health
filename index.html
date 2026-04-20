@@ -108,6 +108,8 @@
       box-shadow: var(--card-shadow);
       margin-bottom: 18px;
       transition: background 0.25s, border-color 0.25s;
+      overflow: hidden;
+      box-sizing: border-box;
     }
     .cn-divider { border-color: var(--divider); }
 
@@ -481,13 +483,35 @@
     '소주':130,'맥주':150,'막걸리':190,'와인':120,
     '샐러드':80,'시저샐러드':200,'닭가슴살샐러드':220,
     '고구마':130,'감자':130,'단호박':90,'옥수수':100,'떡':220,
+    /* ── 음료 ── */
+    '콜라':150,'사이다':140,'제로콜라':5,'제로사이다':5,'탄산음료':140,'이온음료':90,'포카리':90,'게토레이':90,
+    '스포츠음료':90,'에너지드링크':130,'레드불':110,'핫초코':200,'코코아':200,'식혜':170,'수정과':190,
+    '바나나우유':170,'딸기우유':160,'초코우유':170,'오렌지주스':120,'사과주스':120,'포도주스':130,
+    '믹스커피':55,'인스턴트커피':55,'아이스커피':10,'스무디':250,'프라푸치노':380,'모카':280,'바닐라라테':250,
+    /* ── 간식 ── */
+    '컵라면':350,'신라면':500,'짜파게티컵':450,'불닭볶음면':530,'컵밥':400,'편의점도시락':600,
+    '포테이토칩':540,'감자칩':540,'프링글스':540,'팝콘':400,'팝콘버터':450,'새우깡':480,'꼬북칩':530,
+    '초코파이':170,'오레오':480,'다이제':500,'건빵':400,'쿠키':500,'비스킷':450,'크래커':450,'프레첼':380,
+    '도넛':300,'마카롱':120,'마들렌':130,'붕어빵':180,'호떡':180,'와플':300,'크레이프':250,
+    '젤리':320,'사탕':380,'캐러멜':400,'캔디':380,'초콜릿바':520,'킷캣':510,'스니커즈':490,'허쉬':540,
+    '아이스바':130,'하드':130,'빙수':350,'소프트아이스크림':180,'콘아이스크림':200,
+    '찐빵':180,'단팥빵':280,'크림빵':300,'소시지빵':320,'치즈빵':310,
+    '삶은달걀':80,'반숙달걀':80,'구운달걀':80,'에그마요':200,'참치마요':230,
+    '바나나우유':170,'요구르트':70,'야쿠르트':50,'그릭요거트':130,'치즈케이크':380,'티라미수':330,
+    '견과류':600,'아몬드':580,'땅콩':570,'호두':650,'캐슈넛':560,'믹스넛':590,
+    /* ── 야식 ── */
+    '치킨무':20,'닭발':380,'막창':450,'곱창':390,'곱창볶음':420,'순대국밥':520,'국밥':450,
+    '쌀국수':400,'쌀떡볶이':480,'야끼만두':300,'군만두':300,'교자만두':280,'왕만두':350,
+    '편의점삼각김밥':200,'오징어':80,'쥐포':130,'육포':350,'어포':280,
+    '피맥':650,'치맥':750,'족발':450,'보쌈':380,'소떡소떡':260,'옥수수치즈':300,
   };
 
   const localFoodEstimate = (mealText) => {
-    const items = mealText.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+    const rawLines = mealText.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
       .filter(s => !/kcal|칼로리|탄수화물|단백질|지방|혈당|적합|개선|총\s*영양|음식\s*목록|Powered/i.test(s))
-      .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s))
-      .flatMap(s => s.split(',').map(x => x.trim()).filter(Boolean));
+      .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s));
+    // 쉼표·슬래시로 분리 후 남은 토큰
+    const items = rawLines.flatMap(s => s.split(/[,\/]+/).map(x => x.trim()).filter(Boolean));
     const results = [];
     let totalCal = 0;
 
@@ -4520,8 +4544,8 @@
                       // AI 분석 결과 줄 제외: kcal/cal 포함, 이모지 헤더, 대시 목록
                       .filter(s => !/kcal|칼로리|탄수화물|단백질|지방|혈당|적합|개선|총\s*영양|음식\s*목록|Powered/i.test(s))
                       .filter(s => !/^[-•🍽📊🩸✅💡⚠️※]/.test(s))
-                      // 쉼표 재분리
-                      .flatMap(s => s.split(',').map(x=>x.trim()).filter(Boolean));
+                      // 쉼표·슬래시 재분리
+                      .flatMap(s => s.split(/[,\/]+/).map(x=>x.trim()).filter(Boolean));
                     let tot = 0;
                     items.forEach(item => {
                       const q = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분)/);
@@ -4545,9 +4569,9 @@
                     { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()              : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
                   ];
                   return (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', width:'100%', minWidth:0 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', width:'100%', minWidth:0, boxSizing:'border-box' }}>
                       {cards.map(item => (
-                        <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)', minWidth:0, overflow:'hidden' }}>
+                        <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)', minWidth:0, overflow:'hidden', boxSizing:'border-box', wordBreak:'break-all' }}>
                           <div style={{ fontSize:'22px', marginBottom:'4px' }}>{item.icon}</div>
                           <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', marginBottom:'2px' }}>{item.label}</div>
                           <div style={{ fontSize:'20px', fontWeight:'900', color: item.hasData ? item.color : 'var(--text-mute)', letterSpacing:'-0.5px', lineHeight:1.1 }}>{item.val}</div>
