@@ -185,19 +185,9 @@
     /* 모바일에서 sticky 해제 */
     .cn-sidebar-right { position: static !important; max-height: none !important; overflow-y: visible !important; }
   }
-  /* 사이드바 리포트: 오른쪽 컬럼 상단 고정 (sticky는 우측 컬럼 wrapper에 적용) */
+  /* 사이드바 리포트 */
   .cn-sidebar-report { display: block; }
-  .cn-sidebar-right {
-    position: sticky;
-    top: 72px;
-    max-height: calc(100vh - 80px);
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--card-border) transparent;
-  }
-  .cn-sidebar-right::-webkit-scrollbar { width: 4px; }
-  .cn-sidebar-right::-webkit-scrollbar-track { background: transparent; }
-  .cn-sidebar-right::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
+  .cn-sidebar-right { display: block; }
   @media (max-width: 1023px) {
     .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
     /* 헤더: 모바일에서 불필요한 요소 숨김 */
@@ -3263,6 +3253,37 @@
     );
   };
 
+  /* ── 리포트 미니 요약 (사이드바 접힘 상태) ── */
+  const ReportMiniSummary = ({ data, allMedIds }) => {
+    const summary = useMemo(() => {
+      const allDates = Object.keys(data).filter(k => k !== '_user_settings_').sort();
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      const last30 = allDates.filter(d => new Date(d) >= cutoff);
+      if (!last30.length) return null;
+      const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+      const bpVals = last30.map(d=>data[d]?.bp).filter(b=>b?.sys&&b?.dia).map(b=>({sys:parseFloat(b.sys),dia:parseFloat(b.dia)}));
+      const avgSys = avg(bpVals.map(b=>b.sys)); const avgDia = avg(bpVals.map(b=>b.dia));
+      const bsAll = last30.flatMap(d=>Object.values(data[d]?.bs||{}).map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0));
+      const avgBs = avg(bsAll);
+      const wVals = last30.map(d=>parseFloat(data[d]?.weight)).filter(v=>!isNaN(v)&&v>0);
+      const lastW = wVals[wVals.length-1];
+      const medDays = last30.filter(d=>(allMedIds||[]).some(id=>data[d]?.meds?.[id]===true)).length;
+      const medRate = last30.length ? Math.round(medDays/last30.length*100) : null;
+      return { avgSys, avgDia, avgBs, lastW, medRate, days: last30.length };
+    }, [data, allMedIds]);
+
+    if (!summary) return <div style={{padding:'8px 16px 14px',fontSize:'12px',color:'var(--text-mute)'}}>기록 없음</div>;
+    const s = summary;
+    return (
+      <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', padding:'8px 16px 14px' }}>
+        {s.avgSys && <span style={{fontSize:'12px',background:'var(--cn-danger-100)',color:'var(--cn-danger)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>💓 {Math.round(s.avgSys)}/{Math.round(s.avgDia)}</span>}
+        {s.avgBs  && <span style={{fontSize:'12px',background:'var(--cn-ok-100)',color:'var(--cn-ok)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>🩸 {Math.round(s.avgBs)}</span>}
+        {s.lastW  && <span style={{fontSize:'12px',background:'var(--cn-low-100)',color:'var(--cn-low)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>⚖️ {parseFloat(s.lastW).toFixed(1)}kg</span>}
+        {s.medRate != null && <span style={{fontSize:'12px',background:'var(--cn-brand-100)',color:'var(--cn-brand)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>💊 {s.medRate}%</span>}
+      </div>
+    );
+  };
+
   /* ── 종합 건강 리포트 컴포넌트 ── */
   const HealthReportSection = ({ data, medsConfig, allMedIds }) => {
     const report = useMemo(() => {
@@ -3795,6 +3816,7 @@
     }, [medsConfig]);
     const [showDataRecovery, setShowDataRecovery] = useState(false);
     const [medOpen, setMedOpen] = useState(true);
+    const [reportOpen, setReportOpen] = useState(false); // 사이드바 리포트 기본 접힘
     const [medsConfig, setMedsConfig] = useState([]);
     const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
@@ -4975,9 +4997,29 @@
             <div className="cn-sidebar-right">
               {/* 종합 건강 리포트 — 데스크탑 사이드바 고정 (모바일 숨김) */}
               <div className="cn-sidebar-report">
-                <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', padding:'16px', marginBottom:'12px', boxShadow:'var(--card-shadow)' }}>
-                  <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
-                  <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
+                <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', marginBottom:'12px', boxShadow:'var(--card-shadow)', overflow:'hidden' }}>
+                  {/* 헤더: 항상 표시, 클릭으로 접기/펴기 */}
+                  <button onClick={() => setReportOpen(o => !o)}
+                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+                    <span style={{ display:'flex', alignItems:'center', gap:'8px', fontWeight:'800', fontSize:'15px', color:'var(--text)' }}>
+                      🏥 종합 건강 리포트
+                    </span>
+                    <span style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'var(--text-mute)', fontWeight:'600' }}>
+                      최근 30일
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: reportOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </span>
+                  </button>
+                  {/* 접혔을 때: 핵심 수치만 한 줄 요약 */}
+                  {!reportOpen && <ReportMiniSummary data={data} allMedIds={allMedIds} />}
+                  {/* 펼쳤을 때: 전체 리포트 */}
+                  {reportOpen && (
+                    <div style={{ padding:'0 16px 16px', borderTop:'1px solid var(--card-border)' }}>
+                      <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
+                    </div>
+                  )}
                 </div>
               </div>
 
