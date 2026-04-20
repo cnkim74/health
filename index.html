@@ -182,19 +182,22 @@
     /* 모바일에서 사이드바 리포트 숨김 (탭으로 보임) */
     .cn-sidebar-report { display: none !important; }
     .cn-report-tab-only { display: block; }
+    /* 모바일에서 sticky 해제 */
+    .cn-sidebar-right { position: static !important; max-height: none !important; overflow-y: visible !important; }
   }
-  /* 사이드바 sticky 리포트 컨테이너 */
-  .cn-sidebar-report {
+  /* 사이드바 리포트: 오른쪽 컬럼 상단 고정 (sticky는 우측 컬럼 wrapper에 적용) */
+  .cn-sidebar-report { display: block; }
+  .cn-sidebar-right {
     position: sticky;
-    top: 80px;
-    max-height: calc(100vh - 100px);
+    top: 72px;
+    max-height: calc(100vh - 80px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--card-border) transparent;
   }
-  .cn-sidebar-report::-webkit-scrollbar { width: 4px; }
-  .cn-sidebar-report::-webkit-scrollbar-track { background: transparent; }
-  .cn-sidebar-report::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
+  .cn-sidebar-right::-webkit-scrollbar { width: 4px; }
+  .cn-sidebar-right::-webkit-scrollbar-track { background: transparent; }
+  .cn-sidebar-right::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
   @media (max-width: 1023px) {
     .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
     /* 헤더: 모바일에서 불필요한 요소 숨김 */
@@ -3470,12 +3473,12 @@
         {/* 체중 */}
         <div style={{ marginBottom:'12px' }}>
           <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>⚖️ 체중 · 체지방</div>
-          <StatRow icon="⚖️" label="현재 체중" value={r.lastW ? `${r.lastW}` : null} sub="kg"
+          <StatRow icon="⚖️" label="현재 체중" value={r.lastW ? `${parseFloat(r.lastW).toFixed(1)}` : null} sub="kg"
             trend={r.wChange != null ? { icon: r.wChange > 0 ? '↑' : r.wChange < 0 ? '↓' : '→',
               color: r.wChange < 0 ? 'var(--cn-ok)' : r.wChange > 0 ? 'var(--cn-danger)' : 'var(--text-sub)',
               label: '' } : null}
             note={r.wChange != null ? `30일간 ${r.wChange > 0 ? '+' : ''}${r.wChange.toFixed(1)}kg` : null} />
-          {r.lastBf && <StatRow icon="💧" label="체지방율" value={`${r.lastBf}%`}
+          {r.lastBf && <StatRow icon="💧" label="체지방율" value={`${parseFloat(r.lastBf).toFixed(1)}%`}
             trend={r.bfChange != null ? { icon: r.bfChange > 0 ? '↑' : r.bfChange < 0 ? '↓' : '→',
               color: r.bfChange < 0 ? 'var(--cn-ok)' : r.bfChange > 0 ? 'var(--cn-danger)' : 'var(--text-sub)',
               label: '' } : null}
@@ -4969,7 +4972,7 @@
             </div>
 
             {/* ── RIGHT ── */}
-            <div>
+            <div className="cn-sidebar-right">
               {/* 종합 건강 리포트 — 데스크탑 사이드바 고정 (모바일 숨김) */}
               <div className="cn-sidebar-report">
                 <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', padding:'16px', marginBottom:'12px', boxShadow:'var(--card-shadow)' }}>
