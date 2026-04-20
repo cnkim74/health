@@ -4132,6 +4132,17 @@
           if (Object.keys(urlPatch).length) {
             loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
             sessionStorage.removeItem('cn_url_patch'); // 적용 완료 후 제거
+            // URL 파라미터 입력 시 즉시 Supabase 저장 (iOS 백그라운드 전환 전에 완료)
+            try {
+              await supa.from('diabetes_data').upsert(
+                { user_id: userId, date: targetDate, payload: loaded[targetDate], updated_at: new Date().toISOString() },
+                { onConflict: 'user_id,date' }
+              );
+              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+            } catch(saveErr) {
+              // 실패해도 로컬캐시에는 남아있음
+              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+            }
           }
           setData(loaded);
         } catch(e) {
