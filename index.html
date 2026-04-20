@@ -4458,7 +4458,10 @@
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
               <div style={{ textAlign:'center', minWidth:'130px' }}>
                 <div style={{ color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
-                {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer', marginTop:'2px' }}>오늘로</button>}
+                {/* 항상 고정 높이 — 버튼 유무로 헤더 높이가 변하지 않게 */}
+                <div style={{ height:'22px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer' }}>오늘로</button>}
+                </div>
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
             </div>
