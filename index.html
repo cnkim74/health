@@ -3239,6 +3239,223 @@
     );
   };
 
+  /* ── 종합 건강 리포트 컴포넌트 ── */
+  const HealthReportSection = ({ data, medsConfig, allMedIds }) => {
+    const report = useMemo(() => {
+      const KEY_SKIP = '_user_settings_';
+      const allDates = Object.keys(data).filter(k => k !== KEY_SKIP).sort();
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      const last30 = allDates.filter(d => new Date(d) >= cutoff);
+      const prev30start = new Date(); prev30start.setDate(prev30start.getDate() - 60);
+      const prev30 = allDates.filter(d => new Date(d) >= prev30start && new Date(d) < cutoff);
+
+      const avg = (arr) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+
+      /* 혈압 */
+      const bpVals = last30.map(d => data[d]?.bp).filter(b => b?.sys && b?.dia)
+        .map(b => ({ sys: parseFloat(b.sys), dia: parseFloat(b.dia) }));
+      const prevBpVals = prev30.map(d => data[d]?.bp).filter(b => b?.sys && b?.dia)
+        .map(b => ({ sys: parseFloat(b.sys), dia: parseFloat(b.dia) }));
+      const avgSys = avg(bpVals.map(b=>b.sys));
+      const avgDia = avg(bpVals.map(b=>b.dia));
+      const prevAvgSys = avg(prevBpVals.map(b=>b.sys));
+      const bpNormal = bpVals.filter(b => b.sys < 130 && b.dia < 85).length;
+      const bpRate = bpVals.length ? Math.round(bpNormal/bpVals.length*100) : null;
+
+      /* 혈당 */
+      const bsAll = last30.flatMap(d => {
+        const bs = data[d]?.bs || {};
+        return Object.values(bs).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+      });
+      const prevBsAll = prev30.flatMap(d => {
+        const bs = data[d]?.bs || {};
+        return Object.values(bs).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+      });
+      const avgBs = avg(bsAll);
+      const prevAvgBs = avg(prevBsAll);
+      const bsNormal = bsAll.filter(v => v >= 70 && v <= 140).length;
+      const bsRate = bsAll.length ? Math.round(bsNormal/bsAll.length*100) : null;
+
+      /* 체중 */
+      const wVals = last30.map(d => parseFloat(data[d]?.weight)).filter(v => !isNaN(v) && v > 0);
+      const firstW = wVals[0], lastW = wVals[wVals.length-1];
+      const wChange = (firstW && lastW) ? (lastW - firstW) : null;
+
+      /* 체지방 */
+      const bfVals = last30.map(d => parseFloat(data[d]?.bodyFat)).filter(v => !isNaN(v) && v > 0);
+      const firstBf = bfVals[0], lastBf = bfVals[bfVals.length-1];
+      const bfChange = (firstBf && lastBf) ? (lastBf - firstBf) : null;
+
+      /* 운동 (걸음수) */
+      const stepsVals = last30.map(d => parseFloat(data[d]?.steps)).filter(v => !isNaN(v) && v > 0);
+      const avgSteps = avg(stepsVals);
+      const prevStepsVals = prev30.map(d => parseFloat(data[d]?.steps)).filter(v => !isNaN(v) && v > 0);
+      const prevAvgSteps = avg(prevStepsVals);
+      const activeDays = last30.filter(d => {
+        const s = parseFloat(data[d]?.steps); const c = parseFloat(data[d]?.cal);
+        const logs = data[d]?.exercise?.logs || [];
+        return (s > 3000) || (c > 200) || logs.length > 0;
+      }).length;
+
+      /* 복약 순응도 */
+      const medDays = last30.filter(d => {
+        const meds = data[d]?.meds || {};
+        const allIds = allMedIds || [];
+        if (!allIds.length) return false;
+        return allIds.some(id => meds[id] === true);
+      }).length;
+      const medRate = last30.length ? Math.round(medDays/last30.length*100) : null;
+
+      /* 기록 충실도 */
+      const recordedDays = last30.filter(d => {
+        const dy = data[d]; if (!dy) return false;
+        return (dy.bp?.sys) || (dy.weight) || Object.values(dy.bs||{}).some(v=>v);
+      }).length;
+      const recordRate = last30.length ? Math.round(recordedDays/last30.length*100) : null;
+
+      /* 트렌드 화살표 */
+      const trend = (now, prev, lowerBetter=false) => {
+        if (now == null || prev == null) return null;
+        const diff = now - prev;
+        if (Math.abs(diff) < 1) return { icon:'→', color:'var(--text-sub)', label:'유지' };
+        const improving = lowerBetter ? diff < 0 : diff > 0;
+        return improving
+          ? { icon:'↑', color:'var(--cn-ok)', label:`${lowerBetter?'감소':'증가'}` }
+          : { icon:'↓', color:'var(--cn-danger)', label:`${lowerBetter?'증가':'감소'}` };
+      };
+      const bpTrend = trend(avgSys, prevAvgSys, true);
+      const bsTrend = trend(avgBs, prevAvgBs, true);
+      const stepsTrend = trend(avgSteps, prevAvgSteps, false);
+
+      /* 종합 점수 */
+      let score = 0, scoreItems = 0;
+      if (bpRate != null)   { score += bpRate;    scoreItems++; }
+      if (bsRate != null)   { score += bsRate;    scoreItems++; }
+      if (medRate != null && allMedIds?.length)  { score += medRate;   scoreItems++; }
+      if (recordRate != null){ score += recordRate; scoreItems++; }
+      const totalScore = scoreItems ? Math.round(score/scoreItems) : null;
+      const scoreGrade = totalScore == null ? null
+        : totalScore >= 90 ? { label:'매우 좋음', color:'var(--cn-ok)', emoji:'🏆' }
+        : totalScore >= 75 ? { label:'좋음',      color:'#3b82f6',     emoji:'👍' }
+        : totalScore >= 60 ? { label:'보통',       color:'#f59e0b',     emoji:'📊' }
+        :                    { label:'주의 필요',  color:'var(--cn-danger)', emoji:'⚠️' };
+
+      return { last30Len: last30.length, avgSys, avgDia, bpRate, bpTrend,
+               avgBs, bsAll, bsRate, bsTrend,
+               lastW, wChange, lastBf, bfChange,
+               avgSteps, activeDays, stepsTrend,
+               medRate, recordRate, totalScore, scoreGrade };
+    }, [data, allMedIds]);
+
+    const r = report;
+    if (r.last30Len === 0) return (
+      <div style={{ textAlign:'center', padding:'32px 0', color:'var(--text-sub)', fontSize:'14px' }}>
+        기록이 없어요. 건강 데이터를 입력하면 리포트가 생성돼요.
+      </div>
+    );
+
+    const StatRow = ({ icon, label, value, sub, trend, note }) => (
+      <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 0', borderBottom:'1px solid var(--card-border)' }}>
+        <div style={{ fontSize:'22px', width:'32px', textAlign:'center', flexShrink:0 }}>{icon}</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>{label}</div>
+          {note && <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'1px' }}>{note}</div>}
+        </div>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontSize:'18px', fontWeight:'800', color:'var(--text)' }}>{value ?? '–'}</div>
+          {sub && <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'1px' }}>{sub}</div>}
+        </div>
+        {trend && (
+          <div style={{ fontSize:'18px', fontWeight:'800', color:trend.color, width:'24px', textAlign:'center' }}>{trend.icon}</div>
+        )}
+      </div>
+    );
+
+    const RateBar = ({ rate, color }) => rate == null ? null : (
+      <div style={{ height:'6px', background:'var(--card-border)', borderRadius:'3px', margin:'4px 0 0', overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${rate}%`, background:color || 'var(--cn-brand)', borderRadius:'3px', transition:'width 0.6s ease' }} />
+      </div>
+    );
+
+    return (
+      <div>
+        {/* 종합 점수 */}
+        {r.scoreGrade && (
+          <div style={{ background:`linear-gradient(135deg, ${r.scoreGrade.color}22, ${r.scoreGrade.color}11)`,
+            border:`1.5px solid ${r.scoreGrade.color}44`, borderRadius:'14px', padding:'16px', marginBottom:'16px', textAlign:'center' }}>
+            <div style={{ fontSize:'36px', marginBottom:'4px' }}>{r.scoreGrade.emoji}</div>
+            <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>종합 건강 지수</div>
+            <div style={{ fontSize:'42px', fontWeight:'900', color:r.scoreGrade.color, lineHeight:1.1 }}>{r.totalScore}<span style={{fontSize:'18px'}}>점</span></div>
+            <div style={{ fontSize:'14px', fontWeight:'700', color:r.scoreGrade.color, marginTop:'4px' }}>{r.scoreGrade.label}</div>
+            <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'6px' }}>최근 30일 {r.last30Len}일 기준</div>
+          </div>
+        )}
+
+        {/* 혈압 */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>💓 혈압</div>
+          <StatRow icon="🩺" label="평균 혈압" value={r.avgSys ? `${Math.round(r.avgSys)}/${Math.round(r.avgDia)}` : null} sub="mmHg" trend={r.bpTrend} note="전월 대비" />
+          {r.bpRate != null && <>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'6px' }}>정상 범위 달성률 <strong>{r.bpRate}%</strong> ({r.bpVals?.length ?? '–'}회 측정)</div>
+            <RateBar rate={r.bpRate} color={r.bpRate >= 70 ? 'var(--cn-ok)' : r.bpRate >= 50 ? '#f59e0b' : 'var(--cn-danger)'} />
+          </>}
+        </div>
+
+        {/* 혈당 */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>🩸 혈당</div>
+          <StatRow icon="📉" label="평균 혈당" value={r.avgBs ? `${Math.round(r.avgBs)}` : null} sub="mg/dL" trend={r.bsTrend} note="전월 대비" />
+          {r.bsRate != null && <>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'6px' }}>정상 범위(70~140) 달성률 <strong>{r.bsRate}%</strong> ({r.bsAll?.length ?? '–'}회 측정)</div>
+            <RateBar rate={r.bsRate} color={r.bsRate >= 70 ? 'var(--cn-ok)' : r.bsRate >= 50 ? '#f59e0b' : 'var(--cn-danger)'} />
+          </>}
+        </div>
+
+        {/* 체중 */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>⚖️ 체중 · 체지방</div>
+          <StatRow icon="⚖️" label="현재 체중" value={r.lastW ? `${r.lastW}` : null} sub="kg"
+            trend={r.wChange != null ? { icon: r.wChange > 0 ? '↑' : r.wChange < 0 ? '↓' : '→',
+              color: r.wChange < 0 ? 'var(--cn-ok)' : r.wChange > 0 ? 'var(--cn-danger)' : 'var(--text-sub)',
+              label: '' } : null}
+            note={r.wChange != null ? `30일간 ${r.wChange > 0 ? '+' : ''}${r.wChange.toFixed(1)}kg` : null} />
+          {r.lastBf && <StatRow icon="💧" label="체지방율" value={`${r.lastBf}%`}
+            trend={r.bfChange != null ? { icon: r.bfChange > 0 ? '↑' : r.bfChange < 0 ? '↓' : '→',
+              color: r.bfChange < 0 ? 'var(--cn-ok)' : r.bfChange > 0 ? 'var(--cn-danger)' : 'var(--text-sub)',
+              label: '' } : null}
+            note={r.bfChange != null ? `30일간 ${r.bfChange > 0 ? '+' : ''}${r.bfChange.toFixed(1)}%` : null} />}
+        </div>
+
+        {/* 운동 */}
+        <div style={{ marginBottom:'12px' }}>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>🏃 활동</div>
+          <StatRow icon="👟" label="일평균 걸음수" value={r.avgSteps ? Math.round(r.avgSteps).toLocaleString() : null} sub="걸음" trend={r.stepsTrend} note="전월 대비" />
+          <StatRow icon="🗓️" label="활동 달성일" value={r.activeDays != null ? `${r.activeDays}일` : null} sub={`/ ${r.last30Len}일`}
+            note="걸음 3000+ 또는 운동 기록 있는 날" />
+          {r.activeDays != null && r.last30Len && <>
+            <RateBar rate={Math.round(r.activeDays/r.last30Len*100)} color={r.activeDays/r.last30Len >= 0.5 ? 'var(--cn-ok)' : '#f59e0b'} />
+          </>}
+        </div>
+
+        {/* 복약 */}
+        {r.medRate != null && (
+          <div style={{ marginBottom:'12px' }}>
+            <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>💊 복약</div>
+            <StatRow icon="💊" label="복약 순응도" value={`${r.medRate}%`} sub={`${r.last30Len}일 중`} />
+            <RateBar rate={r.medRate} color={r.medRate >= 80 ? 'var(--cn-ok)' : r.medRate >= 60 ? '#f59e0b' : 'var(--cn-danger)'} />
+          </div>
+        )}
+
+        {/* 기록 충실도 */}
+        <div>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>📝 기록</div>
+          <StatRow icon="📋" label="기록 충실도" value={r.recordRate != null ? `${r.recordRate}%` : null} sub={`${r.last30Len}일 중 ${Math.round((r.recordRate||0)*r.last30Len/100)}일 기록`} />
+          <RateBar rate={r.recordRate} color={r.recordRate >= 80 ? 'var(--cn-ok)' : r.recordRate >= 50 ? '#f59e0b' : 'var(--cn-danger)'} />
+        </div>
+      </div>
+    );
+  };
+
   /* ── 대시보드: 홈탭 ── */
   const DashboardHome = ({ data, date, medsConfig, allMedIds }) => {
     const score = useMemo(() => calcHealthScore(data), [data]);
@@ -4657,6 +4874,12 @@
                 <div style={{ fontSize:'16px', color:'var(--text-sub)', textAlign:'center', marginTop:'6px' }}>
                   혈당 기록이 쌓이면 의사 선생님과 인슐린 용량 조정 상담에 활용하세요
                 </div>
+              </Card>
+
+              {/* 종합 건강 리포트 */}
+              <Card tab="report">
+                <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
+                <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
               </Card>
             </div>
 
