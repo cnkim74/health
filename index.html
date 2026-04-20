@@ -4491,23 +4491,46 @@
             {/* ── LEFT ── */}
             <div>
 
-              {/* 오늘 활동 요약 3카드 */}
+              {/* 오늘 활동 요약 4카드 */}
               <Card tab="record">
                 <STitle icon="🏃" label="오늘 활동" />
                 {(() => {
                   const stepsPct = day.steps ? Math.min(100, Math.round(Number(day.steps)/100)) : null;
+                  // 식사 섭취 칼로리 추정
+                  const estCal = (text) => {
+                    if (!text?.trim()) return 0;
+                    const items = text.split(/[,\n·]+/).map(s=>s.trim()).filter(Boolean);
+                    let tot = 0;
+                    items.forEach(item => {
+                      const q = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분)/);
+                      const qty = q ? parseFloat(q[1]) : 1;
+                      let best=null, bestLen=0;
+                      for (const [name,cal] of Object.entries(FOOD_DB)) {
+                        if (item.includes(name) && name.length>bestLen) { best=cal; bestLen=name.length; }
+                      }
+                      if (best) tot += Math.round(best*qty);
+                    });
+                    return tot;
+                  };
+                  let intakeCal = 0;
+                  ['breakfast','lunch','dinner'].forEach(id => { intakeCal += estCal(day.meals?.[id]); });
+                  (day.extraMeals||[]).forEach(em => { intakeCal += estCal(em.text); });
+
                   const cards = [
-                    { icon:'👟', label:'걸음수', val: day.steps ? Number(day.steps).toLocaleString() : '---', unit:'걸음', color:'var(--cn-brand)', hasData: !!day.steps, pct: stepsPct },
-                    { icon:'🔥', label:'칼로리', val: day.cal   ? Math.round(Number(day.cal)).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: !!day.cal, pct: null },
-                    { icon:'📍', label:'거리',   val: day.dist  ? Number(day.dist).toFixed(1) : '---', unit:'km', color:'var(--cn-ok)', hasData: !!day.dist, pct: null },
+                    { icon:'👟', label:'걸음수',     val: day.steps    ? Number(day.steps).toLocaleString()       : '---', unit:'걸음',  color:'var(--cn-brand)',  hasData: !!day.steps,  pct: stepsPct },
+                    { icon:'🔥', label:'소모 칼로리', val: day.cal      ? Math.round(Number(day.cal)).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: !!day.cal,    pct: null },
+                    { icon:'📍', label:'거리',        val: day.dist     ? Number(day.dist).toFixed(1)              : '---', unit:'km',   color:'var(--cn-ok)',    hasData: !!day.dist,   pct: null },
+                    { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()              : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
                   ];
                   return (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                       {cards.map(item => (
                         <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)' }}>
                           <div style={{ fontSize:'22px', marginBottom:'4px' }}>{item.icon}</div>
+                          <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', marginBottom:'2px' }}>{item.label}</div>
                           <div style={{ fontSize:'20px', fontWeight:'900', color: item.hasData ? item.color : 'var(--text-mute)', letterSpacing:'-0.5px', lineHeight:1.1 }}>{item.val}</div>
                           <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'3px' }}>{item.unit}</div>
+                          {item.sub && !item.hasData && <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{item.sub}</div>}
                           {item.pct !== null && (
                             <div style={{ marginTop:'6px' }}>
                               <div style={{ background:'var(--card-border)', borderRadius:'3px', height:'4px', overflow:'hidden' }}>
