@@ -1382,6 +1382,14 @@
 
     const updSlotName = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, slot:val} : s));
     const updSlotIcon = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, icon:val} : s));
+    const updSlotTime = (key, val) => setCfg(c => c.map(s => s.key===key ? {...s, notifTime:val} : s));
+
+    const requestNotifPermission = async () => {
+      if (!('Notification' in window)) { alert('이 브라우저는 알림을 지원하지 않아요.'); return; }
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') alert('✅ 알림이 허용됐어요! 복약 시간에 알림이 울려요.');
+      else alert('알림을 허용해야 복약 알람을 받을 수 있어요.');
+    };
     const delSlot = (key) => { if(window.confirm('이 시간대를 삭제할까요?')) setCfg(c => c.filter(s => s.key!==key)); };
     const moveSlot = (key, dir) => setCfg(c => {
       const idx = c.findIndex(s => s.key===key);
@@ -1572,6 +1580,10 @@
                   <>
                     <span style={{fontSize:'14px'}}>{slot.icon}</span>
                     <span style={{fontSize:'16px',fontWeight:'700',color:slot.color,flex:1}}>{slot.slot}</span>
+                    {/* 알람 시간 */}
+                    <input type="time" value={slot.notifTime||''} onChange={e=>updSlotTime(slot.key,e.target.value)}
+                      title="알람 시간"
+                      style={{border:'1px solid var(--card-border)',borderRadius:'6px',padding:'3px 6px',fontSize:'13px',color:'var(--text)',background:'var(--card-bg)',cursor:'pointer',width:'90px'}}/>
                     <button onClick={()=>moveSlot(slot.key,-1)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'var(--text-mute)',padding:'0 2px'}} title="위로">▲</button>
                     <button onClick={()=>moveSlot(slot.key,+1)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'13px',color:'var(--text-mute)',padding:'0 2px'}} title="아래로">▼</button>
                     <button onClick={()=>setEditingSlot(slot.key)} style={{background:'transparent',border:'none',cursor:'pointer',fontSize:'14px',color:'var(--text-sub)'}}>✏️</button>
@@ -1635,6 +1647,12 @@
             style={{width:'100%',padding:'10px',background:'var(--input-bg)',border:'1px dashed var(--card-border)',
                     color:'var(--text-sub)',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700',marginBottom:'14px'}}>
             ＋ 시간대 추가 <span style={{fontSize:'11px',fontWeight:'400',color:'var(--text-mute)'}}>(아침·점심·저녁·취침전 외 추가)</span>
+          </button>
+
+          {/* ── 알림 허용 버튼 ── */}
+          <button onClick={requestNotifPermission}
+            style={{width:'100%',padding:'10px',marginBottom:'8px',background:'var(--cn-warn-100)',border:'1px solid var(--cn-warn)',color:'var(--cn-warn)',borderRadius:'10px',cursor:'pointer',fontSize:'13px',fontWeight:'700'}}>
+            🔔 복약 알람 허용하기 (각 슬롯 시간 설정 후 클릭)
           </button>
 
           {/* ── 저장 / 전체삭제 ── */}
@@ -3372,6 +3390,45 @@
       supa.from('cn_profiles').select('avatar_url').eq('id', userId).maybeSingle()
         .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
     }, [userId]);
+
+    // ── 복약 알람 스케줄러 (매 분 체크) ──
+    useEffect(() => {
+      if (!medsConfig.length) return;
+      const firedKey = new Set(); // 같은 분에 중복 발화 방지
+
+      const check = () => {
+        if (Notification.permission !== 'granted') return;
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        const key  = `${hhmm}_${now.toDateString()}`;
+        if (firedKey.has(key)) return;
+
+        medsConfig.forEach(slot => {
+          if (!slot.notifTime || slot.notifTime !== hhmm) return;
+          if (firedKey.has(key + slot.key)) return;
+          firedKey.add(key + slot.key);
+
+          const activeItems = (slot.items||[]).filter(m => {
+            const today = now.toISOString().slice(0,10);
+            if (m.startDate && today < m.startDate) return false;
+            if (m.endDate   && today > m.endDate)   return false;
+            return true;
+          });
+          if (!activeItems.length) return;
+
+          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
+            body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
+            icon: '/favicon-192.png',
+            badge: '/favicon-192.png',
+            tag: slot.key,
+          });
+        });
+      };
+
+      check(); // 즉시 1회 체크
+      const timer = setInterval(check, 60000); // 매 분 체크
+      return () => clearInterval(timer);
+    }, [medsConfig]);
     const [showDataRecovery, setShowDataRecovery] = useState(false);
     const [medOpen, setMedOpen] = useState(true);
     const [medsConfig, setMedsConfig] = useState([]);
@@ -5023,5 +5080,11 @@
 
   ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+  <script>
+    // 서비스 워커 등록 (복약 알람)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
