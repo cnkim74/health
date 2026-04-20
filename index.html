@@ -3261,25 +3261,63 @@
       const last30 = allDates.filter(d => new Date(d) >= cutoff);
       if (!last30.length) return null;
       const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+      // 혈압
       const bpVals = last30.map(d=>data[d]?.bp).filter(b=>b?.sys&&b?.dia).map(b=>({sys:parseFloat(b.sys),dia:parseFloat(b.dia)}));
       const avgSys = avg(bpVals.map(b=>b.sys)); const avgDia = avg(bpVals.map(b=>b.dia));
+      const bpRate = bpVals.length ? Math.round(bpVals.filter(b=>b.sys<130&&b.dia<85).length/bpVals.length*100) : null;
+      // 혈당
       const bsAll = last30.flatMap(d=>Object.values(data[d]?.bs||{}).map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0));
       const avgBs = avg(bsAll);
+      const bsRate = bsAll.length ? Math.round(bsAll.filter(v=>v>=70&&v<=140).length/bsAll.length*100) : null;
+      // 체중
       const wVals = last30.map(d=>parseFloat(data[d]?.weight)).filter(v=>!isNaN(v)&&v>0);
       const lastW = wVals[wVals.length-1];
+      // 복약
       const medDays = last30.filter(d=>(allMedIds||[]).some(id=>data[d]?.meds?.[id]===true)).length;
-      const medRate = last30.length ? Math.round(medDays/last30.length*100) : null;
-      return { avgSys, avgDia, avgBs, lastW, medRate, days: last30.length };
+      const medRate = (last30.length && (allMedIds||[]).length) ? Math.round(medDays/last30.length*100) : null;
+      // 기록률
+      const recDays = last30.filter(d=>{ const dy=data[d]; return dy&&(dy.bp?.sys||dy.weight||Object.values(dy.bs||{}).some(v=>v)); }).length;
+      const recRate = last30.length ? Math.round(recDays/last30.length*100) : null;
+      // 종합 점수
+      let sc=0, n=0;
+      if (bpRate!=null){sc+=bpRate;n++;} if (bsRate!=null){sc+=bsRate;n++;}
+      if (medRate!=null){sc+=medRate;n++;} if (recRate!=null){sc+=recRate;n++;}
+      const totalScore = n ? Math.round(sc/n) : null;
+      const grade = totalScore==null ? null
+        : totalScore>=90 ? {label:'매우 좋음',color:'var(--cn-ok)',emoji:'🏆'}
+        : totalScore>=75 ? {label:'좋음',color:'#3b82f6',emoji:'👍'}
+        : totalScore>=60 ? {label:'보통',color:'#f59e0b',emoji:'📊'}
+        :                  {label:'주의 필요',color:'var(--cn-danger)',emoji:'⚠️'};
+      return { avgSys, avgDia, avgBs, lastW, medRate, totalScore, grade };
     }, [data, allMedIds]);
 
     if (!summary) return <div style={{padding:'8px 16px 14px',fontSize:'12px',color:'var(--text-mute)'}}>기록 없음</div>;
     const s = summary;
     return (
-      <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', padding:'8px 16px 14px' }}>
-        {s.avgSys && <span style={{fontSize:'12px',background:'var(--cn-danger-100)',color:'var(--cn-danger)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>💓 {Math.round(s.avgSys)}/{Math.round(s.avgDia)}</span>}
-        {s.avgBs  && <span style={{fontSize:'12px',background:'var(--cn-ok-100)',color:'var(--cn-ok)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>🩸 {Math.round(s.avgBs)}</span>}
-        {s.lastW  && <span style={{fontSize:'12px',background:'var(--cn-low-100)',color:'var(--cn-low)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>⚖️ {parseFloat(s.lastW).toFixed(1)}kg</span>}
-        {s.medRate != null && <span style={{fontSize:'12px',background:'var(--cn-brand-100)',color:'var(--cn-brand)',borderRadius:'8px',padding:'3px 8px',fontWeight:'700'}}>💊 {s.medRate}%</span>}
+      <div style={{ padding:'0 16px 16px' }}>
+        {/* 종합 점수 */}
+        {s.grade && (
+          <div style={{ display:'flex', alignItems:'center', gap:'14px', padding:'10px 14px', borderRadius:'12px',
+            background:`linear-gradient(135deg,${s.grade.color}18,${s.grade.color}08)`,
+            border:`1px solid ${s.grade.color}33`, marginBottom:'10px' }}>
+            <div style={{ fontSize:'28px', lineHeight:1 }}>{s.grade.emoji}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600' }}>종합 건강 지수 · 30일</div>
+              <div style={{ fontSize:'26px', fontWeight:'900', color:s.grade.color, lineHeight:1.1 }}>
+                {s.totalScore}<span style={{fontSize:'13px',fontWeight:'700'}}>점</span>
+              </div>
+            </div>
+            <div style={{ fontSize:'13px', fontWeight:'700', color:s.grade.color, background:`${s.grade.color}20`,
+              borderRadius:'8px', padding:'3px 10px' }}>{s.grade.label}</div>
+          </div>
+        )}
+        {/* 핵심 지표 태그 */}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
+          {s.avgSys && <span style={{fontSize:'12px',background:'var(--cn-danger-100)',color:'var(--cn-danger)',borderRadius:'8px',padding:'4px 9px',fontWeight:'700'}}>💓 {Math.round(s.avgSys)}/{Math.round(s.avgDia)}</span>}
+          {s.avgBs  && <span style={{fontSize:'12px',background:'var(--cn-ok-100)',color:'var(--cn-ok)',borderRadius:'8px',padding:'4px 9px',fontWeight:'700'}}>🩸 {Math.round(s.avgBs)}</span>}
+          {s.lastW  && <span style={{fontSize:'12px',background:'var(--cn-low-100)',color:'var(--cn-low)',borderRadius:'8px',padding:'4px 9px',fontWeight:'700'}}>⚖️ {parseFloat(s.lastW).toFixed(1)}kg</span>}
+          {s.medRate!=null && <span style={{fontSize:'12px',background:'var(--cn-brand-100)',color:'var(--cn-brand)',borderRadius:'8px',padding:'4px 9px',fontWeight:'700'}}>💊 {s.medRate}%</span>}
+        </div>
       </div>
     );
   };
