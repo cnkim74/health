@@ -385,35 +385,24 @@
     reader.onerror = reject;
   });
 
-  /* ── Gemini API 공통 요청 (429 재시도 포함) ── */
+  /* ── Gemini API 공통 요청 ── */
   // gemini-2.0-flash-lite: 30 RPM (free tier) — gemini-2.0-flash 대비 3배 한도
   const GEMINI_MODEL = 'gemini-2.0-flash-lite';
-  const geminiRequest = async (body, retries = 4) => {
-    for (let i = 0; i < retries; i++) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-        { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }
-      );
-      if (res.status === 429) {
-        if (i < retries - 1) {
-          const wait = 15000 * (i + 1); // 15초, 30초, 45초 대기 후 재시도
-          await new Promise(r => setTimeout(r, wait));
-          continue;
-        }
-        throw new Error('요청 한도 초과예요. 잠시 후 다시 눌러주세요. (429)');
-      }
-      if (!res.ok) throw new Error(`API 오류: ${res.status}`);
-      const json = await res.json();
-      return json.candidates?.[0]?.content?.parts?.[0]?.text || '분석 결과를 가져올 수 없어요.';
-    }
+  const geminiRequest = async (body) => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+      { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }
+    );
+    if (res.status === 429) throw new Error('API 한도 초과예요. 잠시 후 다시 눌러주세요. ⏳');
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+    const json = await res.json();
+    return json.candidates?.[0]?.content?.parts?.[0]?.text || '분석 결과를 가져올 수 없어요.';
   };
 
   const analyzeFood = async (imageBase64, mimeType) => {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
@@ -459,10 +448,72 @@
     return json.candidates?.[0]?.content?.parts?.[0]?.text || '분석 결과를 가져올 수 없어요.';
   };
 
-  /* ── Gemini 텍스트 칼로리 추정 ──────────────────────────────── */
-  const analyzeFoodText = (mealText) => geminiRequest({
-    contents: [{
-      parts: [{ text: `다음 식사 내용의 칼로리와 영양소를 추정해 주세요. 인슐린을 맞고 있는 2형 당뇨 환자의 식단 기록입니다.
+  /* ── 한국 음식 칼로리 내장 DB (Gemini 불가 시 fallback) ── */
+  const FOOD_DB = {
+    '밥':550,'공기밥':300,'쌀밥':300,'현미밥':320,'잡곡밥':310,'죽':150,'미음':80,
+    '김치찌개':180,'된장찌개':120,'순두부찌개':150,'부대찌개':320,'청국장':140,'미역국':60,'콩나물국':50,
+    '불고기':280,'갈비':420,'삼겹살':500,'목살':420,'항정살':450,'갈비찜':380,'제육볶음':380,'닭볶음탕':280,
+    '치킨':350,'후라이드치킨':400,'양념치킨':420,'삼계탕':450,'닭가슴살':165,'오리고기':350,
+    '생선구이':200,'조기구이':180,'고등어구이':250,'삼치구이':220,'꽁치구이':230,'연어':200,
+    '두부':80,'순두부':60,'계란':80,'계란후라이':110,'계란말이':150,'계란찜':120,
+    '김치':20,'깍두기':30,'나물':50,'시금치나물':40,'콩나물무침':35,'도라지나물':45,
+    '라면':480,'짜파게티':550,'우동':320,'짜장면':650,'짬뽕':550,'볶음밥':600,'비빔밥':550,'냉면':450,
+    '김밥':350,'삼각김밥':200,'초밥':50,'회':180,'떡볶이':450,'순대':300,'튀김':400,
+    '피자':280,'햄버거':500,'샌드위치':350,'핫도그':350,'파스타':500,'스파게티':500,
+    '빵':250,'식빵':130,'크로아상':250,'베이글':270,'케이크':380,'과자':500,'초콜릿':550,
+    '사과':80,'바나나':90,'귤':45,'오렌지':60,'포도':70,'수박':30,'딸기':35,'키위':60,
+    '우유':130,'두유':100,'요거트':100,'치즈':110,'아이스크림':200,
+    '커피':10,'아메리카노':10,'라테':120,'카페라테':120,'카푸치노':100,'녹차':3,'홍차':3,'주스':120,
+    '소주':130,'맥주':150,'막걸리':190,'와인':120,
+    '샐러드':80,'시저샐러드':200,'닭가슴살샐러드':220,
+    '고구마':130,'감자':130,'단호박':90,'옥수수':100,'떡':220,
+  };
+
+  const localFoodEstimate = (mealText) => {
+    const items = mealText.split(/[,\n·]+/).map(s => s.trim()).filter(Boolean);
+    const results = [];
+    let totalCal = 0;
+
+    items.forEach(item => {
+      // 수량 파싱 (예: "밥 2공기" → 밥 × 2)
+      const qMatch = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분)/);
+      const qty = qMatch ? parseFloat(qMatch[1]) : 1;
+
+      let matched = null, matchedName = '';
+      for (const [name, cal] of Object.entries(FOOD_DB)) {
+        if (item.includes(name)) {
+          if (!matched || name.length > matchedName.length) { matched = cal; matchedName = name; }
+        }
+      }
+      const cal = matched ? Math.round(matched * qty) : null;
+      if (cal !== null) {
+        results.push({ name: item, cal });
+        totalCal += cal;
+      } else {
+        results.push({ name: item, cal: null });
+      }
+    });
+
+    const knownItems = results.filter(r => r.cal !== null);
+    const unknownItems = results.filter(r => r.cal === null);
+
+    if (knownItems.length === 0) return null; // 아는 게 없으면 AI로 fallback
+
+    let out = `🍽️ 음식별 칼로리 (내장 DB 기준)\n`;
+    knownItems.forEach(r => { out += `- ${r.name}: 약 ${r.cal} kcal\n`; });
+    if (unknownItems.length > 0) out += `- ${unknownItems.map(r=>r.name).join(', ')}: 정보 없음\n`;
+    out += `\n📊 추정 합계\n칼로리: 약 ${totalCal} kcal\n`;
+    out += `\n⚠️ AI 분석 불가 상태로 내장 DB를 사용했어요. 탄수화물·단백질 등 상세 정보는 AI 분석 시 제공됩니다.`;
+    if (unknownItems.length > 0) out += `\n미인식 항목(${unknownItems.map(r=>r.name).join(', ')})은 포함되지 않았어요.`;
+    return out;
+  };
+
+  /* ── Gemini 텍스트 칼로리 추정 (내장 DB fallback 포함) ── */
+  const analyzeFoodText = async (mealText) => {
+    try {
+      return await geminiRequest({
+        contents: [{
+          parts: [{ text: `다음 식사 내용의 칼로리와 영양소를 추정해 주세요. 인슐린을 맞고 있는 2형 당뇨 환자의 식단 기록입니다.
 
 식사 내용: ${mealText}
 
@@ -492,8 +543,15 @@
 (이 식단을 더 당뇨 친화적으로 바꾸는 구체적인 방법 2~3가지)
 
 ※ 음식 양이 명시되지 않은 경우 일반적인 1인분 기준으로 추정해 주세요.` }]
-    }]
-  });
+        }]
+      });
+    } catch(e) {
+      // 429 or API 오류 시 내장 DB fallback
+      const local = localFoodEstimate(mealText);
+      if (local) return local;
+      throw e; // DB에서도 못 찾으면 원래 에러 전달
+    }
+  };
 
   /* ── Supabase 초기화 ─────────────────────────────────────── */
   const SUPA_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
