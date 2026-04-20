@@ -4446,11 +4446,6 @@
                   display:'inline-flex', alignItems:'center', gap:'4px', whiteSpace:'nowrap', flexShrink:0 }}>
                 👥 커뮤니티
               </a>
-              <div style={{ marginLeft:'4px', display:'flex', gap:'4px', alignItems:'center' }}>
-                {saveStatus==='saving' && <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.6)' }}>저장 중...</span>}
-                {saveStatus==='saved'  && <span style={{ fontSize:'11px', color:'var(--cn-ok)' }}>✓</span>}
-                {saveStatus==='error'  && <span style={{ fontSize:'11px', color:'var(--cn-danger)' }}>⚠</span>}
-              </div>
             </div>
 
             {/* 날짜 네비 */}
@@ -4458,10 +4453,10 @@
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
               <div style={{ textAlign:'center', minWidth:'130px' }}>
                 <div style={{ color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap' }}>{fmtDate(date).full}</div>
-                {/* 항상 고정 높이 — 버튼 유무로 헤더 높이가 변하지 않게 */}
-                <div style={{ height:'22px', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  {!isToday && <button onClick={() => setDate(todayStr())} style={{ background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer' }}>오늘로</button>}
-                </div>
+                {saveStatus==='saving' && <span style={{ fontSize:'10px', color:'rgba(255,255,255,0.55)', display:'block' }}>저장 중...</span>}
+                {saveStatus==='saved'  && <span style={{ fontSize:'10px', color:'var(--cn-ok)', display:'block' }}>✓ 저장됨</span>}
+                {saveStatus==='error'  && <span style={{ fontSize:'10px', color:'var(--cn-danger)', display:'block' }}>⚠ 오류</span>}
+                {saveStatus==='idle' && !isToday && <button onClick={() => setDate(todayStr())} style={{ marginTop:'3px', background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', cursor:'pointer' }}>오늘로</button>}
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
             </div>
