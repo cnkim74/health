@@ -173,7 +173,28 @@
     body.has-tabbar { padding-bottom: 0; }
     .cn-tab-content { display: block !important; }
     .main-grid { display: grid !important; }
+    /* 데스크탑 전용 사이드바 리포트 */
+    .cn-sidebar-report { display: block !important; }
+    /* 리포트 탭 카드는 데스크탑에서 사이드바로 대체 → 숨김 */
+    .cn-report-tab-only { display: none !important; }
   }
+  @media (max-width: 1023px) {
+    /* 모바일에서 사이드바 리포트 숨김 (탭으로 보임) */
+    .cn-sidebar-report { display: none !important; }
+    .cn-report-tab-only { display: block; }
+  }
+  /* 사이드바 sticky 리포트 컨테이너 */
+  .cn-sidebar-report {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--card-border) transparent;
+  }
+  .cn-sidebar-report::-webkit-scrollbar { width: 4px; }
+  .cn-sidebar-report::-webkit-scrollbar-track { background: transparent; }
+  .cn-sidebar-report::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
   @media (max-width: 1023px) {
     .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
     /* 헤더: 모바일에서 불필요한 요소 숨김 */
@@ -3313,6 +3334,40 @@
       }).length;
       const recordRate = last30.length ? Math.round(recordedDays/last30.length*100) : null;
 
+      /* 칼로리 섭취 추정 (내장 DB 기반) */
+      const estimateCalFromText = (text) => {
+        if (!text?.trim()) return 0;
+        const items = text.split(/[,\n·]+/).map(s => s.trim()).filter(Boolean);
+        let total = 0;
+        items.forEach(item => {
+          const qMatch = item.match(/(\d+(?:\.\d+)?)\s*(공기|개|그릇|봉|접시|잔|컵|조각|인분|개분)/);
+          const qty = qMatch ? parseFloat(qMatch[1]) : 1;
+          let matched = null, matchedLen = 0;
+          for (const [name, cal] of Object.entries(FOOD_DB)) {
+            if (item.includes(name) && name.length > matchedLen) { matched = cal; matchedLen = name.length; }
+          }
+          if (matched) total += Math.round(matched * qty);
+        });
+        return total;
+      };
+      const dailyCals = last30.map(d => {
+        const dy = data[d]; if (!dy) return null;
+        let dayCal = 0;
+        ['breakfast','lunch','dinner'].forEach(id => { dayCal += estimateCalFromText(dy.meals?.[id]); });
+        (dy.extraMeals||[]).forEach(em => { dayCal += estimateCalFromText(em.text); });
+        return dayCal > 0 ? dayCal : null;
+      }).filter(v => v !== null);
+      const avgDailyCal = avg(dailyCals);
+      const maxDailyCal = dailyCals.length ? Math.max(...dailyCals) : null;
+      const minDailyCal = dailyCals.length ? Math.min(...dailyCals) : null;
+      // 목표 칼로리: 당뇨 기준 1,600~2,000 kcal
+      const calGoal = 1800;
+      const calStatus = avgDailyCal == null ? null
+        : avgDailyCal < 1200 ? { label:'섭취 부족', color:'#3b82f6' }
+        : avgDailyCal <= 2000 ? { label:'적정 범위', color:'var(--cn-ok)' }
+        : avgDailyCal <= 2400 ? { label:'약간 과다', color:'#f59e0b' }
+        : { label:'과다 섭취', color:'var(--cn-danger)' };
+
       /* 트렌드 화살표 */
       const trend = (now, prev, lowerBetter=false) => {
         if (now == null || prev == null) return null;
@@ -3344,7 +3399,8 @@
                avgBs, bsAll, bsRate, bsTrend,
                lastW, wChange, lastBf, bfChange,
                avgSteps, activeDays, stepsTrend,
-               medRate, recordRate, totalScore, scoreGrade };
+               medRate, recordRate, totalScore, scoreGrade,
+               avgDailyCal, maxDailyCal, minDailyCal, dailyCalsLen: dailyCals.length, calStatus, calGoal };
     }, [data, allMedIds]);
 
     const r = report;
@@ -3443,6 +3499,33 @@
             <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>💊 복약</div>
             <StatRow icon="💊" label="복약 순응도" value={`${r.medRate}%`} sub={`${r.last30Len}일 중`} />
             <RateBar rate={r.medRate} color={r.medRate >= 80 ? 'var(--cn-ok)' : r.medRate >= 60 ? '#f59e0b' : 'var(--cn-danger)'} />
+          </div>
+        )}
+
+        {/* 칼로리 섭취 */}
+        {r.avgDailyCal != null && (
+          <div style={{ marginBottom:'12px' }}>
+            <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px', letterSpacing:'0.5px' }}>🍽️ 칼로리 섭취</div>
+            <StatRow icon="🔥" label="일평균 칼로리" value={`${Math.round(r.avgDailyCal).toLocaleString()}`} sub="kcal / 일"
+              note={r.calStatus ? r.calStatus.label : null}
+              trend={r.calStatus ? { icon: r.avgDailyCal <= r.calGoal ? '✓' : '!', color: r.calStatus.color, label:'' } : null} />
+            <div style={{ display:'flex', gap:'12px', marginTop:'6px', fontSize:'12px', color:'var(--text-sub)' }}>
+              {r.minDailyCal != null && <span>최소 <strong>{Math.round(r.minDailyCal).toLocaleString()}</strong> kcal</span>}
+              {r.maxDailyCal != null && <span>최대 <strong>{Math.round(r.maxDailyCal).toLocaleString()}</strong> kcal</span>}
+              <span style={{color:'var(--text-mute)'}}>{r.dailyCalsLen}일 기록 기준</span>
+            </div>
+            {/* 목표 대비 바 (목표 1,800 kcal 기준) */}
+            <div style={{ marginTop:'6px', position:'relative', height:'6px', background:'var(--card-border)', borderRadius:'3px', overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${Math.min(r.avgDailyCal/2400*100,100)}%`, background: r.calStatus?.color || 'var(--cn-brand)', borderRadius:'3px', transition:'width 0.6s ease' }} />
+              {/* 목표선 마커 */}
+              <div style={{ position:'absolute', top:0, left:`${r.calGoal/2400*100}%`, width:'2px', height:'100%', background:'var(--text-sub)', opacity:0.5 }} />
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>
+              <span>0</span><span style={{color:'var(--text-sub)'}}>목표 {r.calGoal.toLocaleString()}kcal</span><span>2,400+</span>
+            </div>
+            <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'4px' }}>
+              ※ 입력된 식사 텍스트 기반 추정값 (내장 DB)이에요. 미기록 식사는 포함되지 않아요.
+            </div>
           </div>
         )}
 
@@ -4876,15 +4959,25 @@
                 </div>
               </Card>
 
-              {/* 종합 건강 리포트 */}
-              <Card tab="report">
-                <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
-                <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
-              </Card>
+              {/* 종합 건강 리포트 — 모바일 리포트탭 전용 (데스크탑은 사이드바로 고정) */}
+              <div className="cn-report-tab-only">
+                <Card tab="report">
+                  <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
+                  <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
+                </Card>
+              </div>
             </div>
 
             {/* ── RIGHT ── */}
             <div>
+              {/* 종합 건강 리포트 — 데스크탑 사이드바 고정 (모바일 숨김) */}
+              <div className="cn-sidebar-report">
+                <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', padding:'16px', marginBottom:'12px', boxShadow:'var(--card-shadow)' }}>
+                  <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
+                  <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
+                </div>
+              </div>
+
               {/* Banner: 사이드바 상단 */}
               <BannerSlot slotId="sidebar_top" />
 
