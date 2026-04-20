@@ -3317,6 +3317,7 @@
         .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
     }, [userId]);
     const [showDataRecovery, setShowDataRecovery] = useState(false);
+    const [medOpen, setMedOpen] = useState(true);
     const [medsConfig, setMedsConfig] = useState([]);
     const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
@@ -3952,9 +3953,55 @@
 
             {/* ── LEFT ── */}
             <div>
+
+              {/* 오늘 활동 요약 3카드 */}
+              <Card tab="record">
+                <STitle icon="🏃" label="오늘 활동" />
+                {(() => {
+                  const stepsPct = day.steps ? Math.min(100, Math.round(Number(day.steps)/100)) : null;
+                  const cards = [
+                    { icon:'👟', label:'걸음수', val: day.steps ? Number(day.steps).toLocaleString() : '---', unit:'걸음', color:'var(--cn-brand)', hasData: !!day.steps, pct: stepsPct },
+                    { icon:'🔥', label:'칼로리', val: day.cal   ? Math.round(Number(day.cal)).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: !!day.cal, pct: null },
+                    { icon:'📍', label:'거리',   val: day.dist  ? Number(day.dist).toFixed(1) : '---', unit:'km', color:'var(--cn-ok)', hasData: !!day.dist, pct: null },
+                  ];
+                  return (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
+                      {cards.map(item => (
+                        <div key={item.label} style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)' }}>
+                          <div style={{ fontSize:'22px', marginBottom:'4px' }}>{item.icon}</div>
+                          <div style={{ fontSize:'20px', fontWeight:'900', color: item.hasData ? item.color : 'var(--text-mute)', letterSpacing:'-0.5px', lineHeight:1.1 }}>{item.val}</div>
+                          <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'3px' }}>{item.unit}</div>
+                          {item.pct !== null && (
+                            <div style={{ marginTop:'6px' }}>
+                              <div style={{ background:'var(--card-border)', borderRadius:'3px', height:'4px', overflow:'hidden' }}>
+                                <div style={{ width:`${item.pct}%`, background: item.pct>=100?'var(--cn-ok)':item.color, height:'100%', borderRadius:'3px', transition:'width 0.5s' }}/>
+                              </div>
+                              <div style={{ fontSize:'10px', color: item.pct>=100?'var(--cn-ok)':'var(--text-mute)', marginTop:'2px', fontWeight:'700' }}>{item.pct>=100?'🎉 목표달성!':'목표 '+item.pct+'%'}</div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {!day.steps && !day.cal && !day.dist && (
+                  <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'center', marginTop:'10px' }}>
+                    📲 건강앱 단축어로 자동 기록할 수 있어요
+                  </div>
+                )}
+              </Card>
+
               {/* 복약 */}
               <Card tab="record">
-                <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
+                {/* 헤더 — 탭하면 접기/펴기 */}
+                <div onClick={() => setMedOpen(o => !o)}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom: medOpen ? '0' : '0' }}>
+                  <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
+                  <span style={{ fontSize:'18px', color:'var(--text-mute)', marginLeft:'8px', transition:'transform 0.2s', transform: medOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink:0 }}>▾</span>
+                </div>
+
+                {/* 접기/펴기 영역 */}
+                {medOpen && (<>
                 <div style={{ background:'var(--card-border)', borderRadius:'6px', height:'6px', marginBottom:'16px', overflow:'hidden' }}>
                   <div style={{ width:`${medPct}%`, height:'100%', borderRadius:'6px', background:medPct===100?'var(--cn-ok)':'var(--cn-brand)', transition:'width 0.5s ease' }}/>
                 </div>
@@ -3996,6 +4043,7 @@
                   </div>
                   );
                 })}
+                </>)}
               </Card>
 
               {/* Banner: 복약 체크리스트 아래 */}
