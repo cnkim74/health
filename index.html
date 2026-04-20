@@ -190,6 +190,7 @@
   .cn-sidebar-right { display: block; }
   @media (max-width: 1023px) {
     .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .main-grid > * { min-width: 0 !important; }
     /* 헤더: 모바일에서 불필요한 요소 숨김 */
     .cn-hdr-user    { display: none !important; }
     .cn-hdr-dark    { display: none !important; }
@@ -4529,10 +4530,10 @@
 
         {/* Main */}
         <div className="cn-main-pad" style={{ maxWidth:'1140px', margin:'0 auto', padding:'22px 16px' }}>
-          <div className="main-grid" style={{ display:'grid', gridTemplateColumns:'1fr 330px', gap:'18px' }}>
+          <div className="main-grid" style={{ display:'grid', gridTemplateColumns:'1fr 330px', gap:'18px', minWidth:0 }}>
 
             {/* ── LEFT ── */}
-            <div>
+            <div style={{ minWidth:0 }}>
 
               {/* 오늘 활동 요약 4카드 */}
               <Card tab="record">
@@ -5103,7 +5104,7 @@
             </div>
 
             {/* ── RIGHT ── */}
-            <div className="cn-sidebar-right">
+            <div className="cn-sidebar-right" style={{ minWidth:0 }}>
               {/* 종합 건강 리포트 — 데스크탑 사이드바 고정 (모바일 숨김) */}
               <div className="cn-sidebar-report">
                 <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', marginBottom:'12px', boxShadow:'var(--card-shadow)', overflow:'hidden' }}>
