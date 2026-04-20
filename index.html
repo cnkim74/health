@@ -4671,7 +4671,7 @@
                   {BS_FIELDS.map(f => {
                     const v = day.bs[f.id] || ''; const c = bsColor(v);
                     return (
-                      <div key={f.id} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 10px', border:v?`2px solid ${c}`:'1px solid var(--card-border)', transition:'border-color 0.2s', minWidth:0, overflow:'hidden' }}>
+                      <div key={f.id} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 10px', border:'1px solid var(--card-border)', outline:v?`2px solid ${c}`:'none', outlineOffset:'-1px', transition:'outline-color 0.2s', minWidth:0, overflow:'hidden' }}>
                         <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'4px' }}>{f.icon} {f.label}</div>
                         {/* 숫자 + 단위 + 배지 — 한 줄 */}
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap' }}>
