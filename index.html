@@ -1730,12 +1730,12 @@
                 )}
               </div>
 
-              {slot.items.length === 0 && (
+              {(slot.items||[]).length === 0 && (
                 <div style={{fontSize:'12px',color:'var(--text-mute)',padding:'4px 0 4px 2px',fontStyle:'italic'}}>등록된 약 없음</div>
               )}
 
               {/* 약 목록 */}
-              {slot.items.map(med => (
+              {(slot.items||[]).map(med => (
                 <div key={med.id} style={{background:'var(--card-bg)',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:'1px solid var(--card-border)'}}>
                   {editingMed?.slotKey===slot.key && editingMed?.medId===med.id ? (
                     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
@@ -3940,71 +3940,6 @@
     const [showChangePw,    setShowChangePw]    = useState(false);
     const [showProfileEdit, setShowProfileEdit] = useState(false);
     const [hdrAvatar, setHdrAvatar] = useState('');
-    // 헤더 아바타 로드
-    useEffect(() => {
-      if (!userId) return;
-      supa.from('cn_profiles').select('avatar_url').eq('id', userId).maybeSingle()
-        .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
-    }, [userId]);
-
-    // ── 복약 알람 스케줄러 (매 분 체크) ──
-    useEffect(() => {
-      if (!medsConfig.length) return;
-      const firedKey = new Set(); // 같은 분에 중복 발화 방지
-
-      const check = () => {
-        if (Notification.permission !== 'granted') return;
-        const now = new Date();
-        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const key  = `${hhmm}_${now.toDateString()}`;
-        if (firedKey.has(key)) return;
-
-        medsConfig.forEach(slot => {
-          if (!slot.notifTime || slot.notifTime !== hhmm) return;
-          if (firedKey.has(key + slot.key)) return;
-          firedKey.add(key + slot.key);
-
-          const activeItems = (slot.items||[]).filter(m => {
-            const today = now.toISOString().slice(0,10);
-            if (m.startDate && today < m.startDate) return false;
-            if (m.endDate   && today > m.endDate)   return false;
-            return true;
-          });
-          if (!activeItems.length) return;
-
-          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
-            body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
-            icon: '/favicon-192.png',
-            badge: '/favicon-192.png',
-            tag: slot.key,
-          });
-        });
-      };
-
-      check(); // 즉시 1회 체크
-      const timer = setInterval(check, 60000); // 매 분 체크
-      return () => clearInterval(timer);
-    }, [medsConfig]);
-
-    // ── 포커스 복귀 시 자동 새로고침 (단축어 → PWA 전환 대응) ──
-    useEffect(() => {
-      if (!userId) return;
-      let lastRefresh = 0; // 0으로 초기화 → 첫 복귀 시 항상 새로고침
-      const handleVisible = () => {
-        if (document.hidden) return;
-        const now = Date.now();
-        if (now - lastRefresh > 5000) { // 5초 이상 지났을 때만 (스팸 방지)
-          lastRefresh = now;
-          setRefreshKey(k => k + 1);
-        }
-      };
-      document.addEventListener('visibilitychange', handleVisible);
-      window.addEventListener('focus', handleVisible); // iOS 대응 추가
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisible);
-        window.removeEventListener('focus', handleVisible);
-      };
-    }, [userId]);
 
     const [showDataRecovery, setShowDataRecovery] = useState(false);
     const [medOpen, setMedOpen] = useState(true);
@@ -4045,6 +3980,73 @@
     }, []);
 
     const userId = authUser?.id || '';
+
+    // 헤더 아바타 로드 (userId 선언 후 위치 — dep 배열 정상 참조)
+    useEffect(() => {
+      if (!userId) return;
+      supa.from('cn_profiles').select('avatar_url').eq('id', userId).maybeSingle()
+        .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
+    }, [userId]);
+
+    // ── 복약 알람 스케줄러 (매 분 체크) — medsConfig 선언 후 위치 ──
+    useEffect(() => {
+      if (!medsConfig.length) return;
+      const firedKey = new Set();
+
+      const check = () => {
+        if (Notification.permission !== 'granted') return;
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        const key  = `${hhmm}_${now.toDateString()}`;
+        if (firedKey.has(key)) return;
+
+        medsConfig.forEach(slot => {
+          if (!slot.notifTime || slot.notifTime !== hhmm) return;
+          if (firedKey.has(key + slot.key)) return;
+          firedKey.add(key + slot.key);
+
+          const activeItems = (slot.items||[]).filter(m => {
+            const today = now.toISOString().slice(0,10);
+            if (m.startDate && today < m.startDate) return false;
+            if (m.endDate   && today > m.endDate)   return false;
+            return true;
+          });
+          if (!activeItems.length) return;
+
+          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
+            body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
+            icon: '/favicon-192.png',
+            badge: '/favicon-192.png',
+            tag: slot.key,
+          });
+        });
+      };
+
+      check();
+      const timer = setInterval(check, 60000);
+      return () => clearInterval(timer);
+    }, [medsConfig]);
+
+    // ── 포커스 복귀 시 자동 새로고침 (단축어 → PWA 전환 대응) ──
+    useEffect(() => {
+      if (!userId) return;
+      let lastRefresh = 0;
+      const handleVisible = () => {
+        if (document.hidden) return;
+        const now = Date.now();
+        if (now - lastRefresh > 5000) {
+          lastRefresh = now;
+          setRefreshKey(k => k + 1);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisible);
+      window.addEventListener('focus', handleVisible);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisible);
+        window.removeEventListener('focus', handleVisible);
+      };
+    }, [userId]);
+
     const [height, setHeight] = useState('');           // 키 (cm) — localStorage 저장
     const [weightImporting, setWeightImporting] = useState(false);
     const [weightImportMsg, setWeightImportMsg] = useState('');
@@ -4792,7 +4794,7 @@
                   </div>
                 )}
                 {medsConfig.map(slot => {
-                  const activeItems = slot.items.filter(med => {
+                  const activeItems = (slot.items||[]).filter(med => {
                     if (med.startDate && date < med.startDate) return false;
                     if (med.endDate   && date > med.endDate)   return false;
                     return true;
