@@ -301,17 +301,6 @@
   </style>
 </head>
 <body>
-<!-- React 렌더 전 즉시 표시되는 로딩 화면 (공백 방지) -->
-<div id="pre-loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0f172a;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:9999;transition:opacity 0.3s">
-  <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="52" height="52" rx="14" fill="url(#pg)"/>
-    <path d="M26 12 C18 12 12 18 12 26 C12 32 16 37 22 39 L26 41 L30 39 C36 37 40 32 40 26 C40 18 34 12 26 12Z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
-    <path d="M19 26 L23 30 L33 20" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <defs><linearGradient id="pg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse"><stop stop-color="#1e3a5f"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
-  </svg>
-  <div style="color:#fff;font-size:17px;font-weight:800;letter-spacing:2px;margin-top:14px">CARENOTE</div>
-  <div style="color:rgba(148,163,184,0.7);font-size:13px;margin-top:6px">로딩 중...</div>
-</div>
 <div id="root"></div>
 <script type="text/babel">
   const { useState, useEffect, useRef, useMemo } = React;
@@ -4027,9 +4016,6 @@
       supa.auth.getSession().then(({ data: { session } }) => {
         setAuthUser(session?.user ?? null);
         setAuthReady(true);
-        // pre-loader 숨기기 (React 렌더 완료 시점)
-        const pl = document.getElementById('pre-loader');
-        if (pl) { pl.style.opacity = '0'; setTimeout(() => { if(pl) pl.style.display='none'; }, 300); }
       });
       const { data: { subscription } } = supa.auth.onAuthStateChange((_event, session) => {
         setAuthUser(session?.user ?? null);
