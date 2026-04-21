@@ -1371,6 +1371,7 @@
     const [newDose, setNewDose]         = useState('');
     const [newStart, setNewStart]       = useState('');
     const [newEnd, setNewEnd]           = useState('');
+    const [newFreq, setNewFreq]         = useState({ type:'daily' });
     const [newSlotKey, setNewSlotKey]   = useState('');
     const [addMsg, setAddMsg]           = useState('');
     const [suggestions, setSuggestions] = useState([]);
@@ -1420,11 +1421,12 @@
       if (!newName.trim()) { setAddMsg('⚠️ 약 이름을 입력해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
       if (!newSlotKey)     { setAddMsg('⚠️ 시간대를 선택해 주세요.');  setTimeout(()=>setAddMsg(''),2500); return; }
       const id = genId();
+      const freqToSave = newFreq.type === 'daily' ? undefined : newFreq;
       setCfg(c => c.map(s => s.key === newSlotKey
-        ? { ...s, items: [...(s.items||[]), { id, name: newName.trim(), dose: newDose, startDate: newStart, endDate: newEnd }] }
+        ? { ...s, items: [...(s.items||[]), { id, name: newName.trim(), dose: newDose, startDate: newStart, endDate: newEnd, ...(freqToSave ? {freq: freqToSave} : {}) }] }
         : s));
       const added = newName.trim();
-      setNewName(''); setNewDose(''); setNewStart(''); setNewEnd(''); setSuggestions([]);
+      setNewName(''); setNewDose(''); setNewStart(''); setNewEnd(''); setNewFreq({type:'daily'}); setSuggestions([]);
       setAddMsg('✅ ' + added + ' 추가됐어요!');
       setTimeout(() => setAddMsg(''), 3000);
     };
@@ -1665,6 +1667,71 @@
               </div>
             </div>
 
+            {/* 투여 주기 */}
+            {(() => {
+              const DAY_KO = ['일','월','화','수','목','금','토'];
+              const tabBtn = (type, label) => (
+                <button key={type} onClick={() => setNewFreq(f => ({...f, type}))}
+                  style={{flex:1, padding:'7px 4px', borderRadius:'8px', fontSize:'12px', fontWeight:'700', cursor:'pointer',
+                    border: newFreq.type===type ? 'none' : '1px solid var(--card-border)',
+                    background: newFreq.type===type ? 'var(--cn-brand)' : 'var(--card-bg)',
+                    color: newFreq.type===type ? '#fff' : 'var(--text-mute)'}}>
+                  {label}
+                </button>
+              );
+              return (
+                <div style={{marginBottom:'12px'}}>
+                  <div style={{fontSize:'12px',color:'var(--text-sub)',fontWeight:'600',marginBottom:'6px'}}>🔁 투여 주기</div>
+                  <div style={{display:'flex',gap:'4px',marginBottom:'8px'}}>
+                    {tabBtn('daily','매일')} {tabBtn('weekly','매주')} {tabBtn('monthly','매월')} {tabBtn('interval','주기별')}
+                  </div>
+                  {newFreq.type==='weekly' && (
+                    <div style={{display:'flex',gap:'5px',flexWrap:'wrap'}}>
+                      {DAY_KO.map((d,i)=>{
+                        const on=(newFreq.weekDays||[]).includes(i);
+                        return <button key={i} onClick={()=>{
+                          const wd=newFreq.weekDays||[];
+                          setNewFreq(f=>({...f,weekDays:on?wd.filter(x=>x!==i):[...wd,i].sort()}));
+                        }} style={{width:'36px',height:'36px',borderRadius:'50%',border:'none',cursor:'pointer',fontSize:'13px',fontWeight:'700',
+                          background:on?'var(--cn-brand)':'var(--card-bg)',
+                          border:'1px solid '+(on?'var(--cn-brand)':'var(--card-border)'),
+                          color:on?'#fff':'var(--text-mute)'}}>{d}</button>;
+                      })}
+                    </div>
+                  )}
+                  {newFreq.type==='monthly' && (
+                    <div>
+                      <div style={{fontSize:'11px',color:'var(--text-mute)',marginBottom:'5px'}}>날짜 선택 (여러 개 가능)</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                        {Array.from({length:31},(_,i)=>i+1).map(n=>{
+                          const on=(newFreq.monthDays||[]).includes(n);
+                          return <button key={n} onClick={()=>{
+                            const md=newFreq.monthDays||[];
+                            setNewFreq(f=>({...f,monthDays:on?md.filter(x=>x!==n):[...md,n].sort((a,b)=>a-b)}));
+                          }} style={{width:'32px',height:'32px',borderRadius:'7px',cursor:'pointer',fontSize:'11px',fontWeight:'700',
+                            border:'1px solid '+(on?'var(--cn-brand)':'var(--card-border)'),
+                            background:on?'var(--cn-brand)':'var(--card-bg)',
+                            color:on?'#fff':'var(--text-mute)'}}>{n}</button>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {newFreq.type==='interval' && (
+                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                      <span style={{fontSize:'13px',color:'var(--text-sub)'}}>매</span>
+                      <input type="number" min="1" max="365"
+                        value={newFreq.intervalDays||1}
+                        onChange={e=>setNewFreq(f=>({...f,intervalDays:Math.max(1,parseInt(e.target.value)||1),
+                          refDate:f.refDate||newStart||new Date().toISOString().slice(0,10)}))}
+                        style={{width:'60px',border:'1px solid var(--card-border)',borderRadius:'8px',padding:'6px 8px',
+                          fontSize:'14px',textAlign:'center',background:'var(--card-bg)',color:'var(--text)',outline:'none'}}/>
+                      <span style={{fontSize:'13px',color:'var(--text-sub)'}}>일마다</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* 복약 시간대 */}
             <div style={{marginBottom:'12px'}}>
               <div style={{fontSize:'12px',color:'var(--text-sub)',fontWeight:'600',marginBottom:'6px'}}>⏰ 복약 시간대</div>
@@ -1745,6 +1812,7 @@
                         placeholder="약 이름" style={inpSt}/>
                       <input value={med.dose} onChange={e=>updMedField(slot.key,med.id,'dose',e.target.value)}
                         placeholder="용량 (예: 10mg 1정)" style={inpSt}/>
+                      {/* 투약 기간 */}
                       <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
                         <div style={{flex:1}}>
                           <div style={{fontSize:'12px',color:'var(--text-sub)',marginBottom:'3px'}}>투약 시작일</div>
@@ -1756,7 +1824,76 @@
                           <input type="date" value={med.endDate||''} onChange={e=>updMedField(slot.key,med.id,'endDate',e.target.value)} style={inpSt}/>
                         </div>
                       </div>
-                      <div style={{fontSize:'11px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 항상 표시</div>
+
+                      {/* 투여 주기 */}
+                      {(() => {
+                        const freq = med.freq || { type:'daily' };
+                        const setFreq = (patch) => updMedField(slot.key, med.id, 'freq', { ...freq, ...patch });
+                        const DAY_KO = ['일','월','화','수','목','금','토'];
+                        const tabBtn = (type, label) => (
+                          <button key={type} onClick={() => setFreq({ type })}
+                            style={{ flex:1, padding:'5px 2px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', cursor:'pointer',
+                              border: freq.type===type ? 'none' : '1px solid var(--card-border)',
+                              background: freq.type===type ? slot.color : 'var(--input-bg)',
+                              color: freq.type===type ? '#fff' : 'var(--text-mute)' }}>
+                            {label}
+                          </button>
+                        );
+                        return (
+                          <div>
+                            <div style={{fontSize:'12px',color:'var(--text-sub)',marginBottom:'5px',fontWeight:'600'}}>투여 주기</div>
+                            <div style={{display:'flex',gap:'4px',marginBottom:'8px'}}>
+                              {tabBtn('daily','매일')}
+                              {tabBtn('weekly','매주')}
+                              {tabBtn('monthly','매월')}
+                              {tabBtn('interval','주기별')}
+                            </div>
+                            {freq.type==='weekly' && (
+                              <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                                {DAY_KO.map((d,i)=>{
+                                  const on = (freq.weekDays||[]).includes(i);
+                                  return <button key={i} onClick={()=>{
+                                    const wd = freq.weekDays||[];
+                                    setFreq({weekDays: on ? wd.filter(x=>x!==i) : [...wd,i].sort()});
+                                  }} style={{width:'34px',height:'34px',borderRadius:'50%',border:'none',cursor:'pointer',fontSize:'12px',fontWeight:'700',
+                                    background: on ? slot.color : 'var(--input-bg)',
+                                    color: on ? '#fff' : 'var(--text-mute)'}}>{d}</button>;
+                                })}
+                              </div>
+                            )}
+                            {freq.type==='monthly' && (
+                              <div>
+                                <div style={{fontSize:'11px',color:'var(--text-mute)',marginBottom:'4px'}}>투약 날짜 선택 (여러 개 가능)</div>
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                                  {Array.from({length:31},(_,i)=>i+1).map(n=>{
+                                    const on=(freq.monthDays||[]).includes(n);
+                                    return <button key={n} onClick={()=>{
+                                      const md=freq.monthDays||[];
+                                      setFreq({monthDays: on ? md.filter(x=>x!==n) : [...md,n].sort((a,b)=>a-b)});
+                                    }} style={{width:'30px',height:'30px',borderRadius:'6px',border:'none',cursor:'pointer',fontSize:'11px',fontWeight:'700',
+                                      background: on ? slot.color : 'var(--input-bg)',
+                                      color: on ? '#fff' : 'var(--text-mute)'}}>{n}</button>;
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            {freq.type==='interval' && (
+                              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                                <span style={{fontSize:'12px',color:'var(--text-sub)'}}>매</span>
+                                <input type="number" min="1" max="365"
+                                  value={freq.intervalDays||1}
+                                  onChange={e=>setFreq({intervalDays:Math.max(1,parseInt(e.target.value)||1),
+                                    refDate: freq.refDate || med.startDate || new Date().toISOString().slice(0,10)})}
+                                  style={{...inpSt, width:'60px', textAlign:'center'}}/>
+                                <span style={{fontSize:'12px',color:'var(--text-sub)'}}>일마다</span>
+                                <span style={{fontSize:'10px',color:'var(--text-mute)'}}>(기준: {freq.refDate||med.startDate||'오늘'})</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div style={{fontSize:'11px',color:'var(--text-sub)'}}>💡 날짜 미입력 시 제한 없이 반복</div>
                       <button onClick={()=>setEditingMed(null)} style={{background:slot.color,color:'#fff',border:'none',borderRadius:'6px',padding:'7px',cursor:'pointer',fontSize:'14px',fontWeight:'700'}}>완료</button>
                     </div>
                   ) : (
@@ -1767,6 +1904,11 @@
                         {(med.startDate||med.endDate) && (
                           <div style={{fontSize:'11px',color:'var(--cn-brand)',marginTop:'2px'}}>
                             📅 {med.startDate||'?'} ~ {med.endDate||'계속'}
+                          </div>
+                        )}
+                        {freqLabel(med) && (
+                          <div style={{fontSize:'11px',color:'var(--text-mute)',marginTop:'1px'}}>
+                            🔁 {freqLabel(med)}
                           </div>
                         )}
                       </div>
@@ -3348,6 +3490,37 @@
     );
   };
 
+  /* ── 복약 주기 헬퍼 — 해당 날짜에 복용해야 하는지 판단 ── */
+  const isMedActive = (med, dateStr) => {
+    if (med.startDate && dateStr < med.startDate) return false;
+    if (med.endDate   && dateStr > med.endDate)   return false;
+    const freq = med.freq;
+    if (!freq || freq.type === 'daily') return true;
+    const d = new Date(dateStr + 'T00:00:00');
+    if (freq.type === 'weekly') {
+      return (freq.weekDays || []).includes(d.getDay());
+    }
+    if (freq.type === 'monthly') {
+      return (freq.monthDays || []).includes(d.getDate());
+    }
+    if (freq.type === 'interval') {
+      const ref = new Date(((freq.refDate || med.startDate || dateStr)) + 'T00:00:00');
+      const diff = Math.round((d - ref) / 86400000);
+      return diff >= 0 && diff % (Math.max(1, freq.intervalDays || 1)) === 0;
+    }
+    return true;
+  };
+
+  const freqLabel = (med) => {
+    const f = med.freq;
+    if (!f || f.type === 'daily') return null;
+    const DAY_KO = ['일','월','화','수','목','금','토'];
+    if (f.type === 'weekly')   return '매주 ' + (f.weekDays||[]).map(d=>DAY_KO[d]).join('·');
+    if (f.type === 'monthly')  return '매월 ' + (f.monthDays||[]).join('·') + '일';
+    if (f.type === 'interval') return `${f.intervalDays||1}일마다`;
+    return null;
+  };
+
   /* ── 리포트 미니 요약 (사이드바 접힘 상태) ── */
   const ReportMiniSummary = ({ data, allMedIds }) => {
     const summary = useMemo(() => {
@@ -3931,16 +4104,22 @@
 
   /* ── 단축어 연동 가이드 컴포넌트 (hooks를 IIFE 안에 넣으면 React #310 에러 발생) ── */
   const ShortcutGuide = () => {
-    const [open, setOpen] = React.useState(false);
-    const [scInfo, setScInfo] = React.useState(null);
-    const [copied, setCopied] = React.useState('');
-    const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done'));
-    const SQL_TEXT = `create or replace function upsert_health_patch(\n  p_uid  uuid,\n  p_date text,\n  p_patch jsonb\n) returns json\nlanguage plpgsql security definer as $$\nbegin\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (p_uid, p_date::date, p_patch, now())\n  on conflict (user_id, date)\n  do update set\n    payload = diabetes_data.payload || p_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
+    const [open, setOpen]         = React.useState(false);
+    const [syncKey, setSyncKey]   = React.useState(null);
+    const [copied, setCopied]     = React.useState('');
+    const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done_v2'));
+
+    // SQL: 관리자 1회 실행용 (sync_key 컬럼 추가 + v2 함수 등록)
+    const SQL_TEXT = `-- 1. cn_profiles에 연동 키 컬럼 추가 (최초 1회)\nalter table cn_profiles\n  add column if not exists sync_key uuid default gen_random_uuid();\nupdate cn_profiles set sync_key = gen_random_uuid() where sync_key is null;\n\n-- 2. 새 연동 함수 등록\ncreate or replace function upsert_health_patch_v2(\n  p_sync_key uuid,\n  p_date     text,\n  p_patch    jsonb\n) returns json\nlanguage plpgsql security definer as $$\ndeclare v_uid uuid;\nbegin\n  select id into v_uid from cn_profiles\n    where sync_key = p_sync_key limit 1;\n  if v_uid is null then\n    return json_build_object('ok',false,'error','invalid_key');\n  end if;\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (v_uid, p_date::date, p_patch, now())\n  on conflict (user_id, date) do update set\n    payload = diabetes_data.payload || p_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
+
     React.useEffect(() => {
       supa.auth.getSession().then(({ data: { session } }) => {
-        if (session) setScInfo({ uid: session.user.id, rt: session.refresh_token });
+        if (!session) return;
+        supa.from('cn_profiles').select('sync_key').eq('id', session.user.id).maybeSingle()
+          .then(({ data }) => { if (data?.sync_key) setSyncKey(data.sync_key); });
       }).catch(() => {});
     }, []);
+
     const cp = (text, label) => {
       navigator.clipboard?.writeText(text).then(() => {
         setCopied(label); setTimeout(() => setCopied(''), 2200);
@@ -3955,89 +4134,106 @@
     const codeBox = { background:'var(--bg)', borderRadius:'7px', padding:'8px 10px', fontSize:'11px',
       color:'var(--text-sub)', fontFamily:'monospace', wordBreak:'break-all', border:'1px solid var(--card-border)',
       flex:1, minWidth:0, lineHeight:1.5 };
+
+    const stepNum = (n, done) => (
+      <span style={{ background: done ? 'var(--cn-ok)' : 'var(--cn-brand)', color:'#fff', borderRadius:'50%',
+        width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center',
+        fontSize:'11px', fontWeight:'800', flexShrink:0 }}>{done ? '✓' : n}</span>
+    );
+
     return (
       <div style={{ borderTop:'1px solid var(--divider)', padding:'12px 16px 0', maxWidth:'1140px', margin:'0 auto' }}>
         {/* 접기/펴기 헤더 */}
-        <button
-          onClick={() => setOpen(o => !o)}
+        <button onClick={() => setOpen(o => !o)}
           style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
             background:'none', border:'none', cursor:'pointer', padding:'8px 4px', marginBottom: open ? '12px' : '8px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
             <span style={{ fontSize:'16px' }}>📲</span>
-            <span style={{ fontSize:'13px', fontWeight:'800', color:'var(--text)' }}>건강앱 단축어 직접 연동</span>
-            <span style={{ fontSize:'11px', color:'var(--text-mute)', fontWeight:'400' }}>아이폰 건강앱 자동 연동</span>
+            <span style={{ fontSize:'13px', fontWeight:'800', color:'var(--text)' }}>건강앱 단축어 자동 연동</span>
+            <span style={{ fontSize:'11px', color:'var(--text-mute)', fontWeight:'400' }}>아이폰 건강앱 → 자동 저장</span>
           </div>
           <span style={{ fontSize:'18px', color:'var(--text-mute)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>⌄</span>
         </button>
+
         {open && <div className="cn-card" style={{ padding:'16px', marginBottom:14 }}>
-          <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'14px', lineHeight:1.6 }}>
-            브라우저·앱 실행 없이 백그라운드에서 바로 저장됩니다.<br/>아래 3단계를 순서대로 따라하세요.
+          <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'16px', lineHeight:1.7,
+            background:'var(--input-bg)', borderRadius:'8px', padding:'8px 10px', border:'1px solid var(--card-border)' }}>
+            📱 아이폰 건강앱 데이터를 매일 자동으로 기록합니다.<br/>
+            <span style={{ color:'var(--cn-brand)', fontWeight:700 }}>연동 키 하나</span>만 단축어에 넣으면 끝 — 토큰 갱신 불필요.
           </div>
-          {/* STEP 1 */}
-          <div style={{ marginBottom:'14px' }}>
+
+          {/* STEP 1 — 관리자 전용 SQL */}
+          <div style={{ marginBottom:'16px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-              <span style={{ background: step1Done ? 'var(--cn-ok)' : 'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>{step1Done ? '✓' : '1'}</span>
-              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>Supabase SQL 등록 <span style={{ fontWeight:400, color:'var(--text-mute)' }}>(최초 1회)</span></span>
+              {stepNum('1', step1Done)}
+              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>
+                관리자 SQL 등록
+                <span style={{ fontWeight:400, color:'var(--text-mute)', marginLeft:'4px' }}>(최초 1회, 관리자만)</span>
+              </span>
             </div>
             <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'8px', lineHeight:1.6 }}>
               <a href="https://supabase.com/dashboard/project/uvtrnkkzkxzujbvhhchl/sql/new" target="_blank" rel="noopener noreferrer"
-                style={{ color:'var(--cn-brand)', fontWeight:700, textDecoration:'none' }}>Supabase SQL Editor ↗</a>에서 아래 SQL을 실행하세요.
+                style={{ color:'var(--cn-brand)', fontWeight:700, textDecoration:'none' }}>Supabase SQL Editor ↗</a>에서 아래 SQL을 실행하세요. 사용자들은 건너뛰세요.
             </div>
-            <div style={{ position:'relative', marginBottom:'8px' }}>
-              <div style={{ ...codeBox, maxHeight:'90px', overflow:'auto', whiteSpace:'pre', fontSize:'10.5px', lineHeight:1.7 }}>{SQL_TEXT}</div>
-            </div>
+            <div style={{ ...codeBox, maxHeight:'100px', overflow:'auto', whiteSpace:'pre', fontSize:'10px', lineHeight:1.7, marginBottom:'8px' }}>{SQL_TEXT}</div>
             <div style={{ display:'flex', gap:'6px' }}>
               <button onClick={() => cp(SQL_TEXT, 'sql')} style={{ ...btnStyle('sql'), flex:1 }}>
                 {copied==='sql' ? '✓ 복사됨!' : '📋 SQL 복사'}
               </button>
-              <button onClick={() => { setStep1Done(true); localStorage.setItem('cn_sc_sql_done','1'); }}
-                style={{ ...btnStyle('done'), flex:1, borderColor: step1Done ? 'var(--cn-ok)' : 'var(--card-border)', color: step1Done ? 'var(--cn-ok)' : 'var(--text-mute)' }}>
+              <button onClick={() => { setStep1Done(true); localStorage.setItem('cn_sc_sql_done_v2','1'); }}
+                style={{ ...btnStyle('done'), flex:1, borderColor: step1Done ? 'var(--cn-ok)' : 'var(--card-border)',
+                  color: step1Done ? 'var(--cn-ok)' : 'var(--text-mute)' }}>
                 {step1Done ? '✓ 완료됨' : '실행 완료 표시'}
               </button>
             </div>
           </div>
-          {/* STEP 2 */}
-          <div style={{ marginBottom:'14px' }}>
+
+          {/* STEP 2 — 연동 키 복사 (1개만) */}
+          <div style={{ marginBottom:'16px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-              <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>2</span>
-              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>내 연동 정보 복사</span>
+              {stepNum('2', false)}
+              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>내 연동 키 복사</span>
             </div>
-            {scInfo ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                {[
-                  { label:'사용자 ID', val: scInfo.uid, key:'uid' },
-                  { label:'Refresh Token', val: scInfo.rt, key:'rt' },
-                  { label:'API 키', val: SUPA_KEY, key:'key' },
-                  { label:'Supabase URL', val: SUPA_URL, key:'url' },
-                ].map(({ label, val, key }) => (
-                  <div key={key} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    <div style={{ fontSize:'10px', color:'var(--text-mute)', width:'80px', flexShrink:0, fontWeight:600 }}>{label}</div>
-                    <div style={{ ...codeBox, fontSize:'10px', maxWidth:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', height:'28px', lineHeight:'28px', padding:'0 8px' }}>{val}</div>
-                    <button onClick={() => cp(val, key)} style={btnStyle(key)}>{copied===key ? '✓' : '복사'}</button>
-                  </div>
-                ))}
+            {syncKey ? (
+              <div>
+                <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'6px', lineHeight:1.5 }}>
+                  이 키를 단축어 ⑤번 본문에 붙여넣으세요. <span style={{ color:'var(--cn-ok)', fontWeight:700 }}>만료 없음 — 재로그인해도 그대로 사용.</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                  <div style={{ ...codeBox, fontSize:'11px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                    height:'32px', lineHeight:'32px', padding:'0 10px', letterSpacing:'0.3px' }}>{syncKey}</div>
+                  <button onClick={() => cp(syncKey, 'skey')} style={{ ...btnStyle('skey'), padding:'7px 14px' }}>
+                    {copied==='skey' ? '✓ 복사!' : '복사'}
+                  </button>
+                </div>
               </div>
             ) : (
-              <div style={{ fontSize:'11px', color:'var(--text-mute)', padding:'8px', textAlign:'center' }}>⏳ 로딩 중...</div>
+              <div style={{ fontSize:'11px', color:'var(--text-mute)', padding:'10px', textAlign:'center',
+                background:'var(--input-bg)', borderRadius:'8px' }}>
+                ⏳ 관리자가 Step 1 SQL을 실행한 후 나타납니다.
+              </div>
             )}
           </div>
-          {/* STEP 3 */}
+
+          {/* STEP 3 — 단축어 설정 */}
           <div>
             <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-              <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>3</span>
+              {stepNum('3', false)}
               <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>단축어 앱 설정</span>
             </div>
-            <div style={{ fontSize:'11px', color:'var(--text-sub)', lineHeight:'1.85', background:'var(--bg)', borderRadius:'8px', padding:'10px 12px', border:'1px solid var(--card-border)' }}>
-              <div style={{ fontWeight:700, color:'var(--text)', marginBottom:'6px' }}>기존 단축어에서 "URL 열기" 단계를 삭제하고 아래 순서로 교체하세요:</div>
+            <div style={{ fontSize:'11px', color:'var(--text-sub)', lineHeight:'1.85', background:'var(--bg)',
+              borderRadius:'8px', padding:'10px 12px', border:'1px solid var(--card-border)' }}>
+              <div style={{ fontWeight:700, color:'var(--text)', marginBottom:'8px' }}>
+                단축어 앱에서 새 단축어를 만들고 아래 순서로 액션을 추가하세요:
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
                 {[
                   { n:'①', t:'건강 샘플 찾기', d:'유형: 걸음 수 / 기간: 오늘 / 집계: 합계 → 변수 "steps" 저장' },
                   { n:'②', t:'건강 샘플 찾기', d:'유형: 활동 에너지 / 기간: 오늘 / 집계: 합계 → 변수 "cal" 저장' },
-                  { n:'③', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 집계: 합계 → 변수 "dist" 저장' },
-                  { n:'④', t:'URL의 내용 가져오기 (토큰 갱신)', d:'POST → ' + SUPA_URL + '/auth/v1/token?grant_type=refresh_token\n헤더: apikey=[API키], Content-Type=application/json\nJSON 본문: {"refresh_token":"[복사한 Refresh Token]"}\n→ 사전에서 "access_token" 값 가져오기 → 변수 "jwt" 저장' },
-                  { n:'⑤', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
-                  { n:'⑥', t:'URL의 내용 가져오기 (저장)', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch\n헤더: apikey=[API키], Authorization=Bearer [jwt], Content-Type=application/json\nJSON 본문: {"p_uid":"[복사한 사용자 ID]","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"dist":[dist]}}' },
-                  { n:'⑦', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
+                  { n:'③', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 집계: 합계 → 변수 "dist" 저장 (단위: km)' },
+                  { n:'④', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
+                  { n:'⑤', t:'URL의 내용 가져오기', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch_v2\n헤더: apikey=' + SUPA_KEY + ', Content-Type=application/json\nJSON 본문: {"p_sync_key":"' + (syncKey||'[위에서 복사한 연동 키]') + '","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"dist":[dist]}}' },
+                  { n:'⑥', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
                 ].map(({ n, t, d }) => (
                   <div key={n} style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
                     <span style={{ fontWeight:800, color:'var(--cn-brand)', flexShrink:0, minWidth:'18px', fontSize:'12px' }}>{n}</span>
@@ -4048,9 +4244,10 @@
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop:'10px', padding:'8px 10px', background:'var(--cn-warn-100)', borderRadius:'6px', border:'1px solid var(--cn-warn)', fontSize:'10.5px', color:'#92400e', lineHeight:1.6 }}>
-                ⚠️ <strong>Refresh Token은 주기적으로 갱신됩니다.</strong><br/>
-                앱 재로그인 후에는 이 페이지에서 토큰을 다시 복사해서 단축어의 ④번 본문을 업데이트하세요.
+              <div style={{ marginTop:'10px', padding:'8px 10px', background:'var(--input-bg)', borderRadius:'6px',
+                border:'1px solid var(--card-border)', fontSize:'10.5px', color:'var(--text-mute)', lineHeight:1.6 }}>
+                💡 <strong>거리 단위</strong>: iPhone 건강앱 설정이 <strong>km</strong>인지 확인하세요 (설정 → 건강 → 단위).<br/>
+                💡 <strong>칼로리</strong>: "활동 에너지"는 운동 중 소모 칼로리만 포함됩니다 (기초대사량 제외).
               </div>
             </div>
           </div>
@@ -4137,9 +4334,7 @@
 
           const activeItems = (slot.items||[]).filter(m => {
             const today = now.toISOString().slice(0,10);
-            if (m.startDate && today < m.startDate) return false;
-            if (m.endDate   && today > m.endDate)   return false;
-            return true;
+            return isMedActive(m, today);
           });
           if (!activeItems.length) return;
 
@@ -4578,34 +4773,36 @@
     useEffect(() => {
       if (!userId) { setMedsReadyFor(''); return; }
       (async () => {
+        const normMeds = (arr) => Array.isArray(arr)
+          ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
+          : [];
         try {
           const { data: row } = await supa.from('diabetes_data')
             .select('payload').eq('user_id', userId).eq('date', '_user_settings_')
             .maybeSingle();
           const fromSB = row?.payload?.medsConfig;
-          // 각 슬롯의 items가 반드시 배열이 되도록 정규화
-          const normMeds = (arr) => Array.isArray(arr)
-            ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
-            : [];
-          if (fromSB && Array.isArray(fromSB)) {
-            // Supabase 우선 — localStorage도 동기화
-            setMedsConfig(normMeds(fromSB));
-            localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(fromSB));
-          } else {
-            // localStorage 폴백
-            const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-            setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
-          }
+          // 이미 사용자가 저장한 경우(medsReadyFor === userId) → Supabase 데이터로 덮어쓰지 않음
+          // (saveMeds가 먼저 호출된 레이스 컨디션 방지)
+          setMedsReadyFor(prev => {
+            if (prev === userId) return prev; // 이미 저장 완료 → 상태 유지
+            if (fromSB && Array.isArray(fromSB)) {
+              setMedsConfig(normMeds(fromSB));
+              localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(fromSB));
+            } else {
+              try {
+                const s = localStorage.getItem(`hcd_meds_config_${userId}`);
+                setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
+              } catch { setMedsConfig([]); }
+            }
+            return userId;
+          });
         } catch {
           try {
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-            const normMeds = (arr) => Array.isArray(arr)
-              ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
-              : [];
             setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
           } catch { setMedsConfig([]); }
+          setMedsReadyFor(userId);
         }
-        setMedsReadyFor(userId);
       })();
     }, [userId]);
 
@@ -4623,7 +4820,19 @@
         } catch(e) { console.error('복약 설정 Supabase 저장 오류:', e); }
       })();
     }, [medsConfig, userId, medsReadyFor]);
-    const saveMeds = (cfg) => { setMedsConfig(cfg); setShowMedSettings(false); };
+    // saveMeds: 직접 Supabase + localStorage에 즉시 저장 (effect 타이밍 무관)
+    const saveMeds = (cfg) => {
+      setMedsConfig(cfg);
+      setMedsReadyFor(userId); // 로드 전 저장 시에도 effect가 동작하도록
+      if (userId) {
+        localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(cfg));
+        supa.from('diabetes_data').upsert(
+          { user_id: userId, date: '_user_settings_', payload: { medsConfig: cfg }, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,date' }
+        ).catch(e => console.error('복약 설정 저장 오류:', e));
+      }
+      setShowMedSettings(false);
+    };
 
     // 키(신장): Supabase cn_profiles 우선, 없으면 localStorage 폴백
     useEffect(() => {
@@ -4653,7 +4862,7 @@
     };
 
     /* Stats */
-    const allMedIds = useMemo(() => medsConfig.flatMap(s => (s.items||[]).map(m => m.id||'')), [medsConfig]);
+    const allMedIds = useMemo(() => medsConfig.flatMap(s => (s.items||[]).filter(m => isMedActive(m, date)).map(m => m.id||'')), [medsConfig, date]);
     const medDone = allMedIds.filter(id => day.meds[id]).length;
     const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
     const bsVals  = Object.values(day.bs).filter(v => parseInt(v) > 0);
@@ -4808,7 +5017,16 @@
                 style={{ background:'rgba(47,107,255,0.35)', border:'1px solid rgba(47,107,255,0.6)', color:'#fff', borderRadius:'7px', padding:'4px 12px', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'4px' }}>
                 👥 커뮤니티
               </a>
-              <button className="cn-hdr-actions" onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
+              <button className="cn-hdr-actions" onClick={() => (() => {
+                // 모달 열기 전 — medsConfig가 비어있고 localStorage에 데이터 있으면 먼저 복구
+                if (medsConfig.length === 0 && userId) {
+                  try {
+                    const s = localStorage.getItem(`hcd_meds_config_${userId}`);
+                    if (s) { const parsed = JSON.parse(s); if (parsed.length > 0) { setMedsConfig(parsed); setMedsReadyFor(userId); } }
+                  } catch {}
+                }
+                setShowMedSettings(true);
+              })()} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
                 ⚙️ 복약설정
               </button>
               <button className="cn-hdr-actions" onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
@@ -4917,18 +5135,23 @@
                     <div style={{ fontSize:'32px', marginBottom:'10px' }}>💊</div>
                     <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'6px' }}>복약 정보가 없어요</div>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'14px' }}>복용 중인 약을 등록하면 매일 체크할 수 있어요</div>
-                    <button onClick={() => setShowMedSettings(true)}
+                    <button onClick={() => (() => {
+                // 모달 열기 전 — medsConfig가 비어있고 localStorage에 데이터 있으면 먼저 복구
+                if (medsConfig.length === 0 && userId) {
+                  try {
+                    const s = localStorage.getItem(`hcd_meds_config_${userId}`);
+                    if (s) { const parsed = JSON.parse(s); if (parsed.length > 0) { setMedsConfig(parsed); setMedsReadyFor(userId); } }
+                  } catch {}
+                }
+                setShowMedSettings(true);
+              })()}
                       style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
                       ⚙️ 복약 설정하기
                     </button>
                   </div>
                 )}
                 {medsConfig.map(slot => {
-                  const activeItems = (slot.items||[]).filter(med => {
-                    if (med.startDate && date < med.startDate) return false;
-                    if (med.endDate   && date > med.endDate)   return false;
-                    return true;
-                  });
+                  const activeItems = (slot.items||[]).filter(med => isMedActive(med, date));
                   if (!activeItems.length) return null;
                   return (
                   <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
@@ -5678,16 +5901,34 @@
               <Card tab="record">
                 <STitle icon="🏃" label="활동 & 운동 기록" />
 
-                {/* 걸음수 / 칼로리 / 거리 카드 */}
+                {/* 걸음수 / 칼로리 / 거리 카드 — 탭하면 직접 입력 */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
                   {[
-                    { key:'steps', icon:'👟', label:'걸음수', val: day.steps ? Number(day.steps).toLocaleString() : '---', color:'var(--cn-brand)' },
-                    { key:'cal',   icon:'🔥', label:'kcal',   val: day.cal   ? Math.round(Number(day.cal)).toLocaleString() : '---', color:'var(--cn-danger)' },
-                    { key:'dist',  icon:'📍', label:'km',     val: day.dist  ? Number(day.dist).toFixed(1) : '---', color:'var(--cn-ok)' },
+                    { key:'steps', icon:'👟', label:'걸음수', unit:'걸음', color:'var(--cn-brand)',
+                      display: day.steps ? Number(day.steps).toLocaleString() : null,
+                      inputMode:'numeric', placeholder:'0' },
+                    { key:'cal', icon:'🔥', label:'칼로리', unit:'kcal', color:'var(--cn-danger)',
+                      display: day.cal ? Math.round(Number(day.cal)).toLocaleString() : null,
+                      inputMode:'decimal', placeholder:'0' },
+                    { key:'dist', icon:'📍', label:'거리', unit:'km', color:'var(--cn-ok)',
+                      display: day.dist ? Number(day.dist).toFixed(1) : null,
+                      inputMode:'decimal', placeholder:'0.0' },
                   ].map(item => (
-                    <div key={item.key} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'12px 8px', textAlign:'center', border:`1px solid var(--card-border)` }}>
-                      <div style={{ fontSize:'20px', fontWeight:'900', color: (day[item.key] ? item.color : 'var(--text-mute)'), letterSpacing:'-0.5px' }}>{item.val}</div>
-                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'3px' }}>{item.icon} {item.label}</div>
+                    <div key={item.key} style={{ background:'var(--input-bg)', borderRadius:'12px', padding:'10px 6px 8px', textAlign:'center', border:`1px solid var(--card-border)` }}>
+                      <div style={{ fontSize:'18px', fontWeight:'900', color: item.color, letterSpacing:'-0.5px', marginBottom:'4px' }}>
+                        {item.display || '---'}
+                      </div>
+                      <div style={{ fontSize:'10px', color:'var(--text-sub)', marginBottom:'5px' }}>{item.icon} {item.label}</div>
+                      <input
+                        type="text" inputMode={item.inputMode}
+                        value={day[item.key] || ''}
+                        onChange={e => upDay({ [item.key]: e.target.value.replace(/[^0-9.]/g,'') })}
+                        placeholder={item.placeholder}
+                        style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--card-border)',
+                          borderRadius:'6px', padding:'3px 4px', fontSize:'11px', textAlign:'center',
+                          color:'var(--text)', outline:'none', boxSizing:'border-box' }}
+                      />
+                      <div style={{ fontSize:'9px', color:'var(--text-mute)', marginTop:'2px' }}>{item.unit}</div>
                     </div>
                   ))}
                 </div>
