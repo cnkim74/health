@@ -2279,6 +2279,38 @@
                           fontWeight:'500', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
           </div>
 
+          {/* 단축어 데이터 수신 알림 */}
+          {(() => {
+            try {
+              const pending = JSON.parse(localStorage.getItem('cn_pending_patch') || 'null');
+              if (pending && pending.patch && (Date.now() - (pending.ts||0)) < 86400000) {
+                const p = pending.patch;
+                const items = [];
+                if (p.steps) items.push(`👟 걸음수 ${Number(p.steps).toLocaleString()}걸음`);
+                if (p.cal)   items.push(`🔥 칼로리 ${Number(p.cal).toLocaleString()}kcal`);
+                if (p.dist)  items.push(`📍 거리 ${p.dist}km`);
+                if (p.weight) items.push(`⚖️ 체중 ${p.weight}kg`);
+                if (p.bp?.sys) items.push(`💓 혈압 ${p.bp.sys}/${p.bp.dia}`);
+                if (!items.length) return null;
+                return (
+                  <div style={{ background: dm?'rgba(16,185,129,0.15)':'#ecfdf5', border:'1px solid var(--cn-ok)',
+                                borderRadius:'12px', padding:'12px 14px', marginBottom:'20px', textAlign:'center' }}>
+                    <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--cn-ok)', marginBottom:'4px' }}>
+                      📲 건강 데이터를 받았어요
+                    </div>
+                    <div style={{ fontSize:'12px', color: dm?'var(--text-sub)':'#065f46' }}>
+                      {items.join(' · ')}
+                    </div>
+                    <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'4px' }}>
+                      로그인하면 자동으로 저장됩니다
+                    </div>
+                  </div>
+                );
+              }
+            } catch {}
+            return null;
+          })()}
+
           {/* 탭 */}
           <div style={{ display:'flex', background: dm ? 'rgba(255,255,255,0.06)' : 'var(--divider)',
                         borderRadius:'14px', padding:'4px', marginBottom:'22px' }}>
@@ -3932,6 +3964,21 @@
       const timer = setInterval(check, 60000); // 매 분 체크
       return () => clearInterval(timer);
     }, [medsConfig]);
+
+    // ── 포커스 복귀 시 자동 새로고침 (단축어 → PWA 전환 대응) ──
+    useEffect(() => {
+      if (!userId) return;
+      let lastRefresh = Date.now();
+      const handleVisible = () => {
+        if (!document.hidden && (Date.now() - lastRefresh) > 60000) { // 1분 이상 지났을 때만
+          lastRefresh = Date.now();
+          setRefreshKey(k => k + 1);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisible);
+      return () => document.removeEventListener('visibilitychange', handleVisible);
+    }, [userId]);
+
     const [showDataRecovery, setShowDataRecovery] = useState(false);
     const [medOpen, setMedOpen] = useState(true);
     const [reportOpen, setReportOpen] = useState(false); // 사이드바 리포트 기본 접힘
@@ -4130,8 +4177,22 @@
       }
       const freshTarget = (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : todayStr();
       if (Object.keys(freshPatch).length) {
-        // URL에서 읽은 즉시 sessionStorage에 저장 (userId 로드 전에 URL이 사라져도 보존)
+        // ① sessionStorage: 현재 세션용 보존 (userId 로드 전에 URL 사라져도 유지)
         sessionStorage.setItem('cn_url_patch', JSON.stringify({ patch: freshPatch, targetDate: freshTarget }));
+        // ② localStorage: PWA/Safari 컨텍스트 분리 대응 — auth 없어도 즉시 로컬 반영
+        try {
+          const lc = JSON.parse(localStorage.getItem('dm_dash_v2') || '{}');
+          const lcData = lc.data || {};
+          const existing = lcData[freshTarget] || {};
+          // bp는 병합, 나머지는 덮어쓰기
+          const merged = { ...existing, ...freshPatch };
+          if (freshPatch.bp && existing.bp) merged.bp = { ...existing.bp, ...freshPatch.bp };
+          lcData[freshTarget] = merged;
+          lc.data = lcData;
+          localStorage.setItem('dm_dash_v2', JSON.stringify(lc));
+          // 별도 "pending" 키에도 저장 — 나중에 Supabase 동기화 대기용
+          localStorage.setItem('cn_pending_patch', JSON.stringify({ patch: freshPatch, targetDate: freshTarget, ts: Date.now() }));
+        } catch {}
         window.history.replaceState({}, '', window.location.pathname);
         if (freshTarget !== todayStr()) setDate(freshTarget);
       }
@@ -4203,19 +4264,41 @@
             });
           } catch {}
 
+          // ── pending patch (localStorage 경유 — Safari→PWA 크로스 컨텍스트) 처리
+          try {
+            const pending = JSON.parse(localStorage.getItem('cn_pending_patch') || 'null');
+            // 24시간 이내 패치만 적용
+            if (pending && pending.patch && (Date.now() - (pending.ts||0)) < 86400000) {
+              const pd = pending.targetDate || todayStr();
+              loaded[pd] = { ...(loaded[pd] || emptyDay()), ...pending.patch };
+              // Supabase에도 저장
+              try {
+                await supa.from('diabetes_data').upsert(
+                  { user_id: userId, date: pd, payload: loaded[pd], updated_at: new Date().toISOString() },
+                  { onConflict: 'user_id,date' }
+                );
+              } catch {}
+              localStorage.removeItem('cn_pending_patch');
+              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+            }
+          } catch {}
+
           if (Object.keys(urlPatch).length) {
             loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
             sessionStorage.removeItem('cn_url_patch'); // 적용 완료 후 제거
             // URL 파라미터 입력 시 즉시 Supabase 저장 (iOS 백그라운드 전환 전에 완료)
+            setSaveStatus('saving');
             try {
               await supa.from('diabetes_data').upsert(
                 { user_id: userId, date: targetDate, payload: loaded[targetDate], updated_at: new Date().toISOString() },
                 { onConflict: 'user_id,date' }
               );
               localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+              setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 3000);
             } catch(saveErr) {
               // 실패해도 로컬캐시에는 남아있음
               localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+              setSaveStatus('idle');
             }
           }
           setData(loaded);
