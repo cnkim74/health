@@ -3929,6 +3929,124 @@
     );
   };
 
+  /* ── 단축어 연동 가이드 컴포넌트 (hooks를 IIFE 안에 넣으면 React #310 에러 발생) ── */
+  const ShortcutGuide = () => {
+    const [scInfo, setScInfo] = React.useState(null);
+    const [copied, setCopied] = React.useState('');
+    const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done'));
+    const SQL_TEXT = `create or replace function upsert_health_patch(\n  p_uid  uuid,\n  p_date text,\n  p_patch jsonb\n) returns json\nlanguage plpgsql security definer as $$\nbegin\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (p_uid, p_date::date, p_patch, now())\n  on conflict (user_id, date)\n  do update set\n    payload = diabetes_data.payload || p_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
+    React.useEffect(() => {
+      supa.auth.getSession().then(({ data: { session } }) => {
+        if (session) setScInfo({ uid: session.user.id, rt: session.refresh_token });
+      }).catch(() => {});
+    }, []);
+    const cp = (text, label) => {
+      navigator.clipboard?.writeText(text).then(() => {
+        setCopied(label); setTimeout(() => setCopied(''), 2200);
+      });
+    };
+    const btnStyle = (lbl) => ({
+      padding:'5px 10px', borderRadius:'7px', fontSize:'11px', fontWeight:'700',
+      border:'1px solid var(--cn-brand)', cursor:'pointer',
+      background: copied===lbl ? 'var(--cn-ok)' : 'transparent',
+      color: copied===lbl ? '#fff' : 'var(--cn-brand)', whiteSpace:'nowrap', flexShrink:0
+    });
+    const codeBox = { background:'var(--bg)', borderRadius:'7px', padding:'8px 10px', fontSize:'11px',
+      color:'var(--text-sub)', fontFamily:'monospace', wordBreak:'break-all', border:'1px solid var(--card-border)',
+      flex:1, minWidth:0, lineHeight:1.5 };
+    return (
+      <div style={{ borderTop:'1px solid var(--divider)', padding:'20px 16px 0', maxWidth:'1140px', margin:'0 auto' }}>
+        <div className="cn-card" style={{ padding:'16px', marginBottom:14 }}>
+          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px' }}>📲 건강앱 단축어 직접 연동</div>
+          <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'14px', lineHeight:1.6 }}>
+            브라우저·앱 실행 없이 백그라운드에서 바로 저장됩니다.<br/>아래 3단계를 순서대로 따라하세요.
+          </div>
+          {/* STEP 1 */}
+          <div style={{ marginBottom:'14px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
+              <span style={{ background: step1Done ? 'var(--cn-ok)' : 'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>{step1Done ? '✓' : '1'}</span>
+              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>Supabase SQL 등록 <span style={{ fontWeight:400, color:'var(--text-mute)' }}>(최초 1회)</span></span>
+            </div>
+            <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'8px', lineHeight:1.6 }}>
+              <a href="https://supabase.com/dashboard/project/uvtrnkkzkxzujbvhhchl/sql/new" target="_blank" rel="noopener noreferrer"
+                style={{ color:'var(--cn-brand)', fontWeight:700, textDecoration:'none' }}>Supabase SQL Editor ↗</a>에서 아래 SQL을 실행하세요.
+            </div>
+            <div style={{ position:'relative', marginBottom:'8px' }}>
+              <div style={{ ...codeBox, maxHeight:'90px', overflow:'auto', whiteSpace:'pre', fontSize:'10.5px', lineHeight:1.7 }}>{SQL_TEXT}</div>
+            </div>
+            <div style={{ display:'flex', gap:'6px' }}>
+              <button onClick={() => cp(SQL_TEXT, 'sql')} style={{ ...btnStyle('sql'), flex:1 }}>
+                {copied==='sql' ? '✓ 복사됨!' : '📋 SQL 복사'}
+              </button>
+              <button onClick={() => { setStep1Done(true); localStorage.setItem('cn_sc_sql_done','1'); }}
+                style={{ ...btnStyle('done'), flex:1, borderColor: step1Done ? 'var(--cn-ok)' : 'var(--card-border)', color: step1Done ? 'var(--cn-ok)' : 'var(--text-mute)' }}>
+                {step1Done ? '✓ 완료됨' : '실행 완료 표시'}
+              </button>
+            </div>
+          </div>
+          {/* STEP 2 */}
+          <div style={{ marginBottom:'14px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
+              <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>2</span>
+              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>내 연동 정보 복사</span>
+            </div>
+            {scInfo ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                {[
+                  { label:'사용자 ID', val: scInfo.uid, key:'uid' },
+                  { label:'Refresh Token', val: scInfo.rt, key:'rt' },
+                  { label:'API 키', val: SUPA_KEY, key:'key' },
+                  { label:'Supabase URL', val: SUPA_URL, key:'url' },
+                ].map(({ label, val, key }) => (
+                  <div key={key} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                    <div style={{ fontSize:'10px', color:'var(--text-mute)', width:'80px', flexShrink:0, fontWeight:600 }}>{label}</div>
+                    <div style={{ ...codeBox, fontSize:'10px', maxWidth:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', height:'28px', lineHeight:'28px', padding:'0 8px' }}>{val}</div>
+                    <button onClick={() => cp(val, key)} style={btnStyle(key)}>{copied===key ? '✓' : '복사'}</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize:'11px', color:'var(--text-mute)', padding:'8px', textAlign:'center' }}>⏳ 로딩 중...</div>
+            )}
+          </div>
+          {/* STEP 3 */}
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
+              <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>3</span>
+              <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>단축어 앱 설정</span>
+            </div>
+            <div style={{ fontSize:'11px', color:'var(--text-sub)', lineHeight:'1.85', background:'var(--bg)', borderRadius:'8px', padding:'10px 12px', border:'1px solid var(--card-border)' }}>
+              <div style={{ fontWeight:700, color:'var(--text)', marginBottom:'6px' }}>기존 단축어에서 "URL 열기" 단계를 삭제하고 아래 순서로 교체하세요:</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
+                {[
+                  { n:'①', t:'건강 샘플 찾기', d:'유형: 걸음 수 / 기간: 오늘 / 집계: 합계 → 변수 "steps" 저장' },
+                  { n:'②', t:'건강 샘플 찾기', d:'유형: 활동 에너지 / 기간: 오늘 / 집계: 합계 → 변수 "cal" 저장' },
+                  { n:'③', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 집계: 합계 → 변수 "dist" 저장' },
+                  { n:'④', t:'URL의 내용 가져오기 (토큰 갱신)', d:'POST → ' + SUPA_URL + '/auth/v1/token?grant_type=refresh_token\n헤더: apikey=[API키], Content-Type=application/json\nJSON 본문: {"refresh_token":"[복사한 Refresh Token]"}\n→ 사전에서 "access_token" 값 가져오기 → 변수 "jwt" 저장' },
+                  { n:'⑤', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
+                  { n:'⑥', t:'URL의 내용 가져오기 (저장)', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch\n헤더: apikey=[API키], Authorization=Bearer [jwt], Content-Type=application/json\nJSON 본문: {"p_uid":"[복사한 사용자 ID]","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"dist":[dist]}}' },
+                  { n:'⑦', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
+                ].map(({ n, t, d }) => (
+                  <div key={n} style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
+                    <span style={{ fontWeight:800, color:'var(--cn-brand)', flexShrink:0, minWidth:'18px', fontSize:'12px' }}>{n}</span>
+                    <div>
+                      <span style={{ fontWeight:700, color:'var(--text)', fontSize:'11px' }}>{t} </span>
+                      <span style={{ color:'var(--text-mute)', fontSize:'10.5px', whiteSpace:'pre-line' }}>{d}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop:'10px', padding:'8px 10px', background:'var(--cn-warn-100)', borderRadius:'6px', border:'1px solid var(--cn-warn)', fontSize:'10.5px', color:'#92400e', lineHeight:1.6 }}>
+                ⚠️ <strong>Refresh Token은 주기적으로 갱신됩니다.</strong><br/>
+                앱 재로그인 후에는 이 페이지에서 토큰을 다시 복사해서 단축어의 ④번 본문을 업데이트하세요.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const App = () => {
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
@@ -5668,126 +5786,7 @@
         </div>
 
         {/* ── 단축어 직접 연동 설정 ── */}
-        {(() => {
-          const [scInfo, setScInfo] = React.useState(null);
-          const [copied, setCopied] = React.useState('');
-          const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done'));
-          const SQL_TEXT = `create or replace function upsert_health_patch(\n  p_uid  uuid,\n  p_date text,\n  p_patch jsonb\n) returns json\nlanguage plpgsql security definer as $$\nbegin\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (p_uid, p_date::date, p_patch, now())\n  on conflict (user_id, date)\n  do update set\n    payload = diabetes_data.payload || p_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
-          React.useEffect(() => {
-            supa.auth.getSession().then(({ data: { session } }) => {
-              if (session) setScInfo({ uid: session.user.id, rt: session.refresh_token });
-            }).catch(() => {});
-          }, []);
-          const cp = (text, label) => {
-            navigator.clipboard?.writeText(text).then(() => {
-              setCopied(label); setTimeout(() => setCopied(''), 2200);
-            });
-          };
-          const btnStyle = (lbl) => ({
-            padding:'5px 10px', borderRadius:'7px', fontSize:'11px', fontWeight:'700',
-            border:'1px solid var(--cn-brand)', cursor:'pointer',
-            background: copied===lbl ? 'var(--cn-ok)' : 'transparent',
-            color: copied===lbl ? '#fff' : 'var(--cn-brand)', whiteSpace:'nowrap', flexShrink:0
-          });
-          const codeBox = { background:'var(--bg)', borderRadius:'7px', padding:'8px 10px', fontSize:'11px',
-            color:'var(--text-sub)', fontFamily:'monospace', wordBreak:'break-all', border:'1px solid var(--card-border)',
-            flex:1, minWidth:0, lineHeight:1.5 };
-          return (
-            <div style={{ borderTop:'1px solid var(--divider)', padding:'20px 16px 0', maxWidth:'1140px', margin:'0 auto' }}>
-              <div className="cn-card" style={{ padding:'16px', marginBottom:14 }}>
-                <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px' }}>📲 건강앱 단축어 직접 연동</div>
-                <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'14px', lineHeight:1.6 }}>
-                  브라우저·앱 실행 없이 백그라운드에서 바로 저장됩니다.<br/>아래 3단계를 순서대로 따라하세요.
-                </div>
-
-                {/* STEP 1 */}
-                <div style={{ marginBottom:'14px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-                    <span style={{ background: step1Done ? 'var(--cn-ok)' : 'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>{step1Done ? '✓' : '1'}</span>
-                    <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>Supabase SQL 등록 <span style={{ fontWeight:400, color:'var(--text-mute)' }}>(최초 1회)</span></span>
-                  </div>
-                  <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'8px', lineHeight:1.6 }}>
-                    <a href="https://supabase.com/dashboard/project/uvtrnkkzkxzujbvhhchl/sql/new" target="_blank" rel="noopener noreferrer"
-                      style={{ color:'var(--cn-brand)', fontWeight:700, textDecoration:'none' }}>Supabase SQL Editor ↗</a>에서 아래 SQL을 실행하세요.
-                  </div>
-                  <div style={{ position:'relative', marginBottom:'8px' }}>
-                    <div style={{ ...codeBox, maxHeight:'90px', overflow:'auto', whiteSpace:'pre', fontSize:'10.5px', lineHeight:1.7 }}>{SQL_TEXT}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:'6px' }}>
-                    <button onClick={() => cp(SQL_TEXT, 'sql')} style={{ ...btnStyle('sql'), flex:1 }}>
-                      {copied==='sql' ? '✓ 복사됨!' : '📋 SQL 복사'}
-                    </button>
-                    <button onClick={() => { setStep1Done(true); localStorage.setItem('cn_sc_sql_done','1'); }}
-                      style={{ ...btnStyle('done'), flex:1, borderColor: step1Done ? 'var(--cn-ok)' : 'var(--card-border)', color: step1Done ? 'var(--cn-ok)' : 'var(--text-mute)' }}>
-                      {step1Done ? '✓ 완료됨' : '실행 완료 표시'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* STEP 2 */}
-                <div style={{ marginBottom:'14px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-                    <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>2</span>
-                    <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>내 연동 정보 복사</span>
-                  </div>
-                  {scInfo ? (
-                    <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                      {[
-                        { label:'사용자 ID', val: scInfo.uid, key:'uid' },
-                        { label:'Refresh Token', val: scInfo.rt, key:'rt' },
-                        { label:'API 키', val: SUPA_KEY, key:'key' },
-                        { label:'Supabase URL', val: SUPA_URL, key:'url' },
-                      ].map(({ label, val, key }) => (
-                        <div key={key} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                          <div style={{ fontSize:'10px', color:'var(--text-mute)', width:'80px', flexShrink:0, fontWeight:600 }}>{label}</div>
-                          <div style={{ ...codeBox, fontSize:'10px', maxWidth:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', height:'28px', lineHeight:'28px', padding:'0 8px' }}>{val}</div>
-                          <button onClick={() => cp(val, key)} style={btnStyle(key)}>{copied===key ? '✓' : '복사'}</button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize:'11px', color:'var(--text-mute)', padding:'8px', textAlign:'center' }}>⏳ 로딩 중...</div>
-                  )}
-                </div>
-
-                {/* STEP 3 */}
-                <div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
-                    <span style={{ background:'var(--cn-brand)', color:'#fff', borderRadius:'50%', width:20, height:20, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'800', flexShrink:0 }}>3</span>
-                    <span style={{ fontSize:'12px', fontWeight:'700', color:'var(--text)' }}>단축어 앱 설정</span>
-                  </div>
-                  <div style={{ fontSize:'11px', color:'var(--text-sub)', lineHeight:'1.85', background:'var(--bg)', borderRadius:'8px', padding:'10px 12px', border:'1px solid var(--card-border)' }}>
-                    <div style={{ fontWeight:700, color:'var(--text)', marginBottom:'6px' }}>기존 단축어에서 "URL 열기" 단계를 삭제하고 아래 순서로 교체하세요:</div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
-                      {[
-                        { n:'①', t:'건강 샘플 찾기', d:'유형: 걸음 수 / 기간: 오늘 / 집계: 합계 → 변수 "steps" 저장' },
-                        { n:'②', t:'건강 샘플 찾기', d:'유형: 활동 에너지 / 기간: 오늘 / 집계: 합계 → 변수 "cal" 저장' },
-                        { n:'③', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 집계: 합계 → 변수 "dist" 저장' },
-                        { n:'④', t:'URL의 내용 가져오기 (토큰 갱신)', d:'POST → ' + SUPA_URL + '/auth/v1/token?grant_type=refresh_token\n헤더: apikey=[API키], Content-Type=application/json\nJSON 본문: {"refresh_token":"[복사한 Refresh Token]"}\n→ 사전에서 "access_token" 값 가져오기 → 변수 "jwt" 저장' },
-                        { n:'⑤', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
-                        { n:'⑥', t:'URL의 내용 가져오기 (저장)', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch\n헤더: apikey=[API키], Authorization=Bearer [jwt], Content-Type=application/json\nJSON 본문: {"p_uid":"[복사한 사용자 ID]","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"dist":[dist]}}' },
-                        { n:'⑦', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
-                      ].map(({ n, t, d }) => (
-                        <div key={n} style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
-                          <span style={{ fontWeight:800, color:'var(--cn-brand)', flexShrink:0, minWidth:'18px', fontSize:'12px' }}>{n}</span>
-                          <div>
-                            <span style={{ fontWeight:700, color:'var(--text)', fontSize:'11px' }}>{t} </span>
-                            <span style={{ color:'var(--text-mute)', fontSize:'10.5px', whiteSpace:'pre-line' }}>{d}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ marginTop:'10px', padding:'8px 10px', background:'var(--cn-warn-100)', borderRadius:'6px', border:'1px solid var(--cn-warn)', fontSize:'10.5px', color:'#92400e', lineHeight:1.6 }}>
-                      ⚠️ <strong>Refresh Token은 주기적으로 갱신됩니다.</strong><br/>
-                      앱 재로그인 후에는 이 페이지에서 토큰을 다시 복사해서 단축어의 ④번 본문을 업데이트하세요.
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          );
-        })()}
+        <ShortcutGuide />
 
         {/* ── 푸터 ── */}
         <div style={{ borderTop:'1px solid var(--divider)', marginTop:'8px', padding:'22px 16px 28px', background:'var(--card-bg)' }}>
