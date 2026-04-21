@@ -5945,6 +5945,11 @@
   <script>
     // 서비스 워커: 캐시 비우기 + 재등록
     if ('serviceWorker' in navigator) {
+      // 새 SW가 control 획득 시 즉시 리로드 (가장 중요)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+
       navigator.serviceWorker.register('/sw.js').then(reg => {
         // 대기 중인 새 SW가 있으면 즉시 활성화 요청
         if (reg.waiting) {
@@ -5954,9 +5959,8 @@
           const nw = reg.installing;
           if (!nw) return;
           nw.addEventListener('statechange', () => {
-            // 새 SW가 설치되고 이전 SW가 있으면 페이지 새로고침
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              window.location.reload();
+            if (nw.state === 'installed') {
+              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });

@@ -1,9 +1,15 @@
-// CARENOTE Service Worker - Cache Buster v6
+// CARENOTE Service Worker - Cache Buster v7
 // 이 파일은 이전 버전의 캐시를 모두 지우고 항상 네트워크에서 최신 파일을 가져옵니다.
 
 self.addEventListener('install', event => {
   // 기존 SW를 기다리지 않고 즉시 활성화
   self.skipWaiting();
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', event => {
