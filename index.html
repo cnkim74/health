@@ -3696,7 +3696,7 @@
     }).filter(Boolean);
     const weightVals = recent14.map(d => data[d] && data[d].weight).filter(Boolean);
 
-    const todayData = data[date] || emptyDay();
+    const todayData = (() => { const e = emptyDay(); const d = data[date]; return d ? { ...e, ...d, meds: d.meds||{}, bs: d.bs||{}, bp: { ...e.bp, ...(d.bp||{}) }, meals: { ...e.meals, ...(d.meals||{}) }, extraMeals: Array.isArray(d.extraMeals)?d.extraMeals:[], exercise: { ...e.exercise, ...(d.exercise||{}) } } : e; })();
     const lastBP = (todayData.bp && todayData.bp.sys)
       ? todayData.bp.sys+'/'+todayData.bp.dia
       : (bpSysVals.length ? bpSysVals[bpSysVals.length-1]+'/'+bpDiaVals[bpDiaVals.length-1] : '---');
@@ -4364,7 +4364,21 @@
       } catch(e) { console.error('일괄 저장 오류:', e); }
     };
 
-    const day = useMemo(() => data[date] || emptyDay(), [data, date]);
+    const day = useMemo(() => {
+      const e = emptyDay();
+      const d = data[date];
+      if (!d) return e;
+      // localStorage에서 불러온 부분적 데이터와 emptyDay를 안전하게 병합
+      return {
+        ...e, ...d,
+        meds:       d.meds       || {},
+        bs:         d.bs         || {},
+        bp:         { ...e.bp,         ...(d.bp        || {}) },
+        meals:      { ...e.meals,      ...(d.meals     || {}) },
+        extraMeals: Array.isArray(d.extraMeals) ? d.extraMeals : [],
+        exercise:   { ...e.exercise,   ...(d.exercise  || {}) },
+      };
+    }, [data, date]);
     const upDay = (patch) => setData(prev => ({ ...prev, [date]: { ...(prev[date] || emptyDay()), ...patch } }));
     const togMed  = (id) => upDay({ meds: { ...day.meds, [id]: !day.meds[id] } });
     const updBS   = (id, v) => upDay({ bs: { ...day.bs, [id]: v } });
