@@ -3931,6 +3931,7 @@
 
   /* ── 단축어 연동 가이드 컴포넌트 (hooks를 IIFE 안에 넣으면 React #310 에러 발생) ── */
   const ShortcutGuide = () => {
+    const [open, setOpen] = React.useState(false);
     const [scInfo, setScInfo] = React.useState(null);
     const [copied, setCopied] = React.useState('');
     const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done'));
@@ -3955,9 +3956,20 @@
       color:'var(--text-sub)', fontFamily:'monospace', wordBreak:'break-all', border:'1px solid var(--card-border)',
       flex:1, minWidth:0, lineHeight:1.5 };
     return (
-      <div style={{ borderTop:'1px solid var(--divider)', padding:'20px 16px 0', maxWidth:'1140px', margin:'0 auto' }}>
-        <div className="cn-card" style={{ padding:'16px', marginBottom:14 }}>
-          <div style={{ fontSize:'13px', fontWeight:'800', color:'var(--text-sub)', marginBottom:'4px' }}>📲 건강앱 단축어 직접 연동</div>
+      <div style={{ borderTop:'1px solid var(--divider)', padding:'12px 16px 0', maxWidth:'1140px', margin:'0 auto' }}>
+        {/* 접기/펴기 헤더 */}
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+            background:'none', border:'none', cursor:'pointer', padding:'8px 4px', marginBottom: open ? '12px' : '8px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <span style={{ fontSize:'16px' }}>📲</span>
+            <span style={{ fontSize:'13px', fontWeight:'800', color:'var(--text)' }}>건강앱 단축어 직접 연동</span>
+            <span style={{ fontSize:'11px', color:'var(--text-mute)', fontWeight:'400' }}>아이폰 건강앱 자동 연동</span>
+          </div>
+          <span style={{ fontSize:'18px', color:'var(--text-mute)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>⌄</span>
+        </button>
+        {open && <div className="cn-card" style={{ padding:'16px', marginBottom:14 }}>
           <div style={{ fontSize:'11px', color:'var(--text-mute)', marginBottom:'14px', lineHeight:1.6 }}>
             브라우저·앱 실행 없이 백그라운드에서 바로 저장됩니다.<br/>아래 3단계를 순서대로 따라하세요.
           </div>
@@ -4042,7 +4054,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </div>}
       </div>
     );
   };
@@ -4112,7 +4124,7 @@
       const firedKey = new Set();
 
       const check = () => {
-        if (Notification.permission !== 'granted') return;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
         const now = new Date();
         const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const key  = `${hhmm}_${now.toDateString()}`;
@@ -4131,7 +4143,7 @@
           });
           if (!activeItems.length) return;
 
-          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
+          if (typeof Notification !== 'undefined') new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
             body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
             icon: '/favicon-192.png',
             badge: '/favicon-192.png',
