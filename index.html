@@ -376,6 +376,26 @@
   const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
   const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, extraMeals:[], exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', dist:'', weight:'', bodyFat:'', note:'' });
 
+  // 부분 구조 데이터를 emptyDay와 안전하게 병합 (localStorage/Supabase에서 읽은 데이터 정규화용)
+  const normalizeDay = (d) => {
+    if (!d || typeof d !== 'object') return emptyDay();
+    const e = emptyDay();
+    return { ...e, ...d,
+      meds:       (d.meds && typeof d.meds === 'object')       ? d.meds       : {},
+      bs:         (d.bs   && typeof d.bs   === 'object')       ? d.bs         : {},
+      bp:         { ...e.bp,       ...(d.bp       && typeof d.bp       === 'object' ? d.bp       : {}) },
+      meals:      { ...e.meals,    ...(d.meals     && typeof d.meals    === 'object' ? d.meals    : {}) },
+      extraMeals: Array.isArray(d.extraMeals) ? d.extraMeals : [],
+      exercise:   { ...e.exercise, ...(d.exercise  && typeof d.exercise === 'object' ? d.exercise : {}) },
+    };
+  };
+  const normalizeData = (raw) => {
+    if (!raw || typeof raw !== 'object') return {};
+    const out = {};
+    Object.keys(raw).forEach(k => { out[k] = normalizeDay(raw[k]); });
+    return out;
+  };
+
   /* ── 공통 UI 컴포넌트 (App 밖에 정의해야 리렌더링 버그 없음) ── */
   /* ── 다크모드 모듈 변수 ─────────────────────────────────── */
   let _dm = localStorage.getItem('cn_dark') === '1';
@@ -3696,7 +3716,7 @@
     }).filter(Boolean);
     const weightVals = recent14.map(d => data[d] && data[d].weight).filter(Boolean);
 
-    const todayData = (() => { const e = emptyDay(); const d = data[date]; return d ? { ...e, ...d, meds: d.meds||{}, bs: d.bs||{}, bp: { ...e.bp, ...(d.bp||{}) }, meals: { ...e.meals, ...(d.meals||{}) }, extraMeals: Array.isArray(d.extraMeals)?d.extraMeals:[], exercise: { ...e.exercise, ...(d.exercise||{}) } } : e; })();
+    const todayData = normalizeDay(data[date]);
     const lastBP = (todayData.bp && todayData.bp.sys)
       ? todayData.bp.sys+'/'+todayData.bp.dia
       : (bpSysVals.length ? bpSysVals[bpSysVals.length-1]+'/'+bpDiaVals[bpDiaVals.length-1] : '---');
@@ -3913,7 +3933,7 @@
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
     const [date,       setDate]      = useState(todayStr());
-    const [data,       setData]      = useState(() => { try { return JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{}; } catch { return {}; } });
+    const [data,       setData]      = useState(() => { try { return normalizeData(JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{}); } catch { return {}; } });
     const [showImport, setShowImport] = useState(false);
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
@@ -4307,7 +4327,7 @@
               setSaveStatus('idle');
             }
           }
-          setData(loaded);
+          setData(normalizeData(loaded));
         } catch(e) {
           try {
             const s = localStorage.getItem('dm_dash_v2');
@@ -4316,7 +4336,7 @@
               loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
               sessionStorage.removeItem('cn_url_patch');
             }
-            setData(loaded);
+            setData(normalizeData(loaded));
           } catch(e2) {}
         }
         setSyncing(false);
@@ -4364,21 +4384,7 @@
       } catch(e) { console.error('일괄 저장 오류:', e); }
     };
 
-    const day = useMemo(() => {
-      const e = emptyDay();
-      const d = data[date];
-      if (!d) return e;
-      // localStorage에서 불러온 부분적 데이터와 emptyDay를 안전하게 병합
-      return {
-        ...e, ...d,
-        meds:       d.meds       || {},
-        bs:         d.bs         || {},
-        bp:         { ...e.bp,         ...(d.bp        || {}) },
-        meals:      { ...e.meals,      ...(d.meals     || {}) },
-        extraMeals: Array.isArray(d.extraMeals) ? d.extraMeals : [],
-        exercise:   { ...e.exercise,   ...(d.exercise  || {}) },
-      };
-    }, [data, date]);
+    const day = useMemo(() => normalizeDay(data[date]), [data, date]);
     const upDay = (patch) => setData(prev => ({ ...prev, [date]: { ...(prev[date] || emptyDay()), ...patch } }));
     const togMed  = (id) => upDay({ meds: { ...day.meds, [id]: !day.meds[id] } });
     const updBS   = (id, v) => upDay({ bs: { ...day.bs, [id]: v } });
@@ -4517,7 +4523,7 @@
     /* Weekly chart */
     const weekData = useMemo(() => Array.from({length:7}, (_,i) => {
       const d = shiftDate(date, i-6);
-      const dd = data[d] || emptyDay();
+      const dd = normalizeDay(data[d]);
       const vals = Object.values(dd.bs).filter(v => parseInt(v) > 0);
       return { label: fmtDate(d).short, avg: vals.length ? Math.round(vals.reduce((a,b)=>a+parseInt(b),0)/vals.length) : null };
     }), [data, date]);
@@ -4551,7 +4557,7 @@
     const isToday = date === todayStr();
 
     // 체중 트렌드 (IIFE 없이 미리 계산)
-    const _prevDayWt  = data[shiftDate(date, -1)] || emptyDay();
+    const _prevDayWt  = normalizeDay(data[shiftDate(date, -1)]);
     const _prevW      = parseFloat(_prevDayWt.weight)  || null;
     const _prevBf     = parseFloat(_prevDayWt.bodyFat) || null;
     const _curW       = parseFloat(day.weight)  || null;
@@ -4880,7 +4886,7 @@
                 // 최근 7일 혈압 추이
                 const bpWeek = Array.from({length:7}, (_,i) => {
                   const d  = shiftDate(date, i-6);
-                  const dd = data[d] || emptyDay();
+                  const dd = normalizeDay(data[d]);
                   return { label: fmtDate(d).short, sys: parseInt(dd.bp?.sys)||null, dia: parseInt(dd.bp?.dia)||null };
                 });
                 const hasBPWeek = bpWeek.some(x => x.sys);
@@ -5409,7 +5415,7 @@
                 {(() => {
                   const wk = Array.from({length:7}, (_,i) => {
                     const d = shiftDate(date, i-6);
-                    const dd = data[d] || emptyDay();
+                    const dd = normalizeDay(data[d]);
                     return { label: fmtDate(d).short, w: parseFloat(dd.weight)||null, bf: parseFloat(dd.bodyFat)||null };
                   });
                   const hasW  = wk.some(x => x.w);
