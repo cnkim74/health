@@ -1421,7 +1421,7 @@
       if (!newSlotKey)     { setAddMsg('⚠️ 시간대를 선택해 주세요.');  setTimeout(()=>setAddMsg(''),2500); return; }
       const id = genId();
       setCfg(c => c.map(s => s.key === newSlotKey
-        ? { ...s, items: [...s.items, { id, name: newName.trim(), dose: newDose, startDate: newStart, endDate: newEnd }] }
+        ? { ...s, items: [...(s.items||[]), { id, name: newName.trim(), dose: newDose, startDate: newStart, endDate: newEnd }] }
         : s));
       const added = newName.trim();
       setNewName(''); setNewDose(''); setNewStart(''); setNewEnd(''); setSuggestions([]);
@@ -1442,7 +1442,7 @@
         const fromSB = row?.payload?.medsConfig;
         if (fromSB && Array.isArray(fromSB) && fromSB.length > 0) {
           setCfg(JSON.parse(JSON.stringify(fromSB)));
-          setLoadMsg('✅ 계정 저장 데이터에서 ' + fromSB.flatMap(s=>s.items).length + '개 약을 불러왔어요!');
+          setLoadMsg('✅ 계정 저장 데이터에서 ' + fromSB.flatMap(s=>(s.items||[])).length + '개 약을 불러왔어요!');
           setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),3500); return;
         }
 
@@ -1451,7 +1451,7 @@
         const fromLS1 = ls1 ? JSON.parse(ls1) : null;
         if (fromLS1 && Array.isArray(fromLS1) && fromLS1.length > 0) {
           setCfg(JSON.parse(JSON.stringify(fromLS1)));
-          setLoadMsg('✅ 이 기기의 로컬 데이터에서 ' + fromLS1.flatMap(s=>s.items).length + '개 약을 불러왔어요!');
+          setLoadMsg('✅ 이 기기의 로컬 데이터에서 ' + fromLS1.flatMap(s=>(s.items||[])).length + '개 약을 불러왔어요!');
           setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),3500); return;
         }
 
@@ -1467,7 +1467,7 @@
             // 이 UUID를 기억해 다음번엔 자동으로 찾게 함
             localStorage.setItem('dm_user_id', lid);
             localStorage.setItem('cn_legacy_uid', lid);
-            setLoadMsg('✅ 이전 계정 데이터에서 ' + fromLegacySB.flatMap(s=>s.items).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
+            setLoadMsg('✅ 이전 계정 데이터에서 ' + fromLegacySB.flatMap(s=>(s.items||[])).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
             setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),6000); return;
           }
           // ④ 예전 기기 localStorage 키
@@ -1475,7 +1475,7 @@
           const fromLS2 = ls2 ? JSON.parse(ls2) : null;
           if (fromLS2 && Array.isArray(fromLS2) && fromLS2.length > 0) {
             setCfg(JSON.parse(JSON.stringify(fromLS2)));
-            setLoadMsg('✅ 이전 로컬 데이터에서 ' + fromLS2.flatMap(s=>s.items).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
+            setLoadMsg('✅ 이전 로컬 데이터에서 ' + fromLS2.flatMap(s=>(s.items||[])).length + '개 약을 불러왔어요! 저장을 눌러 현재 계정에 연결하세요.');
             setLoadingCloud(false); setTimeout(()=>setLoadMsg(''),6000); return;
           }
         }
@@ -1545,12 +1545,12 @@
       setTimeout(() => slotListEndRef.current?.scrollIntoView({ behavior:'smooth', block:'center' }), 150);
     };
     const updMedField = (slotKey, medId, field, val) =>
-      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.map(m => m.id===medId ? {...m, [field]:val} : m)} : s));
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: (s.items||[]).map(m => m.id===medId ? {...m, [field]:val} : m)} : s));
     const delMed = (slotKey, medId) =>
-      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: s.items.filter(m => m.id!==medId)} : s));
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items: (s.items||[]).filter(m => m.id!==medId)} : s));
     const addMed = (slotKey) => {
       const id = genId();
-      setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...s.items, {id, name:'', dose:'', startDate:'', endDate:''}]} : s));
+      setCfg(c => c.map(s => s.key===slotKey ? {...s, items:[...(s.items||[]), {id, name:'', dose:'', startDate:'', endDate:''}]} : s));
       setEditingMed({slotKey, medId:id});
     };
     const reset = () => { if(window.confirm('복약 목록을 전부 삭제할까요?')) setCfg([]); };
@@ -2875,7 +2875,7 @@
         const dataRows    = rows.filter(r => r.date !== '_user_settings_');
         const settingsRow = rows.find(r => r.date === '_user_settings_');
         const medsConfig  = settingsRow?.payload?.medsConfig || [];
-        const medNames    = medsConfig.flatMap(s => s.items.map(m => m.name)).filter(Boolean);
+        const medNames    = medsConfig.flatMap(s => (s.items||[]).map(m => m.name)).filter(Boolean);
         // 모든 날짜에서 고유 med ID 추출
         const allMedIds   = new Set();
         dataRows.forEach(r => { if (r.payload?.meds) Object.keys(r.payload.meds).forEach(id => allMedIds.add(id)); });
@@ -4451,19 +4451,26 @@
             .select('payload').eq('user_id', userId).eq('date', '_user_settings_')
             .maybeSingle();
           const fromSB = row?.payload?.medsConfig;
+          // 각 슬롯의 items가 반드시 배열이 되도록 정규화
+          const normMeds = (arr) => Array.isArray(arr)
+            ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
+            : [];
           if (fromSB && Array.isArray(fromSB)) {
             // Supabase 우선 — localStorage도 동기화
-            setMedsConfig(fromSB);
+            setMedsConfig(normMeds(fromSB));
             localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(fromSB));
           } else {
             // localStorage 폴백
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-            setMedsConfig(s ? JSON.parse(s) : []);
+            setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
           }
         } catch {
           try {
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-            setMedsConfig(s ? JSON.parse(s) : []);
+            const normMeds = (arr) => Array.isArray(arr)
+              ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
+              : [];
+            setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
           } catch { setMedsConfig([]); }
         }
         setMedsReadyFor(userId);
@@ -4514,7 +4521,7 @@
     };
 
     /* Stats */
-    const allMedIds = useMemo(() => medsConfig.flatMap(s => s.items.map(m => m.id)), [medsConfig]);
+    const allMedIds = useMemo(() => medsConfig.flatMap(s => (s.items||[]).map(m => m.id||'')), [medsConfig]);
     const medDone = allMedIds.filter(id => day.meds[id]).length;
     const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
     const bsVals  = Object.values(day.bs).filter(v => parseInt(v) > 0);
