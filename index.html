@@ -3883,30 +3883,30 @@
 
         {/* 오늘 걸음수 */}
         <div className="cn-card" style={{padding:'14px 14px 12px', marginBottom:14}}>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: day.steps ? 8 : 0}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: todayData.steps ? 8 : 0}}>
             <div style={{fontSize:13, fontWeight:700, color:'var(--text-sub)'}}>👟 오늘 걸음수</div>
-            {day.steps && Number(day.steps) >= 10000 && <span style={{fontSize:11, color:'var(--cn-ok)', fontWeight:700}}>🎉 목표 달성!</span>}
+            {todayData.steps && Number(todayData.steps) >= 10000 && <span style={{fontSize:11, color:'var(--cn-ok)', fontWeight:700}}>🎉 목표 달성!</span>}
           </div>
-          {day.steps ? (
+          {todayData.steps ? (
             <>
               <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:8}}>
                 <span style={{fontSize:32, fontWeight:900, color:'var(--cn-brand)', letterSpacing:'-1px', lineHeight:1}}>
-                  {Number(day.steps).toLocaleString()}
+                  {Number(todayData.steps).toLocaleString()}
                 </span>
                 <span style={{fontSize:13, color:'var(--text-sub)', fontWeight:500}}>걸음</span>
                 <span style={{fontSize:11, color:'var(--text-mute)', marginLeft:'auto'}}>목표 10,000</span>
               </div>
               <div style={{background:'var(--card-border)', borderRadius:6, height:8, overflow:'hidden'}}>
                 <div style={{
-                  width: Math.min(100, Math.round(Number(day.steps)/100)) + '%',
+                  width: Math.min(100, Math.round(Number(todayData.steps)/100)) + '%',
                   height:'100%',
-                  background: Number(day.steps) >= 10000 ? 'var(--cn-ok)' : 'var(--cn-brand)',
+                  background: Number(todayData.steps) >= 10000 ? 'var(--cn-ok)' : 'var(--cn-brand)',
                   borderRadius:6,
                   transition:'width 0.5s'
                 }}/>
               </div>
               <div style={{fontSize:11, color:'var(--text-sub)', marginTop:4, textAlign:'right'}}>
-                {Math.min(100, Math.round(Number(day.steps)/100))}%
+                {Math.min(100, Math.round(Number(todayData.steps)/100))}%
               </div>
             </>
           ) : (
