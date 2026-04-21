@@ -5886,9 +5886,29 @@
   ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
   <script>
-    // 서비스 워커 등록 (복약 알람)
+    // 서비스 워커: 캐시 비우기 + 재등록
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // 대기 중인 새 SW가 있으면 즉시 활성화 요청
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            // 새 SW가 설치되고 이전 SW가 있으면 페이지 새로고침
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        });
+      }).catch(() => {});
+
+      // 혹시 이전 캐시가 남아있으면 즉시 전부 삭제
+      if (caches && caches.keys) {
+        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+      }
     }
   </script>
 </body>
