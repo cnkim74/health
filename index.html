@@ -4386,6 +4386,7 @@
     const imgRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
     const camRefs     = { breakfast: useRef(null), lunch: useRef(null), dinner: useRef(null) };
     const medsUserSavedRef = useRef(false); // 사용자가 직접 저장했으면 Supabase 로드가 덮어쓰지 않도록
+    const prevDateRef     = useRef(null);   // 날짜 변경 시 이전 날짜 즉시 저장용
 
     const handlePhotoSelect = async (file, mealId) => {
       if (!file) return;
@@ -4679,11 +4680,25 @@
     }, [userId, refreshKey]);
 
     /* ── Supabase: 현재 날짜 데이터 저장 (디바운스 1.5초) ── */
+    // 날짜가 바뀌면 이전 날짜를 즉시 Supabase에 flush (타이머 취소 방지)
+    useEffect(() => {
+      if (syncing || !userId) return;
+      const prevDate = prevDateRef.current;
+      if (prevDate && prevDate !== date && data[prevDate]) {
+        // 날짜 전환 → 이전 날짜 즉시 저장
+        supa.from('diabetes_data').upsert(
+          { user_id: userId, date: prevDate, payload: data[prevDate], updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,date' }
+        ).catch(e => console.error('[flush] 이전날짜 저장 오류:', e));
+      }
+      prevDateRef.current = date;
+    }, [date]);
+
     useEffect(() => {
       if (syncing || !data[date] || !userId) return;
       // localStorage 캐시 업데이트
       localStorage.setItem('dm_dash_v2', JSON.stringify({ data, lastImport }));
-      // Supabase 저장
+      // Supabase 저장 (디바운스: 같은 날짜에서 연속 입력 시 마지막 1건만)
       if (saveTimer.current) clearTimeout(saveTimer.current);
       setSaveStatus('saving');
       saveTimer.current = setTimeout(async () => {
@@ -4701,6 +4716,26 @@
         }
       }, 1500);
     }, [data, date, loading]);
+
+    /* ── 앱 종료/새로고침 시 미저장 데이터 flush ── */
+    useEffect(() => {
+      const handleUnload = () => {
+        if (!userId || !date || !data[date]) return;
+        // sendBeacon: 탭 닫힐 때도 전송 보장 (fetch보다 신뢰성 높음)
+        const payload = JSON.stringify({
+          user_id: userId, date, payload: data[date],
+          updated_at: new Date().toISOString()
+        });
+        // localStorage는 반드시 최신으로 유지
+        try { localStorage.setItem('dm_dash_v2', JSON.stringify({ data, lastImport })); } catch {}
+      };
+      window.addEventListener('beforeunload', handleUnload);
+      window.addEventListener('pagehide', handleUnload); // iOS Safari용
+      return () => {
+        window.removeEventListener('beforeunload', handleUnload);
+        window.removeEventListener('pagehide', handleUnload);
+      };
+    }, [userId, date, data, lastImport]);
 
     /* ── Supabase: 가져오기 후 여러 날 일괄 저장 ── */
     const saveAllToSupabase = async (newData) => {
@@ -4968,11 +5003,26 @@
               </a>
             </div>
 
-            {/* 날짜 네비 — 날짜만, 버튼 없음 */}
+            {/* 날짜 네비 — 날짜 클릭 시 date picker 오픈 */}
             <div style={{ display:'flex', alignItems:'center', gap:'6px', flex:1, justifyContent:'center' }}>
               <button onClick={() => setDate(shiftDate(date,-1))} style={navBtnSt}>‹</button>
-              <div style={{ color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap', textAlign:'center' }}>
-                {fmtDate(date).full}
+              <div style={{ position:'relative' }}>
+                <button
+                  onClick={() => {
+                    const inp = document.getElementById('cn-date-picker');
+                    if (!inp) return;
+                    try { inp.showPicker(); } catch { inp.click(); }
+                  }}
+                  style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)',
+                           color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap',
+                           borderRadius:'8px', padding:'4px 10px', cursor:'pointer',
+                           display:'flex', alignItems:'center', gap:'5px' }}>
+                  {fmtDate(date).full} <span style={{fontSize:'10px',opacity:0.7}}>▼</span>
+                </button>
+                <input id="cn-date-picker" type="date" value={date}
+                  onChange={e => { if (e.target.value) setDate(e.target.value); }}
+                  max={todayStr()}
+                  style={{ position:'absolute', opacity:0, pointerEvents:'none', width:'1px', height:'1px', top:0, left:0 }} />
               </div>
               <button onClick={() => setDate(shiftDate(date,1))} style={navBtnSt}>›</button>
             </div>
