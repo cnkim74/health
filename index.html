@@ -2652,9 +2652,10 @@
               if (pending && pending.patch && (Date.now() - (pending.ts||0)) < 86400000) {
                 const p = pending.patch;
                 const items = [];
-                if (p.steps) items.push(`👟 걸음수 ${Number(p.steps).toLocaleString()}걸음`);
-                if (p.cal)   items.push(`🔥 칼로리 ${Number(p.cal).toLocaleString()}kcal`);
-                if (p.dist)  items.push(`📍 거리 ${p.dist}km`);
+                const has = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
+                if (has(p.steps)) items.push(`👟 걸음수 ${Number(p.steps).toLocaleString()}걸음`);
+                if (has(p.cal))   items.push(`🔥 칼로리 ${Number(p.cal).toLocaleString()}kcal`);
+                if (has(p.dist))  items.push(`📍 거리 ${p.dist}km`);
                 if (p.weight) items.push(`⚖️ 체중 ${p.weight}kg`);
                 if (p.bp?.sys) items.push(`💓 혈압 ${p.bp.sys}/${p.bp.dia}`);
                 if (!items.length) return null;
@@ -4262,39 +4263,47 @@
         </div>
 
         {/* 오늘 걸음수 */}
-        <div className="cn-card" style={{padding:'14px 14px 12px', marginBottom:14}}>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: todayData.steps ? 8 : 0}}>
-            <div style={{fontSize:13, fontWeight:700, color:'var(--text-sub)'}}>👟 오늘 걸음수</div>
-            {todayData.steps && Number(todayData.steps) >= 10000 && <span style={{fontSize:11, color:'var(--cn-ok)', fontWeight:700}}>🎉 목표 달성!</span>}
-          </div>
-          {todayData.steps ? (
-            <>
-              <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:8}}>
-                <span style={{fontSize:32, fontWeight:900, color:'var(--cn-brand)', letterSpacing:'-1px', lineHeight:1}}>
-                  {Number(todayData.steps).toLocaleString()}
-                </span>
-                <span style={{fontSize:13, color:'var(--text-sub)', fontWeight:500}}>걸음</span>
-                <span style={{fontSize:11, color:'var(--text-mute)', marginLeft:'auto'}}>목표 10,000</span>
+        {(() => {
+          const hasVal = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
+          const stepsNum = hasVal(todayData.steps) ? Number(todayData.steps) : null;
+          const hasSteps = stepsNum !== null;
+          const pct = hasSteps ? Math.min(100, Math.round(stepsNum/100)) : 0;
+          return (
+            <div className="cn-card" style={{padding:'14px 14px 12px', marginBottom:14}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: hasSteps ? 8 : 0}}>
+                <div style={{fontSize:13, fontWeight:700, color:'var(--text-sub)'}}>👟 오늘 걸음수</div>
+                {hasSteps && stepsNum >= 10000 && <span style={{fontSize:11, color:'var(--cn-ok)', fontWeight:700}}>🎉 목표 달성!</span>}
               </div>
-              <div style={{background:'var(--card-border)', borderRadius:6, height:8, overflow:'hidden'}}>
-                <div style={{
-                  width: Math.min(100, Math.round(Number(todayData.steps)/100)) + '%',
-                  height:'100%',
-                  background: Number(todayData.steps) >= 10000 ? 'var(--cn-ok)' : 'var(--cn-brand)',
-                  borderRadius:6,
-                  transition:'width 0.5s'
-                }}/>
-              </div>
-              <div style={{fontSize:11, color:'var(--text-sub)', marginTop:4, textAlign:'right'}}>
-                {Math.min(100, Math.round(Number(todayData.steps)/100))}%
-              </div>
-            </>
-          ) : (
-            <div style={{fontSize:12, color:'var(--text-mute)', textAlign:'center', padding:'6px 0'}}>
-              📲 건강앱 단축어로 걸음수를 자동 가져올 수 있어요
+              {hasSteps ? (
+                <>
+                  <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:8}}>
+                    <span style={{fontSize:32, fontWeight:900, color:'var(--cn-brand)', letterSpacing:'-1px', lineHeight:1}}>
+                      {stepsNum.toLocaleString()}
+                    </span>
+                    <span style={{fontSize:13, color:'var(--text-sub)', fontWeight:500}}>걸음</span>
+                    <span style={{fontSize:11, color:'var(--text-mute)', marginLeft:'auto'}}>목표 10,000</span>
+                  </div>
+                  <div style={{background:'var(--card-border)', borderRadius:6, height:8, overflow:'hidden'}}>
+                    <div style={{
+                      width: pct + '%',
+                      height:'100%',
+                      background: stepsNum >= 10000 ? 'var(--cn-ok)' : 'var(--cn-brand)',
+                      borderRadius:6,
+                      transition:'width 0.5s'
+                    }}/>
+                  </div>
+                  <div style={{fontSize:11, color:'var(--text-sub)', marginTop:4, textAlign:'right'}}>
+                    {pct}%
+                  </div>
+                </>
+              ) : (
+                <div style={{fontSize:12, color:'var(--text-mute)', textAlign:'center', padding:'6px 0'}}>
+                  📲 건강앱 단축어로 걸음수를 자동 가져올 수 있어요
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* AI 인사이트 */}
         <div style={{marginBottom:14}}>
@@ -4838,33 +4847,37 @@
             if (pending && pending.patch && (Date.now() - (pending.ts||0)) < 86400000) {
               const pd = pending.targetDate || todayStr();
               loaded[pd] = { ...(loaded[pd] || emptyDay()), ...pending.patch };
-              // Supabase에도 저장
+              // ① 로컬 캐시를 먼저 저장 — Supabase 실패해도 다음 로드 때 복구
+              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+              // ② Supabase에도 저장 (실패해도 무시 — 이미 로컬에 있음)
+              let sbOk = false;
               try {
-                await supa.from('diabetes_data').upsert(
+                const { error: puErr } = await supa.from('diabetes_data').upsert(
                   { user_id: userId, date: pd, payload: loaded[pd], updated_at: new Date().toISOString() },
                   { onConflict: 'user_id,date' }
                 );
+                sbOk = !puErr;
               } catch {}
-              localStorage.removeItem('cn_pending_patch');
-              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+              // Supabase에 성공 저장된 경우에만 pending 패치 제거
+              if (sbOk) localStorage.removeItem('cn_pending_patch');
             }
           } catch {}
 
           if (Object.keys(urlPatch).length) {
             loaded[targetDate] = { ...(loaded[targetDate] || emptyDay()), ...urlPatch };
             sessionStorage.removeItem('cn_url_patch'); // 적용 완료 후 제거
-            // URL 파라미터 입력 시 즉시 Supabase 저장 (iOS 백그라운드 전환 전에 완료)
+            // ① 로컬 캐시를 먼저 저장 — Supabase 실패해도 다음 로드 때 복구
+            localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+            // ② Supabase에도 즉시 저장 (iOS 백그라운드 전환 전에 완료)
             setSaveStatus('saving');
             try {
               await supa.from('diabetes_data').upsert(
                 { user_id: userId, date: targetDate, payload: loaded[targetDate], updated_at: new Date().toISOString() },
                 { onConflict: 'user_id,date' }
               );
-              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
               setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 3000);
             } catch(saveErr) {
-              // 실패해도 로컬캐시에는 남아있음
-              localStorage.setItem('dm_dash_v2', JSON.stringify({ data: loaded }));
+              // 실패해도 로컬캐시에는 이미 저장됨
               setSaveStatus('idle');
             }
           }
@@ -5066,6 +5079,8 @@
           try {
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
             const fromLS = s ? JSON.parse(s) : null;
+            // 사용자가 저장 중이면 덮어쓰지 않음 (연장 등 편집 직후 레이스 방지)
+            if (medsUserSavedRef.current) return;
             if (hasMeds(fromLS)) {
               setMedsConfig(normMeds(fromLS));
               // localStorage 데이터를 Supabase에 동기화
@@ -5078,7 +5093,10 @@
             } else {
               setMedsConfig([]); // ③ 아무것도 없음
             }
-          } catch { setMedsConfig([]); }
+          } catch {
+            if (medsUserSavedRef.current) return;
+            setMedsConfig([]);
+          }
 
         } catch {
           if (medsUserSavedRef.current) return;
@@ -5086,8 +5104,12 @@
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
             const fromLS = s ? JSON.parse(s) : null;
             const hasMeds2 = (arr) => Array.isArray(arr) && arr.some(s2 => (s2.items||[]).length > 0);
+            if (medsUserSavedRef.current) return;
             setMedsConfig(hasMeds2(fromLS) ? normMeds(fromLS) : []);
-          } catch { setMedsConfig([]); }
+          } catch {
+            if (medsUserSavedRef.current) return;
+            setMedsConfig([]);
+          }
         }
       })();
     }, [userId]);
@@ -5095,17 +5117,25 @@
     // saveMeds: 명시적 저장 — localStorage + Supabase 즉시 저장
     // (자동 save effect 제거: 타이밍 버그 방지)
     const saveMeds = (cfg) => {
-      medsUserSavedRef.current = true; // 로드 effect가 덮어쓰지 않도록
-      setMedsConfig(cfg);
+      // 로드 effect가 덮어쓰지 않도록 — 저장 완료 이후에도 세션 내내 유지
+      medsUserSavedRef.current = true;
+      // 기간 연장(endDate 변경) 등 편집 결과가 즉시 대시보드에 반영되도록 정규화
+      const normalized = Array.isArray(cfg)
+        ? cfg.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items.map(m => ({ ...m })) : [] }))
+        : [];
+      setMedsConfig(normalized);
       if (userId) {
-        localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(cfg));
+        localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(normalized));
         (async () => {
           try {
             await supa.from('diabetes_data').upsert(
-              { user_id: userId, date: '_user_settings_', payload: { medsConfig: cfg }, updated_at: new Date().toISOString() },
+              { user_id: userId, date: '_user_settings_', payload: { medsConfig: normalized }, updated_at: new Date().toISOString() },
               { onConflict: 'user_id,date' }
             );
-          } catch (e) { console.error('복약 설정 저장 오류:', e); }
+          } catch (e) {
+            console.error('복약 설정 저장 오류:', e);
+            // Supabase 저장 실패 시에도 localStorage에는 남아있어 다음 로드 때 복구됨
+          }
         })();
       }
       setShowMedSettings(false);
@@ -5338,7 +5368,12 @@
               <Card tab="record">
                 <STitle icon="🏃" label="오늘 활동" />
                 {(() => {
-                  const stepsPct = day.steps ? Math.min(100, Math.round(Number(day.steps)/100)) : null;
+                  // 활동 데이터 유효성 검사 — 0도 유효한 값으로 처리 (단축어·건강앱 연동 시 0 기록 가능)
+                  const hasVal = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
+                  const stepsNum = hasVal(day.steps) ? Number(day.steps) : null;
+                  const calNum   = hasVal(day.cal)   ? Number(day.cal)   : null;
+                  const distNum  = hasVal(day.dist)  ? Number(day.dist)  : null;
+                  const stepsPct = stepsNum !== null && stepsNum > 0 ? Math.min(100, Math.round(stepsNum/100)) : null;
                   // 식사 섭취 칼로리 추정
                   const estCal = (text) => {
                     if (!text?.trim()) return 0;
@@ -5365,9 +5400,9 @@
                   (day.extraMeals||[]).forEach(em => { intakeCal += estCal(em.text); });
 
                   const cards = [
-                    { icon:'👟', label:'걸음수',     val: day.steps    ? Number(day.steps).toLocaleString()       : '---', unit:'걸음',  color:'var(--cn-brand)',  hasData: !!day.steps,  pct: stepsPct },
-                    { icon:'🔥', label:'소모 칼로리', val: day.cal      ? Math.round(Number(day.cal)).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: !!day.cal,    pct: null },
-                    { icon:'📍', label:'거리',        val: day.dist     ? Number(day.dist).toFixed(1)              : '---', unit:'km',   color:'var(--cn-ok)',    hasData: !!day.dist,   pct: null },
+                    { icon:'👟', label:'걸음수',     val: stepsNum !== null ? stepsNum.toLocaleString()            : '---', unit:'걸음',  color:'var(--cn-brand)',  hasData: stepsNum !== null, pct: stepsPct },
+                    { icon:'🔥', label:'소모 칼로리', val: calNum   !== null ? Math.round(calNum).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: calNum !== null,   pct: null },
+                    { icon:'📍', label:'거리',        val: distNum  !== null ? distNum.toFixed(1)                  : '---', unit:'km',   color:'var(--cn-ok)',    hasData: distNum !== null,  pct: null },
                     { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()              : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
                   ];
                   return (
@@ -5392,11 +5427,15 @@
                     </div>
                   );
                 })()}
-                {!day.steps && !day.cal && !day.dist && (
-                  <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'center', marginTop:'10px' }}>
-                    📲 건강앱 단축어로 자동 기록할 수 있어요
-                  </div>
-                )}
+                {(() => {
+                  const has = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
+                  if (has(day.steps) || has(day.cal) || has(day.dist)) return null;
+                  return (
+                    <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'center', marginTop:'10px' }}>
+                      📲 건강앱 단축어로 자동 기록할 수 있어요
+                    </div>
+                  );
+                })()}
               </Card>
 
               {/* 복약 */}
