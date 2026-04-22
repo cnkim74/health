@@ -3684,10 +3684,14 @@
     if (!freq || freq.type === 'daily') return true;
     const d = new Date(dateStr + 'T00:00:00');
     if (freq.type === 'weekly') {
-      return (freq.weekDays || []).includes(d.getDay());
+      const days = freq.weekDays || [];
+      if (!days.length) return true; // 요일 미설정 시 매일 표시 (안전 폴백)
+      return days.includes(d.getDay());
     }
     if (freq.type === 'monthly') {
-      return (freq.monthDays || []).includes(d.getDate());
+      const mdays = freq.monthDays || [];
+      if (!mdays.length) return true; // 날짜 미설정 시 매일 표시 (안전 폴백)
+      return mdays.includes(d.getDate());
     }
     if (freq.type === 'interval') {
       const ref = new Date(((freq.refDate || med.startDate || dateStr)) + 'T00:00:00');
@@ -5413,29 +5417,45 @@
                     </button>
                   </div>
                 )}
-                {medsConfig.map(slot => {
-                  const activeItems = (slot.items||[]).filter(med => isMedActive(med, date));
-                  if (!activeItems.length) return null;
-                  return (
-                  <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
-                    <div style={{ fontSize:'16px', fontWeight:'800', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
-                      {slot.icon} {slot.slot}
-                    </div>
-                    {activeItems.map(med => (
-                      <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'6px 0', borderTop:'1px solid rgba(0,0,0,0.05)', minWidth:0 }}>
-                        <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} style={{ flexShrink:0 }} />
-                        <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer', minWidth:0, overflow:'hidden' }}>
-                          <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'var(--text-mute)':'var(--cn-ink)', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{med.name}</div>
-                          <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>{med.dose}</div>
-                        </label>
-                        <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
-                          style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'12px', color:'var(--cn-brand)', padding:'3px 7px', flexShrink:0, fontWeight:'600', whiteSpace:'nowrap' }}>약정보</button>
-                        {day.meds[med.id] && <span style={{ color:'var(--cn-ok)', fontSize:'14px', flexShrink:0 }}>✓</span>}
-                      </div>
-                    ))}
-                  </div>
+                {(() => {
+                  const totalMeds = medsConfig.reduce((acc, slot) => acc + (slot.items||[]).length, 0);
+                  const hasAnyActive = medsConfig.some(slot =>
+                    (slot.items||[]).some(med => isMedActive(med, date))
                   );
-                })}
+                  // 약은 등록됐지만 오늘 해당 없는 경우 안내
+                  if (medsConfig.length > 0 && totalMeds > 0 && !hasAnyActive) {
+                    return (
+                      <div style={{ textAlign:'center', padding:'18px 16px', background:'var(--input-bg)', borderRadius:'12px', border:'1.5px dashed var(--card-border)' }}>
+                        <div style={{ fontSize:'22px', marginBottom:'6px' }}>📅</div>
+                        <div style={{ fontSize:'14px', fontWeight:'700', color:'var(--text)', marginBottom:'4px' }}>오늘은 복약 없는 날이에요</div>
+                        <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>등록된 약 {totalMeds}개 중 오늘({fmtDate(date).short}) 해당 없음</div>
+                      </div>
+                    );
+                  }
+                  return medsConfig.map(slot => {
+                    const activeItems = (slot.items||[]).filter(med => isMedActive(med, date));
+                    if (!activeItems.length) return null;
+                    return (
+                    <div key={slot.key} style={{ background:slot.bg, border:`1px solid ${slot.border}`, borderRadius:'10px', padding:'12px 14px', marginBottom:'10px' }}>
+                      <div style={{ fontSize:'16px', fontWeight:'800', color:slot.color, marginBottom:'8px', display:'flex', gap:'6px', alignItems:'center' }}>
+                        {slot.icon} {slot.slot}
+                      </div>
+                      {activeItems.map(med => (
+                        <div key={med.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'6px 0', borderTop:'1px solid rgba(0,0,0,0.05)', minWidth:0 }}>
+                          <input type="checkbox" className="med-checkbox" checked={!!day.meds[med.id]} onChange={() => togMed(med.id)} style={{ flexShrink:0 }} />
+                          <label onClick={() => togMed(med.id)} style={{ flex:1, cursor:'pointer', minWidth:0, overflow:'hidden' }}>
+                            <div style={{ fontSize:'14px', fontWeight:'600', color:day.meds[med.id]?'var(--text-mute)':'var(--cn-ink)', textDecoration:day.meds[med.id]?'line-through':'none', transition:'all 0.2s', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{med.name}</div>
+                            <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>{med.dose}</div>
+                          </label>
+                          <button onClick={e => { e.stopPropagation(); setDrugInfoModal(med.name); }} title="약 정보 보기"
+                            style={{ background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid #bfdbfe', borderRadius:'6px', cursor:'pointer', fontSize:'12px', color:'var(--cn-brand)', padding:'3px 7px', flexShrink:0, fontWeight:'600', whiteSpace:'nowrap' }}>약정보</button>
+                          {day.meds[med.id] && <span style={{ color:'var(--cn-ok)', fontSize:'14px', flexShrink:0 }}>✓</span>}
+                        </div>
+                      ))}
+                    </div>
+                    );
+                  });
+                })()}
                 </>)}
               </Card>
 
