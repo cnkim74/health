@@ -2652,6 +2652,7 @@
               if (pending && pending.patch && (Date.now() - (pending.ts||0)) < 86400000) {
                 const p = pending.patch;
                 const items = [];
+                const has = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
                 if (p.steps) items.push(`👟 걸음수 ${Number(p.steps).toLocaleString()}걸음`);
                 if (p.cal)   items.push(`🔥 칼로리 ${Number(p.cal).toLocaleString()}kcal`);
                 if (p.dist)  items.push(`📍 거리 ${p.dist}km`);
