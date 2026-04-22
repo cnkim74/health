@@ -2124,7 +2124,24 @@
           {/* ── 저장 / 전체삭제 ── */}
           <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
             <button onClick={reset} style={{flex:1,padding:'11px',background:'var(--card-bg)',border:'1px solid var(--card-border)',color:'var(--cn-danger)',borderRadius:'10px',cursor:'pointer',fontSize:'13px'}}>🗑️ 전체 삭제</button>
-            <button onClick={()=>onSave(cfg)} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800'}}>저장</button>
+            <button onClick={() => {
+              // 폼에 약 이름이 입력된 채로 저장 누를 경우 자동 추가
+              let finalCfg = cfg;
+              if (newName.trim() && newSlotKey) {
+                if (newFreq.type === 'weekly' && !(newFreq.weekDays||[]).length) {
+                  setAddMsg('⚠️ 매주 복용 요일을 1개 이상 선택해 주세요.'); setTimeout(()=>setAddMsg(''),3000); return;
+                }
+                if (newFreq.type === 'monthly' && !(newFreq.monthDays||[]).length) {
+                  setAddMsg('⚠️ 매월 복용 날짜를 1개 이상 선택해 주세요.'); setTimeout(()=>setAddMsg(''),3000); return;
+                }
+                const id = genId();
+                const freqToSave = newFreq.type === 'daily' ? undefined : newFreq;
+                finalCfg = cfg.map(s => s.key === newSlotKey
+                  ? { ...s, items: [...(s.items||[]), { id, name: newName.trim(), dose: newDose, startDate: newStart, endDate: newEnd, ...(freqToSave ? {freq: freqToSave} : {}) }] }
+                  : s);
+              }
+              onSave(finalCfg);
+            }} style={{flex:2,padding:'11px',background:'var(--cn-brand)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'14px',fontWeight:'800'}}>저장</button>
           </div>
 
           {/* ── 레거시 UUID (맨 아래, 거의 안 쓰는 기능) ── */}
@@ -4462,7 +4479,6 @@
     const [medOpen, setMedOpen] = useState(true);
     const [reportOpen, setReportOpen] = useState(false); // 사이드바 리포트 기본 접힘
     const [medsConfig, setMedsConfig] = useState([]);
-    const [medsReadyFor, setMedsReadyFor] = useState(''); // 어느 userId의 복약정보가 로드됐는지 추적
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -5010,68 +5026,77 @@
       await saveAllToSupabase(merged);
     };
 
-    /* medsConfig 저장 */
-    // 복약 설정: Supabase(_user_settings_ row) → localStorage 순으로 로드
-    // Supabase에 저장하므로 기기/브라우저 바뀌어도 복구됨
+    /* ── 복약 설정 로드 ──────────────────────────────────────────────────────
+       원칙:
+         1. Supabase → localStorage 순으로 시도
+         2. 실제 약 항목(items)이 1개 이상 있어야 유효 데이터로 인정
+            (빈 배열 / 빈 슬롯만 있는 경우는 무시 → 버그 데이터 방어)
+         3. localStorage에만 있으면 Supabase에 동기화
+         4. saveMeds 가 이미 저장 중이면 덮어쓰지 않음
+    ───────────────────────────────────────────────────────────────────────── */
     useEffect(() => {
       if (!userId) {
-        setMedsReadyFor('');
-        medsUserSavedRef.current = false; // 새 사용자 로그인 시 플래그 초기화
+        medsUserSavedRef.current = false;
         return;
       }
-      medsUserSavedRef.current = false; // userId 변경 시 항상 초기화
+      medsUserSavedRef.current = false;
       (async () => {
         const normMeds = (arr) => Array.isArray(arr)
           ? arr.map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }))
           : [];
+        // 실제 약이 1개 이상 있는지 확인
+        const hasMeds = (arr) => Array.isArray(arr) && arr.some(s => (s.items||[]).length > 0);
+
         try {
           const { data: row } = await supa.from('diabetes_data')
             .select('payload').eq('user_id', userId).eq('date', '_user_settings_')
             .maybeSingle();
-          // 사용자가 이미 저장했으면 Supabase 로드 결과로 덮어쓰지 않음
-          // (React 18 concurrent mode에서 setState-inside-updater 안티패턴 방지)
-          if (medsUserSavedRef.current) return;
+          if (medsUserSavedRef.current) return; // saveMeds 호출 중이면 중단
+
           const fromSB = row?.payload?.medsConfig;
-          if (fromSB && Array.isArray(fromSB)) {
+
+          if (hasMeds(fromSB)) {
+            // ① Supabase에 유효 데이터 → 사용
             setMedsConfig(normMeds(fromSB));
             localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(fromSB));
-          } else {
-            try {
-              const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-              setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
-            } catch { setMedsConfig([]); }
+            return;
           }
-          setMedsReadyFor(userId);
+
+          // ② Supabase 없음/빈값 → localStorage 시도
+          try {
+            const s = localStorage.getItem(`hcd_meds_config_${userId}`);
+            const fromLS = s ? JSON.parse(s) : null;
+            if (hasMeds(fromLS)) {
+              setMedsConfig(normMeds(fromLS));
+              // localStorage 데이터를 Supabase에 동기화
+              try {
+                await supa.from('diabetes_data').upsert(
+                  { user_id: userId, date: '_user_settings_', payload: { medsConfig: fromLS }, updated_at: new Date().toISOString() },
+                  { onConflict: 'user_id,date' }
+                );
+              } catch {}
+            } else {
+              setMedsConfig([]); // ③ 아무것도 없음
+            }
+          } catch { setMedsConfig([]); }
+
         } catch {
           if (medsUserSavedRef.current) return;
           try {
             const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-            setMedsConfig(s ? normMeds(JSON.parse(s)) : []);
+            const fromLS = s ? JSON.parse(s) : null;
+            const hasMeds2 = (arr) => Array.isArray(arr) && arr.some(s2 => (s2.items||[]).length > 0);
+            setMedsConfig(hasMeds2(fromLS) ? normMeds(fromLS) : []);
           } catch { setMedsConfig([]); }
-          setMedsReadyFor(userId);
         }
       })();
     }, [userId]);
 
-    // 복약 설정: localStorage + Supabase 동시 저장
-    useEffect(() => {
-      if (!userId || medsReadyFor !== userId) return;
-      localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(medsConfig));
-      // Supabase에도 저장 (_user_settings_ 특수 row)
-      (async () => {
-        try {
-          await supa.from('diabetes_data').upsert(
-            { user_id: userId, date: '_user_settings_', payload: { medsConfig }, updated_at: new Date().toISOString() },
-            { onConflict: 'user_id,date' }
-          );
-        } catch(e) { console.error('복약 설정 Supabase 저장 오류:', e); }
-      })();
-    }, [medsConfig, userId, medsReadyFor]);
-    // saveMeds: 직접 Supabase + localStorage에 즉시 저장 (effect 타이밍 무관)
+    // saveMeds: 명시적 저장 — localStorage + Supabase 즉시 저장
+    // (자동 save effect 제거: 타이밍 버그 방지)
     const saveMeds = (cfg) => {
-      medsUserSavedRef.current = true; // Supabase 로드가 완료되더라도 덮어쓰지 않도록
+      medsUserSavedRef.current = true; // 로드 effect가 덮어쓰지 않도록
       setMedsConfig(cfg);
-      setMedsReadyFor(userId);
       if (userId) {
         localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(cfg));
         (async () => {
@@ -5284,16 +5309,7 @@
                 style={{ background:'rgba(47,107,255,0.35)', border:'1px solid rgba(47,107,255,0.6)', color:'#fff', borderRadius:'7px', padding:'4px 12px', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'4px' }}>
                 👥 커뮤니티
               </a>
-              <button className="cn-hdr-actions" onClick={() => (() => {
-                // 모달 열기 전 — medsConfig가 비어있고 localStorage에 데이터 있으면 먼저 복구
-                if (medsConfig.length === 0 && userId) {
-                  try {
-                    const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-                    if (s) { const parsed = JSON.parse(s); if (parsed.length > 0) { setMedsConfig(parsed); setMedsReadyFor(userId); } }
-                  } catch {}
-                }
-                setShowMedSettings(true);
-              })()} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
+              <button className="cn-hdr-actions" onClick={() => setShowMedSettings(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
                 ⚙️ 복약설정
               </button>
               <button className="cn-hdr-actions" onClick={() => setShowImport(true)} style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.25)', color:'#fff', borderRadius:'7px', padding:'4px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'600', whiteSpace:'nowrap' }}>
@@ -5404,12 +5420,6 @@
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'14px' }}>복용 중인 약을 등록하면 매일 체크할 수 있어요</div>
                     <button onClick={() => (() => {
                 // 모달 열기 전 — medsConfig가 비어있고 localStorage에 데이터 있으면 먼저 복구
-                if (medsConfig.length === 0 && userId) {
-                  try {
-                    const s = localStorage.getItem(`hcd_meds_config_${userId}`);
-                    if (s) { const parsed = JSON.parse(s); if (parsed.length > 0) { setMedsConfig(parsed); setMedsReadyFor(userId); } }
-                  } catch {}
-                }
                 setShowMedSettings(true);
               })()}
                       style={{ background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
