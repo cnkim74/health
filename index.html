@@ -696,13 +696,19 @@
     const bodyFatByDay = {};
     const bpSysByDay   = {}; // 수축기 혈압
     const bpDiaByDay   = {}; // 이완기 혈압
+    const stepsByDay   = {}; // 걸음수 (하루 합산)
+    const calByDay     = {}; // 소모 칼로리 (하루 합산, kcal)
+    const distByDay    = {}; // 걷기+달리기 거리 (하루 합산, km)
 
     const TARGET_KEYS = {
-      'HKQuantityTypeIdentifierBloodGlucose':           'glucose',
-      'HKQuantityTypeIdentifierBodyMass':                'weight',
-      'HKQuantityTypeIdentifierBodyFatPercentage':       'fat',
-      'HKQuantityTypeIdentifierBloodPressureSystolic':   'bp_sys',
-      'HKQuantityTypeIdentifierBloodPressureDiastolic':  'bp_dia',
+      'HKQuantityTypeIdentifierBloodGlucose':              'glucose',
+      'HKQuantityTypeIdentifierBodyMass':                   'weight',
+      'HKQuantityTypeIdentifierBodyFatPercentage':          'fat',
+      'HKQuantityTypeIdentifierBloodPressureSystolic':      'bp_sys',
+      'HKQuantityTypeIdentifierBloodPressureDiastolic':     'bp_dia',
+      'HKQuantityTypeIdentifierStepCount':                  'steps',
+      'HKQuantityTypeIdentifierActiveEnergyBurned':         'cal',
+      'HKQuantityTypeIdentifierDistanceWalkingRunning':     'dist',
     };
 
     const processRecord = (rec) => {
@@ -733,6 +739,17 @@
       } else if (type === 'bp_dia') {
         if (!bpDiaByDay[dayKey] || hour > bpDiaByDay[dayKey].hour)
           bpDiaByDay[dayKey] = { hour, value: Math.round(val) };
+      } else if (type === 'steps') {
+        // 걸음수: 하루 여러 샘플을 합산
+        stepsByDay[dayKey] = (stepsByDay[dayKey] || 0) + Math.round(val);
+      } else if (type === 'cal') {
+        // 활성 칼로리: 합산 (kcal 단위로 저장)
+        const kcal = unit === 'kJ' ? val / 4.184 : val;
+        calByDay[dayKey] = Math.round(((calByDay[dayKey] || 0) + kcal));
+      } else if (type === 'dist') {
+        // 거리: 합산 (km 단위로 저장)
+        const km = unit === 'mi' ? val * 1.60934 : (unit === 'm' ? val / 1000 : val);
+        distByDay[dayKey] = Math.round(((distByDay[dayKey] || 0) + km) * 100) / 100;
       }
     };
 
@@ -779,7 +796,7 @@
     });
 
     if (onProgress) onProgress(100);
-    return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay };
+    return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay, stepsByDay, calByDay, distByDay };
   };
 
   /* ── 삼성 헬스 ZIP 파싱 (체중·체지방) ─────────────────── */
@@ -802,6 +819,36 @@
     const weightByDay  = {};
     const bodyFatByDay = {};
     const bpByDay      = {};
+    const stepsByDay   = {};
+    const calByDay     = {};
+    const distByDay    = {};
+
+    // ── 걸음수/칼로리/거리 파싱 (step_daily_trend)
+    const stepFile = allFiles.find(n => /com\.samsung\.(shealth|health)\.(step_daily_trend|step\.daily_trend)/i.test(n) && n.endsWith('.csv'));
+    if (stepFile) {
+      onProgress && onProgress('걸음수 데이터 분석 중...');
+      const stepText = await zip.files[stepFile].async('string');
+      const stepLines = stepText.split('\n').map(l => l.trim()).filter(Boolean);
+      const stepHdrIdx = stepLines.findIndex(l => !l.startsWith('#') && (l.includes('count') || l.includes('start_time') || l.includes('calorie')));
+      if (stepHdrIdx >= 0) {
+        const stepHeaders = stepLines[stepHdrIdx].split(',').map(h => h.trim().replace(/"/g, ''));
+        const iCount  = stepHeaders.findIndex(h => /\bcount\b/i.test(h));
+        const iCal    = stepHeaders.findIndex(h => /calorie/i.test(h));
+        const iDist   = stepHeaders.findIndex(h => /distance/i.test(h));
+        const iTime3  = stepHeaders.findIndex(h => /start_time|create_time|day_time/i.test(h));
+        for (let i = stepHdrIdx + 1; i < stepLines.length; i++) {
+          if (stepLines[i].startsWith('#')) continue;
+          const cols = stepLines[i].split(',').map(c => c.trim().replace(/"/g, ''));
+          if (cols.length < 2) continue;
+          const timeStr = iTime3 >= 0 ? cols[iTime3] : '';
+          const dayKey  = timeStr ? timeStr.slice(0, 10) : null;
+          if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+          if (iCount >= 0) { const v = parseInt(cols[iCount]); if (!isNaN(v) && v > 0) stepsByDay[dayKey] = (stepsByDay[dayKey]||0) + v; }
+          if (iCal >= 0)   { const v = parseFloat(cols[iCal]); if (!isNaN(v) && v > 0) calByDay[dayKey]   = Math.round((calByDay[dayKey]||0) + v); }
+          if (iDist >= 0)  { const v = parseFloat(cols[iDist]); if (!isNaN(v) && v > 0) distByDay[dayKey] = Math.round(((distByDay[dayKey]||0) + v/1000)*100)/100; }
+        }
+      }
+    }
 
     // ── 체중/체지방 파싱
     if (weightFile) {
@@ -862,10 +909,76 @@
     }
 
     onProgress && onProgress('완료');
-    return { weightByDay, bodyFatByDay, bpByDay };
+    return { weightByDay, bodyFatByDay, bpByDay, stepsByDay, calByDay, distByDay };
   };
 
-  const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {}, bpByDay = {} }) => {
+  // ── Google Fit Takeout ZIP 파서 ──────────────────────────────────────────
+  const parseGoogleFitZip = async (file, onProgress) => {
+    if (typeof JSZip === 'undefined') throw new Error('ZIP 라이브러리 로드 실패. 인터넷 연결을 확인해 주세요.');
+    onProgress && onProgress('ZIP 압축 해제 중...');
+    const zip = await JSZip.loadAsync(file);
+    const allFiles = Object.keys(zip.files);
+
+    // Google 테이크아웃 구조:
+    //   Takeout/Fit/Daily activity metrics/Daily activity metrics - YYYY-MM-DD.csv
+    const metricFiles = allFiles.filter(n =>
+      /daily.activity.metrics.*\d{4}-\d{2}-\d{2}\.csv$/i.test(n)
+    );
+
+    if (!metricFiles.length) {
+      const csvFiles = allFiles.filter(n => n.endsWith('.csv')).slice(0, 10).join('\n');
+      throw new Error(
+        `Google Fit 일별 활동 파일을 찾을 수 없어요.\n` +
+        `발견된 CSV:\n${csvFiles || '없음'}\n\n` +
+        `Google 테이크아웃(takeout.google.com) → Fit만 선택해서 내보낸 ZIP인지 확인해 주세요.`
+      );
+    }
+
+    const stepsByDay = {};
+    const calByDay   = {};
+    const distByDay  = {};
+
+    onProgress && onProgress(`걸음수·칼로리·거리 분석 중... (${metricFiles.length}개 파일)`);
+
+    for (const fname of metricFiles) {
+      // 파일명에서 날짜 추출: ...YYYY-MM-DD.csv
+      const dateMatch = fname.match(/(\d{4}-\d{2}-\d{2})\.csv$/i);
+      if (!dateMatch) continue;
+      const dayKey = dateMatch[1];
+
+      const csvText = await zip.files[fname].async('string');
+      const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) continue;
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const dataRow  = lines[1].split(',').map(c => c.trim().replace(/"/g, ''));
+
+      const iStep = headers.findIndex(h => /step.count/i.test(h));
+      const iCal  = headers.findIndex(h => /calories.*kcal|kcal/i.test(h));
+      // Google Fit은 미터(m) 단위로 거리 기록
+      const iDist = headers.findIndex(h => /distance.*\(m\)|^distance$/i.test(h));
+
+      if (iStep >= 0) {
+        const v = parseInt(dataRow[iStep]);
+        if (!isNaN(v) && v > 0) stepsByDay[dayKey] = (stepsByDay[dayKey] || 0) + v;
+      }
+      if (iCal >= 0) {
+        const v = parseFloat(dataRow[iCal]);
+        if (!isNaN(v) && v > 0) calByDay[dayKey] = Math.round((calByDay[dayKey] || 0) + v);
+      }
+      if (iDist >= 0) {
+        const v = parseFloat(dataRow[iDist]);
+        // m → km 변환
+        if (!isNaN(v) && v > 0) distByDay[dayKey] = Math.round(((distByDay[dayKey] || 0) + v / 1000) * 100) / 100;
+      }
+    }
+
+    onProgress && onProgress('완료');
+    return { glucoseByDay: {}, weightByDay: {}, bodyFatByDay: {}, bpByDay: {}, stepsByDay, calByDay, distByDay };
+  };
+
+  const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {}, bpByDay = {},
+                                 stepsByDay = {}, calByDay = {}, distByDay = {} }) => {
     const result = {};
     Object.entries(glucoseByDay).forEach(([day, readings]) => {
       const bs = {};
@@ -887,6 +1000,18 @@
     Object.entries(bpByDay).forEach(([day, bp]) => {
       result[day] = result[day] || emptyDay();
       result[day].bp = bp;
+    });
+    Object.entries(stepsByDay).forEach(([day, steps]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].steps = String(steps);
+    });
+    Object.entries(calByDay).forEach(([day, cal]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].cal = String(cal);
+    });
+    Object.entries(distByDay).forEach(([day, dist]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].dist = String(dist);
     });
     return result;
   };
@@ -979,12 +1104,24 @@
       try {
         /* ── 안드로이드: 삼성 헬스 ZIP ── */
         if (tab === 'android') {
-          const { weightByDay, bodyFatByDay } = await parseSamsungHealthZip(file, (msg) => setProgress(msg));
-          const wDays  = Object.keys(weightByDay).length;
-          const bfDays = Object.keys(bodyFatByDay).length;
-          if (!wDays && !bfDays) throw new Error('체중·체지방 데이터를 찾을 수 없어요.\n삼성 헬스에 체성분 데이터가 있는지 확인해 주세요.');
-          const mapped = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay });
-          setPreview({ mapped, gDays:0, wDays, bfDays, totalReadings:0, source:'android' });
+          const { weightByDay, bodyFatByDay, bpByDay = {}, stepsByDay = {}, calByDay = {}, distByDay = {} } = await parseSamsungHealthZip(file, (msg) => setProgress(msg));
+          const wDays    = Object.keys(weightByDay).length;
+          const bfDays   = Object.keys(bodyFatByDay).length;
+          const stepDays = Object.keys(stepsByDay).length;
+          if (!wDays && !bfDays && !stepDays) throw new Error('체중·체지방·걸음수 데이터를 찾을 수 없어요.\n삼성 헬스 → 개인 데이터 다운로드에서 내보낸 ZIP인지 확인해 주세요.');
+          const mapped = buildDashboardData({ glucoseByDay:{}, weightByDay, bodyFatByDay, bpByDay, stepsByDay, calByDay, distByDay });
+          setPreview({ mapped, gDays:0, wDays, bfDays, stepDays, totalReadings:0, source:'android' });
+          setStatus('preview');
+          return;
+        }
+
+        /* ── 안드로이드: Google Fit Takeout ZIP ── */
+        if (tab === 'googlefit') {
+          const { stepsByDay = {}, calByDay = {}, distByDay = {} } = await parseGoogleFitZip(file, (msg) => setProgress(msg));
+          const stepDays = Object.keys(stepsByDay).length;
+          if (!stepDays) throw new Error('걸음수 데이터를 찾을 수 없어요.\ntakeout.google.com → Fit만 선택해서 내보낸 ZIP인지 확인해 주세요.');
+          const mapped = buildDashboardData({ glucoseByDay:{}, weightByDay:{}, bodyFatByDay:{}, bpByDay:{}, stepsByDay, calByDay, distByDay });
+          setPreview({ mapped, gDays:0, wDays:0, bfDays:0, stepDays, totalReadings:0, source:'googlefit' });
           setStatus('preview');
           return;
         }
@@ -1052,20 +1189,21 @@
           throw new Error('.csv / .zip / .xml 파일만 지원해요.');
         }
 
-        setProgress('혈당·체중·체지방 데이터 추출 중... 0%');
+        setProgress('혈당·체중·걸음수 데이터 추출 중... 0%');
         const parsed = await parseAppleHealthXML(getChunks, totalBytes, (pct) => {
           setProgress(`데이터 분석 중... ${pct}%`);
         });
         const mapped = buildDashboardData(parsed);
 
-        const gDays  = Object.keys(parsed.glucoseByDay).length;
-        const wDays  = Object.keys(parsed.weightByDay).length;
-        const bfDays = Object.keys(parsed.bodyFatByDay).length;
+        const gDays    = Object.keys(parsed.glucoseByDay).length;
+        const wDays    = Object.keys(parsed.weightByDay).length;
+        const bfDays   = Object.keys(parsed.bodyFatByDay).length;
+        const stepDays = Object.keys(parsed.stepsByDay || {}).length;
         const totalReadings = Object.values(parsed.glucoseByDay).reduce((a,b) => a+b.length, 0);
 
-        if (!gDays && !wDays && !bfDays) throw new Error('혈당, 체중, 체지방 데이터를 찾을 수 없어요.\n리브레2가 애플 건강과 연동되어 있는지 확인해 주세요.');
+        if (!gDays && !wDays && !bfDays && !stepDays) throw new Error('건강 데이터를 찾을 수 없어요.\n애플 건강 앱 → 오른쪽 위 프로필 → 건강 데이터 내보내기로 내보낸 파일인지 확인해 주세요.');
 
-        setPreview({ mapped, gDays, wDays, bfDays, totalReadings });
+        setPreview({ mapped, gDays, wDays, bfDays, stepDays, totalReadings });
         setStatus('preview');
       } catch (e) {
         setErrMsg(e.message || '파일 처리 중 오류가 발생했어요.');
@@ -1075,11 +1213,12 @@
 
     const confirm = () => { onImport(preview.mapped); setStatus('done'); };
 
-    const isLV      = tab === 'libreview';
-    const isAndroid = tab === 'android';
-    const accent  = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : 'var(--cn-brand)';
-    const accentL = isLV ? 'var(--cn-low-100)' : isAndroid ? 'var(--cn-ok-100)' : 'var(--cn-brand-100)';
-    const accentB = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : 'var(--cn-brand)';
+    const isLV        = tab === 'libreview';
+    const isAndroid   = tab === 'android';
+    const isGoogleFit = tab === 'googlefit';
+    const accent  = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : isGoogleFit ? '#EA4335' : 'var(--cn-brand)';
+    const accentL = isLV ? 'var(--cn-low-100)' : isAndroid ? 'var(--cn-ok-100)' : isGoogleFit ? '#FEE2E2' : 'var(--cn-brand-100)';
+    const accentB = isLV ? 'var(--cn-low)' : isAndroid ? 'var(--cn-ok)' : isGoogleFit ? '#EA4335' : 'var(--cn-brand)';
 
     return (
       <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'20px' }}
@@ -1098,9 +1237,10 @@
           {/* 탭 선택 */}
           <div style={{ display:'flex', gap:'6px', marginBottom:'20px', background:'var(--input-bg)', borderRadius:'10px', padding:'4px' }}>
             {[
-              { key:'libreview', label:'📊 LibreView', sub:'혈당 CSV' },
-              { key:'apple',     label:'🍎 iOS',        sub:'건강앱 ZIP' },
-              { key:'android',   label:'🤖 Android',    sub:'삼성 헬스' }
+              { key:'libreview',  label:'📊 LibreView', sub:'혈당 CSV' },
+              { key:'apple',      label:'🍎 iOS',        sub:'건강앱 ZIP' },
+              { key:'android',    label:'🤖 삼성 헬스',  sub:'Android' },
+              { key:'googlefit',  label:'🏃 Google Fit', sub:'테이크아웃' }
             ].map(t => (
               <button key={t.key} onClick={() => onTabChange(t.key)} style={{
                 flex:1, padding:'10px 6px', border:'none', borderRadius:'8px', cursor:'pointer',
@@ -1216,6 +1356,44 @@
             </>
           )}
 
+          {/* ── Google Fit 탭 ── */}
+          {tab==='googlefit' && (status === 'idle' || status === 'error') && (
+            <>
+              <div style={{ background:'#FEE2E2', border:'1px solid #EA4335', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px', fontSize:'14px' }}>
+                <div style={{ fontWeight:'700', color:'#EA4335', marginBottom:'5px' }}>ℹ️ Google Fit 데이터 내보내기</div>
+                <div style={{ color:'#991B1B', lineHeight:'1.8' }}>
+                  걸음수·칼로리·거리를 Google 테이크아웃으로 가져올 수 있어요.<br/>
+                  <strong>리브레2 혈당 데이터는 LibreView CSV 탭을 이용하세요.</strong>
+                </div>
+              </div>
+              <div style={{ background:'#FEF2F2', border:'1px solid #EA4335', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px' }}>
+                <div style={{ fontWeight:'700', color:'#EA4335', fontSize:'16px', marginBottom:'8px' }}>📋 Google Fit 내보내기 방법</div>
+                <ol style={{ margin:0, paddingLeft:'18px', fontSize:'14px', color:'#7F1D1D', lineHeight:'2.1' }}>
+                  <li><strong>takeout.google.com</strong> 접속 (Google 계정 로그인)</li>
+                  <li><strong>"모두 선택 해제"</strong> 클릭 → <strong>Fit</strong>만 체크</li>
+                  <li>내보내기 형식: <strong>ZIP</strong> 선택 → <strong>내보내기 만들기</strong></li>
+                  <li>이메일로 링크 수신 후 ZIP 다운로드</li>
+                  <li>아래에서 ZIP 파일 선택</li>
+                </ol>
+                <div style={{ marginTop:'10px', padding:'8px 10px', background:'#DCFCE7', borderRadius:'8px', fontSize:'13px', color:'#166534' }}>
+                  💡 Google Fit 앱에서 걸음수를 기록한 경우에만 데이터가 있어요
+                </div>
+              </div>
+              <div
+                onClick={() => fileRef.current?.click()}
+                style={{ border:`2px dashed ${accentB}`, borderRadius:'12px', padding:'28px 20px', textAlign:'center', cursor:'pointer', background:'var(--input-bg)', transition:'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background=accentL; e.currentTarget.style.borderColor=accent; }}
+                onMouseLeave={e => { e.currentTarget.style.background='var(--input-bg)'; e.currentTarget.style.borderColor=accentB; }}
+              >
+                <div style={{ fontSize:'26px', marginBottom:'8px' }}>📂</div>
+                <div style={{ fontWeight:'700', color:accent, fontSize:'16px', marginBottom:'4px' }}>Google Fit ZIP 파일 선택</div>
+                <div style={{ fontSize:'14px', color:'var(--text-sub)' }}>takeout-*.zip</div>
+              </div>
+              <input ref={fileRef} type="file" accept=".zip" onChange={e => e.target.files[0] && processFile(e.target.files[0])} style={{ display:'none' }} />
+              {status==='error' && <div style={{ background:'var(--cn-danger-100)', border:'1px solid #fecaca', borderRadius:'10px', padding:'12px 14px', marginTop:'12px', fontSize:'16px', color:'var(--cn-danger)', whiteSpace:'pre-line' }}>⚠️ {errMsg}</div>}
+            </>
+          )}
+
           {/* 로딩 */}
           {status === 'loading' && (
             <div style={{ textAlign:'center', padding:'36px 20px' }}>
@@ -1231,15 +1409,16 @@
             <>
               <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'12px', padding:'16px 18px', marginBottom:'14px' }}>
                 <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'12px', fontSize:'14px' }}>
-                  ✅ {preview.source==='libreview' ? 'LibreView CSV' : preview.source==='android' ? '삼성 헬스' : '애플 건강'} 데이터 발견
+                  ✅ {preview.source==='libreview' ? 'LibreView CSV' : preview.source==='android' ? '삼성 헬스' : preview.source==='googlefit' ? 'Google Fit' : '애플 건강'} 데이터 발견
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
                   {[
-                    { label:'혈당 측정일', value:`${preview.gDays}일`, icon:'🩸' },
-                    { label:'총 측정 횟수', value:`${preview.totalReadings.toLocaleString()}회`, icon:'📊' },
+                    { label:'혈당 측정일', value:`${preview.gDays||0}일`, icon:'🩸' },
                     { label:'체중 기록일', value:`${preview.wDays||0}일`, icon:'⚖️' },
-                    { label:'체지방 기록일', value:`${preview.bfDays||0}일`, icon:'💪' }
-                  ].map(item => (
+                    { label:'체지방 기록일', value:`${preview.bfDays||0}일`, icon:'💪' },
+                    { label:'걸음수 기록일', value:`${preview.stepDays||0}일`, icon:'👟' },
+                    { label:'총 혈당 횟수', value:`${(preview.totalReadings||0).toLocaleString()}회`, icon:'📊' },
+                  ].filter(item => item.value !== '0일' && item.value !== '0회').map(item => (
                     <div key={item.label} style={{ background:dm?'var(--card-bg)':'white', borderRadius:'8px', padding:'10px 6px' }}>
                       <div style={{ fontSize:'14px' }}>{item.icon}</div>
                       <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)', marginTop:'4px' }}>{item.value}</div>
@@ -1420,6 +1599,13 @@
     const addDrugToSlot = () => {
       if (!newName.trim()) { setAddMsg('⚠️ 약 이름을 입력해 주세요.'); setTimeout(()=>setAddMsg(''),2500); return; }
       if (!newSlotKey)     { setAddMsg('⚠️ 시간대를 선택해 주세요.');  setTimeout(()=>setAddMsg(''),2500); return; }
+      // 요일/날짜 없이 저장 방지
+      if (newFreq.type === 'weekly' && !(newFreq.weekDays||[]).length) {
+        setAddMsg('⚠️ 매주 복용 요일을 1개 이상 선택해 주세요.'); setTimeout(()=>setAddMsg(''),3000); return;
+      }
+      if (newFreq.type === 'monthly' && !(newFreq.monthDays||[]).length) {
+        setAddMsg('⚠️ 매월 복용 날짜를 1개 이상 선택해 주세요.'); setTimeout(()=>setAddMsg(''),3000); return;
+      }
       const id = genId();
       const freqToSave = newFreq.type === 'daily' ? undefined : newFreq;
       setCfg(c => c.map(s => s.key === newSlotKey
@@ -4778,7 +4964,11 @@
             bs: { ...imported.bs, ...ex.bs },
             weight:  ex.weight  || imported.weight  || '',
             bodyFat: ex.bodyFat || imported.bodyFat || '',
-            bp: (ex.bp?.sys && ex.bp?.dia) ? ex.bp : (imported.bp || ex.bp || {sys:'',dia:''})
+            bp:      (ex.bp?.sys && ex.bp?.dia) ? ex.bp : (imported.bp || ex.bp || {sys:'',dia:''}),
+            // 걸음수/칼로리/거리: 건강앱 값이 더 정확하므로 있으면 덮어씀
+            steps: imported.steps || ex.steps || '',
+            cal:   imported.cal   || ex.cal   || '',
+            dist:  imported.dist  || ex.dist  || '',
           };
         }
         merged[d] = next[d];
@@ -4799,7 +4989,10 @@
               ...updated[d],
               weight:  updated[d].weight  || imp.weight  || '',
               bodyFat: updated[d].bodyFat || imp.bodyFat || '',
-              bp: (updated[d].bp?.sys && updated[d].bp?.dia) ? updated[d].bp : (imp.bp || updated[d].bp),
+              bp:      (updated[d].bp?.sys && updated[d].bp?.dia) ? updated[d].bp : (imp.bp || updated[d].bp),
+              steps:   imp.steps || updated[d].steps || '',
+              cal:     imp.cal   || updated[d].cal   || '',
+              dist:    imp.dist  || updated[d].dist  || '',
             };
           }
         });
