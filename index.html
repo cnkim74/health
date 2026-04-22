@@ -4872,10 +4872,14 @@
       const prevDate = prevDateRef.current;
       if (prevDate && prevDate !== date && data[prevDate]) {
         // 날짜 전환 → 이전 날짜 즉시 저장
-        supa.from('diabetes_data').upsert(
-          { user_id: userId, date: prevDate, payload: data[prevDate], updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,date' }
-        ).catch(e => console.error('[flush] 이전날짜 저장 오류:', e));
+        (async () => {
+          try {
+            await supa.from('diabetes_data').upsert(
+              { user_id: userId, date: prevDate, payload: data[prevDate], updated_at: new Date().toISOString() },
+              { onConflict: 'user_id,date' }
+            );
+          } catch (e) { console.error('[flush] 이전날짜 저장 오류:', e); }
+        })();
       }
       prevDateRef.current = date;
     }, [date]);
@@ -5066,10 +5070,14 @@
       setMedsReadyFor(userId);
       if (userId) {
         localStorage.setItem(`hcd_meds_config_${userId}`, JSON.stringify(cfg));
-        supa.from('diabetes_data').upsert(
-          { user_id: userId, date: '_user_settings_', payload: { medsConfig: cfg }, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,date' }
-        ).catch(e => console.error('복약 설정 저장 오류:', e));
+        (async () => {
+          try {
+            await supa.from('diabetes_data').upsert(
+              { user_id: userId, date: '_user_settings_', payload: { medsConfig: cfg }, updated_at: new Date().toISOString() },
+              { onConflict: 'user_id,date' }
+            );
+          } catch (e) { console.error('복약 설정 저장 오류:', e); }
+        })();
       }
       setShowMedSettings(false);
     };
