@@ -374,7 +374,7 @@
   const bsColor = (v) => { const n=parseInt(v); if(!n) return 'var(--text-mute)'; if(n<70) return 'var(--cn-low)'; if(n<=140) return 'var(--cn-ok)'; if(n<=180) return 'var(--cn-warn)'; return 'var(--cn-danger)'; };
   const bsLabel = (v) => { const n=parseInt(v); if(!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
   const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
-  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, extraMeals:[], exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', dist:'', weight:'', bodyFat:'', note:'' });
+  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, extraMeals:[], exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', bcal:'', dist:'', weight:'', bodyFat:'', note:'' });
 
   // 부분 구조 데이터를 emptyDay와 안전하게 병합 (localStorage/Supabase에서 읽은 데이터 정규화용)
   const normalizeDay = (d) => {
@@ -697,7 +697,8 @@
     const bpSysByDay   = {}; // 수축기 혈압
     const bpDiaByDay   = {}; // 이완기 혈압
     const stepsByDay   = {}; // 걸음수 (하루 합산)
-    const calByDay     = {}; // 소모 칼로리 (하루 합산, kcal)
+    const calByDay     = {}; // 활동 칼로리 (하루 합산, kcal)
+    const bcalByDay    = {}; // 기초대사량 (하루 합산, kcal)
     const distByDay    = {}; // 걷기+달리기 거리 (하루 합산, km)
 
     const TARGET_KEYS = {
@@ -708,6 +709,7 @@
       'HKQuantityTypeIdentifierBloodPressureDiastolic':     'bp_dia',
       'HKQuantityTypeIdentifierStepCount':                  'steps',
       'HKQuantityTypeIdentifierActiveEnergyBurned':         'cal',
+      'HKQuantityTypeIdentifierBasalEnergyBurned':          'bcal',
       'HKQuantityTypeIdentifierDistanceWalkingRunning':     'dist',
     };
 
@@ -746,6 +748,10 @@
         // 활성 칼로리: 합산 (kcal 단위로 저장)
         const kcal = unit === 'kJ' ? val / 4.184 : val;
         calByDay[dayKey] = Math.round(((calByDay[dayKey] || 0) + kcal));
+      } else if (type === 'bcal') {
+        // 기초대사량: 합산 (kcal 단위로 저장) — Apple Watch가 시간대별로 쪼개서 저장함
+        const kcal = unit === 'kJ' ? val / 4.184 : val;
+        bcalByDay[dayKey] = Math.round(((bcalByDay[dayKey] || 0) + kcal));
       } else if (type === 'dist') {
         // 거리: 합산 (km 단위로 저장)
         const km = unit === 'mi' ? val * 1.60934 : (unit === 'm' ? val / 1000 : val);
@@ -796,7 +802,7 @@
     });
 
     if (onProgress) onProgress(100);
-    return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay, stepsByDay, calByDay, distByDay };
+    return { glucoseByDay, weightByDay, bodyFatByDay, bpByDay, stepsByDay, calByDay, bcalByDay, distByDay };
   };
 
   /* ── 삼성 헬스 ZIP 파싱 (체중·체지방) ─────────────────── */
@@ -978,7 +984,7 @@
   };
 
   const buildDashboardData = ({ glucoseByDay, weightByDay, bodyFatByDay = {}, bpByDay = {},
-                                 stepsByDay = {}, calByDay = {}, distByDay = {} }) => {
+                                 stepsByDay = {}, calByDay = {}, bcalByDay = {}, distByDay = {} }) => {
     const result = {};
     Object.entries(glucoseByDay).forEach(([day, readings]) => {
       const bs = {};
@@ -1008,6 +1014,10 @@
     Object.entries(calByDay).forEach(([day, cal]) => {
       result[day] = result[day] || emptyDay();
       result[day].cal = String(cal);
+    });
+    Object.entries(bcalByDay).forEach(([day, bcal]) => {
+      result[day] = result[day] || emptyDay();
+      result[day].bcal = String(bcal);
     });
     Object.entries(distByDay).forEach(([day, dist]) => {
       result[day] = result[day] || emptyDay();
@@ -2654,7 +2664,8 @@
                 const items = [];
                 const has = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
                 if (has(p.steps)) items.push(`👟 걸음수 ${Number(p.steps).toLocaleString()}걸음`);
-                if (has(p.cal))   items.push(`🔥 칼로리 ${Number(p.cal).toLocaleString()}kcal`);
+                if (has(p.cal))   items.push(`🔥 활동 ${Number(p.cal).toLocaleString()}kcal`);
+                if (has(p.bcal))  items.push(`💤 기초 ${Number(p.bcal).toLocaleString()}kcal`);
                 if (has(p.dist))  items.push(`📍 거리 ${p.dist}km`);
                 if (p.weight) items.push(`⚖️ 체중 ${p.weight}kg`);
                 if (p.bp?.sys) items.push(`💓 혈압 ${p.bp.sys}/${p.bp.dia}`);
@@ -4326,7 +4337,7 @@
     const [step1Done, setStep1Done] = React.useState(() => !!localStorage.getItem('cn_sc_sql_done_v2'));
 
     // SQL: 관리자 1회 실행용 (sync_key 컬럼 추가 + v2 함수 등록)
-    const SQL_TEXT = `-- 1. cn_profiles에 연동 키 컬럼 추가 (최초 1회)\nalter table cn_profiles\n  add column if not exists sync_key uuid default gen_random_uuid();\nupdate cn_profiles set sync_key = gen_random_uuid() where sync_key is null;\n\n-- 2. 새 연동 함수 등록 (v3: 누적값 MAX 병합 — 걸음수/칼로리/거리 감소 방지)\ncreate or replace function upsert_health_patch_v2(\n  p_sync_key uuid,\n  p_date     text,\n  p_patch    jsonb\n) returns json\nlanguage plpgsql security definer as $$\ndeclare\n  v_uid uuid;\n  v_existing jsonb;\n  v_patch jsonb := p_patch;\n  v_cur_num numeric;\n  v_new_num numeric;\n  k text;\nbegin\n  select id into v_uid from cn_profiles\n    where sync_key = p_sync_key limit 1;\n  if v_uid is null then\n    return json_build_object('ok',false,'error','invalid_key');\n  end if;\n\n  -- 같은 날짜 기존 페이로드 조회\n  select payload into v_existing\n    from diabetes_data where user_id = v_uid and date = p_date::date;\n\n  -- 누적값(steps/cal/dist)은 하루 안에서 감소하지 않도록 MAX 유지\n  if v_existing is not null then\n    foreach k in array array['steps','cal','dist'] loop\n      if (v_patch ? k) and (v_existing ? k) then\n        begin\n          v_cur_num := (v_existing->>k)::numeric;\n          v_new_num := (v_patch->>k)::numeric;\n          if v_cur_num > v_new_num then\n            v_patch := v_patch - k; -- 기존값이 더 크면 패치에서 제거\n          end if;\n        exception when others then\n          null; -- 숫자 변환 실패 시 그냥 새 값 적용\n        end;\n      end if;\n    end loop;\n  end if;\n\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (v_uid, p_date::date, v_patch, now())\n  on conflict (user_id, date) do update set\n    payload = diabetes_data.payload || v_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
+    const SQL_TEXT = `-- 1. cn_profiles에 연동 키 컬럼 추가 (최초 1회)\nalter table cn_profiles\n  add column if not exists sync_key uuid default gen_random_uuid();\nupdate cn_profiles set sync_key = gen_random_uuid() where sync_key is null;\n\n-- 2. 새 연동 함수 등록 (v4: 누적값 MAX 병합 — 걸음수/활동칼로리/기초대사량/거리 감소 방지)\ncreate or replace function upsert_health_patch_v2(\n  p_sync_key uuid,\n  p_date     text,\n  p_patch    jsonb\n) returns json\nlanguage plpgsql security definer as $$\ndeclare\n  v_uid uuid;\n  v_existing jsonb;\n  v_patch jsonb := p_patch;\n  v_cur_num numeric;\n  v_new_num numeric;\n  k text;\nbegin\n  select id into v_uid from cn_profiles\n    where sync_key = p_sync_key limit 1;\n  if v_uid is null then\n    return json_build_object('ok',false,'error','invalid_key');\n  end if;\n\n  -- 같은 날짜 기존 페이로드 조회\n  select payload into v_existing\n    from diabetes_data where user_id = v_uid and date = p_date::date;\n\n  -- 누적값(steps/cal/bcal/dist)은 하루 안에서 감소하지 않도록 MAX 유지\n  if v_existing is not null then\n    foreach k in array array['steps','cal','bcal','dist'] loop\n      if (v_patch ? k) and (v_existing ? k) then\n        begin\n          v_cur_num := (v_existing->>k)::numeric;\n          v_new_num := (v_patch->>k)::numeric;\n          if v_cur_num > v_new_num then\n            v_patch := v_patch - k; -- 기존값이 더 크면 패치에서 제거\n          end if;\n        exception when others then\n          null; -- 숫자 변환 실패 시 그냥 새 값 적용\n        end;\n      end if;\n    end loop;\n  end if;\n\n  insert into diabetes_data (user_id, date, payload, updated_at)\n  values (v_uid, p_date::date, v_patch, now())\n  on conflict (user_id, date) do update set\n    payload = diabetes_data.payload || v_patch,\n    updated_at = now();\n  return json_build_object('ok', true);\nend;\n$$;`;
 
     React.useEffect(() => {
       supa.auth.getSession().then(({ data: { session } }) => {
@@ -4444,12 +4455,13 @@
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
                 {[
-                  { n:'①', t:'건강 샘플 찾기', d:'유형: 걸음 수 / 기간: 오늘 / 집계: 합계 → 변수 "steps" 저장' },
-                  { n:'②', t:'건강 샘플 찾기', d:'유형: 활동 에너지 / 기간: 오늘 / 집계: 합계 → 변수 "cal" 저장' },
-                  { n:'③', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 집계: 합계 → 변수 "dist" 저장 (단위: km)' },
-                  { n:'④', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
-                  { n:'⑤', t:'URL의 내용 가져오기', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch_v2\n헤더: apikey=' + SUPA_KEY + ', Content-Type=application/json\nJSON 본문: {"p_sync_key":"' + (syncKey||'[위에서 복사한 연동 키]') + '","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"dist":[dist]}}' },
-                  { n:'⑥', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
+                  { n:'①', t:'건강 샘플 찾기', d:'유형: 걸음 수 / 기간: 오늘 / 제한 OFF → "건강 샘플의 합계 계산"(값 속성) → 변수 "steps" 저장' },
+                  { n:'②', t:'건강 샘플 찾기', d:'유형: 활동 에너지 / 기간: 오늘 / 제한 OFF → 합계 계산(값) → 변수 "cal" 저장' },
+                  { n:'③', t:'건강 샘플 찾기', d:'유형: 기초 에너지(Basal Energy Burned) / 기간: 오늘 / 제한 OFF → 합계 계산(값) → 변수 "bcal" 저장 ← Apple Watch 권장' },
+                  { n:'④', t:'건강 샘플 찾기', d:'유형: 걷기+달리기 거리 / 기간: 오늘 / 제한 OFF → 합계 계산(값) → 변수 "dist" 저장 (단위: km)' },
+                  { n:'⑤', t:'날짜 포맷', d:'현재 날짜 → ISO 8601 / yyyy-MM-dd 형식 → 변수 "today" 저장' },
+                  { n:'⑥', t:'URL의 내용 가져오기', d:'POST → ' + SUPA_URL + '/rest/v1/rpc/upsert_health_patch_v2\n헤더: apikey=' + SUPA_KEY + ', Content-Type=application/json\nJSON 본문: {"p_sync_key":"' + (syncKey||'[위에서 복사한 연동 키]') + '","p_date":"[today]","p_patch":{"steps":[steps],"cal":[cal],"bcal":[bcal],"dist":[dist]}}' },
+                  { n:'⑦', t:'알림 표시', d:'"✅ 건강 데이터 저장됨"' },
                 ].map(({ n, t, d }) => (
                   <div key={n} style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
                     <span style={{ fontWeight:800, color:'var(--cn-brand)', flexShrink:0, minWidth:'18px', fontSize:'12px' }}>{n}</span>
@@ -4462,9 +4474,10 @@
               </div>
               <div style={{ marginTop:'10px', padding:'8px 10px', background:'var(--input-bg)', borderRadius:'6px',
                 border:'1px solid var(--card-border)', fontSize:'10.5px', color:'var(--text-mute)', lineHeight:1.6 }}>
-                ⚠️ <strong>집계는 반드시 "합계(Sum)"</strong>: "최신 1개"로 두면 누적값이 아니라 마지막 1샘플만 올라가 숫자가 줄어들어요. 단축어 ①②③ 모두 <strong>집계: 합계</strong>로 확인.<br/>
+                ⚠️ <strong>제한 OFF + 합계 계산 액션</strong>: "최신 1개"로 두면 누적값이 아니라 마지막 1샘플만 올라가 숫자가 줄어듭니다. 각 건강 샘플 액션의 <strong>제한 토글 OFF</strong> → 바로 아래에 "<strong>건강 샘플의 합계 계산</strong>" 액션 추가 → 유형은 "건강 샘플", 속성은 "<strong>값</strong>" 선택.<br/>
+                💡 <strong>기초 에너지(bcal)</strong>: Apple Watch 필수. iPhone 단독이면 0으로 올라가거나 비어있을 수 있어요 (생략 가능).<br/>
                 💡 <strong>거리 단위</strong>: iPhone 건강앱 설정이 <strong>km</strong>인지 확인하세요 (설정 → 건강 → 단위).<br/>
-                💡 <strong>칼로리</strong>: "활동 에너지"는 운동 중 소모 칼로리만 포함됩니다 (기초대사량 제외).
+                💡 <strong>총 소모 = 활동(cal) + 기초(bcal)</strong>: 대시보드 "총 소모" 카드에 합쳐 표시됩니다.
               </div>
             </div>
           </div>
@@ -4734,7 +4747,8 @@
       const bf     = params.get('bf');
       const bp     = params.get('bp');     // 혈압 (예: 120/80)
       const steps  = params.get('steps'); // 걸음수
-      const cal    = params.get('cal');   // 칼로리 (kcal)
+      const cal    = params.get('cal');   // 활동 칼로리 (kcal)
+      const bcal   = params.get('bcal');  // 기초대사량 (kcal) — Apple Watch "Basal Energy Burned"
       const dist   = params.get('dist'); // 거리 (km)
       const d  = params.get('d');  // 측정 날짜 (YYYY-MM-DD)
       const freshPatch = {};
@@ -4742,6 +4756,7 @@
       if (bf && !isNaN(parseFloat(bf))) freshPatch.bodyFat = String(parseFloat(bf));
       if (steps && !isNaN(parseInt(steps)))   freshPatch.steps = String(Math.round(parseFloat(steps)));
       if (cal   && !isNaN(parseFloat(cal)))   freshPatch.cal   = String(Math.round(parseFloat(cal)));
+      if (bcal  && !isNaN(parseFloat(bcal)))  freshPatch.bcal  = String(Math.round(parseFloat(bcal)));
       if (dist  && !isNaN(parseFloat(dist)))  freshPatch.dist  = String(Math.round(parseFloat(dist)*100)/100);
       if (bp) {
         const bpMatch = bp.match(/^(\d{1,3}(?:\.\d+)?)[\/\s](\d{1,3}(?:\.\d+)?)$/);
@@ -4817,6 +4832,7 @@
                 if (!sb.bodyFat && lc?.bodyFat) loaded[d] = { ...loaded[d], bodyFat: lc.bodyFat };
                 if (!sb.steps   && lc?.steps)   loaded[d] = { ...loaded[d], steps:   lc.steps   };
                 if (!sb.cal     && lc?.cal)     loaded[d] = { ...loaded[d], cal:     lc.cal     };
+                if (!sb.bcal    && lc?.bcal)    loaded[d] = { ...loaded[d], bcal:    lc.bcal    };
                 if (!sb.dist    && lc?.dist)    loaded[d] = { ...loaded[d], dist:    lc.dist    };
               }
             });
@@ -4833,6 +4849,7 @@
                 if (!loaded[d].bodyFat && imported[d]?.bodyFat) loaded[d] = { ...loaded[d], bodyFat: imported[d].bodyFat };
                 if (!loaded[d].steps   && imported[d]?.steps)   loaded[d] = { ...loaded[d], steps:   imported[d].steps   };
                 if (!loaded[d].cal     && imported[d]?.cal)     loaded[d] = { ...loaded[d], cal:     imported[d].cal     };
+                if (!loaded[d].bcal    && imported[d]?.bcal)    loaded[d] = { ...loaded[d], bcal:    imported[d].bcal    };
                 if (!loaded[d].dist    && imported[d]?.dist)    loaded[d] = { ...loaded[d], dist:    imported[d].dist    };
                 // 혈압도 복구
                 if (!(loaded[d].bp?.sys && loaded[d].bp?.dia) && imported[d]?.bp?.sys)
@@ -5003,9 +5020,10 @@
             weight:  ex.weight  || imported.weight  || '',
             bodyFat: ex.bodyFat || imported.bodyFat || '',
             bp:      (ex.bp?.sys && ex.bp?.dia) ? ex.bp : (imported.bp || ex.bp || {sys:'',dia:''}),
-            // 걸음수/칼로리/거리: 건강앱 값이 더 정확하므로 있으면 덮어씀
+            // 걸음수/칼로리/거리/기초대사량: 건강앱 값이 더 정확하므로 있으면 덮어씀
             steps: imported.steps || ex.steps || '',
             cal:   imported.cal   || ex.cal   || '',
+            bcal:  imported.bcal  || ex.bcal  || '',
             dist:  imported.dist  || ex.dist  || '',
           };
         }
@@ -5373,8 +5391,15 @@
                   const hasVal = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
                   const stepsNum = hasVal(day.steps) ? Number(day.steps) : null;
                   const calNum   = hasVal(day.cal)   ? Number(day.cal)   : null;
+                  const bcalNum  = hasVal(day.bcal)  ? Number(day.bcal)  : null;
                   const distNum  = hasVal(day.dist)  ? Number(day.dist)  : null;
                   const stepsPct = stepsNum !== null && stepsNum > 0 ? Math.min(100, Math.round(stepsNum/100)) : null;
+                  // 총 소모 칼로리 = 활동(cal) + 기초대사량(bcal)
+                  const totalCalNum = (calNum !== null || bcalNum !== null)
+                    ? (calNum || 0) + (bcalNum || 0) : null;
+                  const calSub = (calNum !== null && bcalNum !== null)
+                    ? `활동 ${Math.round(calNum)} + 기초 ${Math.round(bcalNum)}`
+                    : (bcalNum !== null ? `기초 ${Math.round(bcalNum)}` : (calNum !== null ? `활동 ${Math.round(calNum)}` : null));
                   // 식사 섭취 칼로리 추정
                   const estCal = (text) => {
                     if (!text?.trim()) return 0;
@@ -5401,10 +5426,10 @@
                   (day.extraMeals||[]).forEach(em => { intakeCal += estCal(em.text); });
 
                   const cards = [
-                    { icon:'👟', label:'걸음수',     val: stepsNum !== null ? stepsNum.toLocaleString()            : '---', unit:'걸음',  color:'var(--cn-brand)',  hasData: stepsNum !== null, pct: stepsPct },
-                    { icon:'🔥', label:'소모 칼로리', val: calNum   !== null ? Math.round(calNum).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: calNum !== null,   pct: null },
-                    { icon:'📍', label:'거리',        val: distNum  !== null ? distNum.toFixed(1)                  : '---', unit:'km',   color:'var(--cn-ok)',    hasData: distNum !== null,  pct: null },
-                    { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()              : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
+                    { icon:'👟', label:'걸음수',     val: stepsNum !== null ? stepsNum.toLocaleString()                  : '---', unit:'걸음',  color:'var(--cn-brand)',  hasData: stepsNum !== null, pct: stepsPct },
+                    { icon:'🔥', label:'총 소모',     val: totalCalNum !== null ? Math.round(totalCalNum).toLocaleString() : '---', unit:'kcal', color:'var(--cn-danger)', hasData: totalCalNum !== null, pct: null, sub: calSub || '활동+기초 합산' },
+                    { icon:'📍', label:'거리',        val: distNum  !== null ? distNum.toFixed(1)                        : '---', unit:'km',   color:'var(--cn-ok)',    hasData: distNum !== null,  pct: null },
+                    { icon:'🍽️', label:'섭취(추정)',  val: intakeCal>0  ? intakeCal.toLocaleString()                    : '---', unit:'kcal', color:'#a855f7',         hasData: intakeCal>0,  pct: null, sub: intakeCal>0 ? '식사 기록 기반' : '식사 입력 후 표시' },
                   ];
                   return (
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', width:'100%', minWidth:0, boxSizing:'border-box' }}>
@@ -5414,7 +5439,7 @@
                           <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'600', marginBottom:'2px' }}>{item.label}</div>
                           <div style={{ fontSize:'20px', fontWeight:'900', color: item.hasData ? item.color : 'var(--text-mute)', letterSpacing:'-0.5px', lineHeight:1.1 }}>{item.val}</div>
                           <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'3px' }}>{item.unit}</div>
-                          {item.sub && !item.hasData && <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{item.sub}</div>}
+                          {item.sub && <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'2px' }}>{item.sub}</div>}
                           {item.pct !== null && (
                             <div style={{ marginTop:'6px' }}>
                               <div style={{ background:'var(--card-border)', borderRadius:'3px', height:'4px', overflow:'hidden' }}>
@@ -5430,7 +5455,7 @@
                 })()}
                 {(() => {
                   const has = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
-                  if (has(day.steps) || has(day.cal) || has(day.dist)) return null;
+                  if (has(day.steps) || has(day.cal) || has(day.bcal) || has(day.dist)) return null;
                   return (
                     <div style={{ fontSize:'11px', color:'var(--text-mute)', textAlign:'center', marginTop:'10px' }}>
                       📲 건강앱 단축어로 자동 기록할 수 있어요
