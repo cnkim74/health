@@ -2526,8 +2526,177 @@
     );
   };
 
+  /* ── 랜딩 페이지 (비로그인 사용자 첫 화면) ─────────────── */
+  const LandingPage = ({ onStart }) => {
+    const features = [
+      { icon:'💊', title:'복약 관리', desc:'시간대별 복약 체크리스트와 알람으로 복용 누락 방지' },
+      { icon:'🩸', title:'혈당·혈압·체중', desc:'매일의 측정값을 한곳에 기록하고 추이 그래프로 한눈에' },
+      { icon:'🍽️', title:'AI 식단 분석', desc:'사진 한 장으로 음식·칼로리·영양소 자동 추정' },
+      { icon:'🏃', title:'활동 자동 기록', desc:'iPhone 건강앱·삼성헬스·Google Fit 자동 동기화' },
+      { icon:'📊', title:'30일 리포트', desc:'AI가 자동으로 인사이트와 건강 점수 생성' },
+      { icon:'📖', title:'나만의 건강 일기', desc:'클라우드 안전 보관, 어느 기기에서나 이어보기' },
+    ];
+    const heroBg = {
+      background: 'linear-gradient(135deg, #2F6BFF 0%, #1F4FD9 60%, #0B1B3B 100%)',
+      color:'#fff', padding:'72px 20px 60px', textAlign:'center', position:'relative', overflow:'hidden'
+    };
+    const sectionTitle = { fontSize:'24px', fontWeight:900, color:'var(--text)', marginBottom:'8px', letterSpacing:'-0.5px' };
+    const sectionSub   = { fontSize:'14px', color:'var(--text-sub)', marginBottom:'28px' };
+
+    const ctaBtn = (label, primary=true) => ({
+      onClick: onStart,
+      style: {
+        display:'inline-flex', alignItems:'center', gap:'8px',
+        padding:'14px 28px', borderRadius:'14px', fontSize:'15px', fontWeight:800,
+        cursor:'pointer', border:'none', whiteSpace:'nowrap',
+        background: primary ? '#fff' : 'rgba(255,255,255,0.15)',
+        color: primary ? 'var(--cn-brand)' : '#fff',
+        boxShadow: primary ? '0 6px 20px rgba(0,0,0,0.18)' : 'none',
+        transition:'transform 0.15s'
+      }
+    });
+
+    return (
+      <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
+        {/* Hero */}
+        <section style={heroBg}>
+          <div style={{ maxWidth:'860px', margin:'0 auto', position:'relative', zIndex:1 }}>
+            <div style={{ display:'inline-block', background:'rgba(255,255,255,0.15)', padding:'5px 14px', borderRadius:'20px', fontSize:'12px', fontWeight:700, letterSpacing:'0.5px', marginBottom:'18px' }}>
+              CARENOTE — 내 몸을 기록하는 노트
+            </div>
+            <h1 style={{ fontSize:'34px', fontWeight:900, lineHeight:1.25, marginBottom:'14px', letterSpacing:'-0.8px' }}>
+              건강과 복약, 매일을 가볍게<br/>
+              <span style={{ color:'#A7C5FF' }}>한 페이지에 담았어요</span>
+            </h1>
+            <p style={{ fontSize:'15px', lineHeight:1.7, color:'rgba(255,255,255,0.88)', marginBottom:'28px', maxWidth:'520px', margin:'0 auto 28px' }}>
+              혈당·혈압·체중·식단·운동·복약을 한 곳에서.<br/>
+              하루를 적으면 한 달이 보이고, 일 년이 답이 됩니다.
+            </p>
+            <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
+              <button {...ctaBtn('지금 시작하기 →', true)}>지금 시작하기 →</button>
+              <button {...ctaBtn('이미 가입하셨나요?', false)}>이미 가입하셨나요? 로그인</button>
+            </div>
+            <div style={{ marginTop:'22px', fontSize:'12px', color:'rgba(255,255,255,0.72)' }}>
+              💡 회원가입 · 이용 모두 무료 — 데이터는 본인만 접근 가능
+            </div>
+          </div>
+        </section>
+
+        {/* 기능 카드 */}
+        <section style={{ padding:'56px 20px', maxWidth:'1080px', margin:'0 auto' }}>
+          <div style={{ textAlign:'center', marginBottom:'36px' }}>
+            <div style={sectionTitle}>이런 게 한 번에 됩니다</div>
+            <div style={sectionSub}>건강 관리에 필요한 모든 기록을 하나의 흐름으로</div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:'14px' }}>
+            {features.map(f => (
+              <div key={f.title} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', padding:'22px 20px', transition:'transform 0.2s' }}>
+                <div style={{ fontSize:'30px', marginBottom:'10px' }}>{f.icon}</div>
+                <div style={{ fontSize:'16px', fontWeight:800, color:'var(--text)', marginBottom:'6px' }}>{f.title}</div>
+                <div style={{ fontSize:'13px', color:'var(--text-sub)', lineHeight:1.6 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* "나만의 건강 일기" 강조 */}
+        <section style={{ background:'var(--cn-brand-100)', padding:'60px 20px' }}>
+          <div style={{ maxWidth:'780px', margin:'0 auto', textAlign:'center' }}>
+            <div style={{ fontSize:'40px', marginBottom:'14px' }}>📖</div>
+            <h2 style={{ fontSize:'26px', fontWeight:900, color:'var(--cn-brand-600)', marginBottom:'12px', letterSpacing:'-0.5px' }}>
+              하루를 기록하면, 한 달이 보입니다
+            </h2>
+            <p style={{ fontSize:'15px', color:'var(--text)', lineHeight:1.8, marginBottom:'8px' }}>
+              혈당이 어떻게 움직였는지, 무엇을 먹었을 때 잘 조절됐는지,<br/>
+              어떤 운동이 효과 있었는지 — 일 년을 모으면 답이 보입니다.
+            </p>
+            <p style={{ fontSize:'14px', color:'var(--text-sub)', lineHeight:1.7 }}>
+              CARENOTE는 단순한 기록 도구를 넘어,<br/>
+              나만의 건강 데이터로 만들어가는 <strong style={{ color:'var(--cn-brand)' }}>나만의 일기</strong>입니다.
+            </p>
+          </div>
+        </section>
+
+        {/* 자동 동기화 */}
+        <section style={{ padding:'56px 20px', maxWidth:'1080px', margin:'0 auto' }}>
+          <div style={{ textAlign:'center', marginBottom:'30px' }}>
+            <div style={sectionTitle}>매일 자동으로, 한 번 설정으로 끝</div>
+            <div style={sectionSub}>스마트폰의 건강 데이터를 매일 자동으로 가져옵니다</div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px' }}>
+            {[
+              { emoji:'🍎', name:'iPhone 건강앱', desc:'단축어로 매일 자동 동기화' },
+              { emoji:'⌚', name:'Apple Watch', desc:'걸음수·기초대사량 자동 합산' },
+              { emoji:'📱', name:'삼성 헬스', desc:'ZIP 가져오기로 일괄 백필' },
+              { emoji:'🤖', name:'Google Fit', desc:'테이크아웃 ZIP 일괄 가져오기' },
+            ].map(s => (
+              <div key={s.name} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'18px', textAlign:'center' }}>
+                <div style={{ fontSize:'28px', marginBottom:'6px' }}>{s.emoji}</div>
+                <div style={{ fontSize:'14px', fontWeight:800, color:'var(--text)', marginBottom:'4px' }}>{s.name}</div>
+                <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.5 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 신뢰·안전 */}
+        <section style={{ background:'var(--input-bg)', padding:'48px 20px' }}>
+          <div style={{ maxWidth:'780px', margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'18px', textAlign:'center' }}>
+            {[
+              { icon:'🔒', title:'안전한 보관', desc:'HTTPS 암호화 + 클라우드 자동 백업' },
+              { icon:'👤', title:'본인만 접근', desc:'사용자별 격리, 타인 열람 불가' },
+              { icon:'💾', title:'기기 변경 OK', desc:'같은 이메일로 어디서나 이어보기' },
+            ].map(t => (
+              <div key={t.title}>
+                <div style={{ fontSize:'30px', marginBottom:'8px' }}>{t.icon}</div>
+                <div style={{ fontSize:'15px', fontWeight:800, color:'var(--text)', marginBottom:'4px' }}>{t.title}</div>
+                <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.6 }}>{t.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 마지막 CTA */}
+        <section style={{ padding:'64px 20px', textAlign:'center', background:'linear-gradient(180deg, var(--bg) 0%, var(--cn-brand-100) 100%)' }}>
+          <h2 style={{ fontSize:'26px', fontWeight:900, color:'var(--text)', marginBottom:'10px', letterSpacing:'-0.5px' }}>
+            오늘부터, 매일 한 줄씩
+          </h2>
+          <p style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'24px' }}>
+            가입은 30초. 첫 기록은 1분.
+          </p>
+          <button onClick={onStart} style={{
+            padding:'16px 36px', borderRadius:'14px', fontSize:'16px', fontWeight:800,
+            background:'var(--cn-brand)', color:'#fff', border:'none', cursor:'pointer',
+            boxShadow:'0 8px 24px rgba(47,107,255,0.35)'
+          }}>
+            지금 시작하기 →
+          </button>
+        </section>
+
+        {/* Footer */}
+        <footer style={{ background:'var(--cn-ink)', color:'rgba(255,255,255,0.85)', padding:'32px 20px 28px' }}>
+          <div style={{ maxWidth:'1080px', margin:'0 auto', display:'flex', flexWrap:'wrap', gap:'18px', justifyContent:'space-between', alignItems:'flex-start' }}>
+            <div>
+              <div style={{ fontSize:'15px', fontWeight:900, color:'#fff', marginBottom:'6px' }}>CARENOTE</div>
+              <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)', lineHeight:1.7 }}>
+                내 몸을 기록하는 노트<br/>
+                © 2026 CARENOTE. All rights reserved.
+              </div>
+            </div>
+            <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.7)', lineHeight:1.8 }}>
+              <div><strong style={{ color:'#fff' }}>운영자</strong> &nbsp; 김찬년</div>
+              <div><strong style={{ color:'#fff' }}>문의</strong> &nbsp;
+                <a href="mailto:cnkim@kakao.com" style={{ color:'#A7C5FF', textDecoration:'none' }}>cnkim@kakao.com</a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  };
+
   /* ── 로그인 / 회원가입 화면 ───────────────────────────── */
-  const LoginScreen = () => {
+  const LoginScreen = ({ onBack }) => {
     const dm = _dm;
     const [mode,         setMode]         = useState('login');
     const [email,        setEmail]        = useState('');
@@ -2638,6 +2807,15 @@
                       maxWidth:'420px', width:'100%',
                       boxShadow: dm ? '0 32px 80px rgba(0,0,0,0.6)' : '0 32px 80px rgba(0,0,0,0.25)',
                       border: dm ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(255,255,255,0.8)' }}>
+
+          {/* 홈으로 돌아가기 (랜딩으로) */}
+          {onBack && (
+            <button onClick={onBack} style={{
+              background:'transparent', border:'none', color:'var(--text-sub)',
+              fontSize:'13px', cursor:'pointer', padding:'4px 0', marginBottom:'12px',
+              display:'inline-flex', alignItems:'center', gap:'4px'
+            }}>← 홈으로</button>
+          )}
 
           {/* 로고 영역 */}
           <div style={{ textAlign:'center', marginBottom:'32px' }}>
@@ -4489,6 +4667,8 @@
   const App = () => {
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
+    // 비로그인 사용자에게 랜딩 페이지 먼저 보여주고, "시작하기" 누르면 로그인 화면으로
+    const [showAuth,   setShowAuth]  = useState(false);
     const [date,       setDate]      = useState(todayStr());
     const [data,       setData]      = useState(() => { try { return normalizeData(JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{}); } catch { return {}; } });
     const [showImport, setShowImport] = useState(false);
@@ -5254,8 +5434,8 @@
       </div>
     );
 
-    // 미인증 → 로그인 화면
-    if (!authUser) return <LoginScreen />;
+    // 미인증 → 랜딩 페이지 (시작하기 누르면 로그인 화면)
+    if (!authUser) return showAuth ? <LoginScreen onBack={() => setShowAuth(false)} /> : <LandingPage onStart={() => setShowAuth(true)} />;
 
     return (
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
