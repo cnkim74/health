@@ -5174,6 +5174,53 @@
       } catch(e) { console.error('일괄 저장 오류:', e); }
     };
 
+    /* ── HealthKit 자동 동기화 (iOS 네이티브 앱 전용) ─────────────────────────
+       앱 실행·포그라운드 복귀 시 오늘의 걸음수/활동·기초 칼로리/거리를 HealthKit에서
+       읽어 자동 반영. Apple Watch 데이터도 HealthKit에 합산되어 함께 들어옴.
+       누적값이므로 기존값보다 클 때만 갱신 (MAX 병합 — 감소 방지). ── */
+    useEffect(() => {
+      const HK = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+        ? window.Capacitor.Plugins?.HealthActivity : null;
+      if (!HK || !userId) return;
+      let cancelled = false;
+
+      const syncHK = async () => {
+        try {
+          if (!localStorage.getItem('cn_hk_perm')) {
+            await HK.requestPermissions();
+            localStorage.setItem('cn_hk_perm', '1');
+          }
+          const hk = await HK.getTodayActivity();
+          if (cancelled || !hk) return;
+          const t = todayStr();
+          const num = v => (v !== '' && v != null && !isNaN(Number(v))) ? Number(v) : 0;
+          setData(prev => {
+            const cur = { ...emptyDay(), ...(prev[t] || {}) };
+            const patch = {};
+            if (Number(hk.steps || 0) > num(cur.steps)) patch.steps = String(Math.round(hk.steps));
+            if (Number(hk.cal   || 0) > num(cur.cal))   patch.cal   = String(Math.round(hk.cal));
+            if (Number(hk.bcal  || 0) > num(cur.bcal))  patch.bcal  = String(Math.round(hk.bcal));
+            if (Number(hk.dist  || 0) > num(cur.dist))  patch.dist  = String(Math.round(hk.dist * 100) / 100);
+            if (!Object.keys(patch).length) return prev;
+            const merged = { ...cur, ...patch };
+            // 선택 날짜와 무관하게 오늘 데이터를 Supabase에 바로 저장
+            try {
+              supa.from('diabetes_data').upsert(
+                { user_id: userId, date: t, payload: merged, updated_at: new Date().toISOString() },
+                { onConflict: 'user_id,date' }
+              ).then(() => {});
+            } catch {}
+            return { ...prev, [t]: merged };
+          });
+        } catch (e) { console.log('HealthKit sync skip:', e?.message || e); }
+      };
+
+      syncHK();
+      const onVis = () => { if (document.visibilityState === 'visible') syncHK(); };
+      document.addEventListener('visibilitychange', onVis);
+      return () => { cancelled = true; document.removeEventListener('visibilitychange', onVis); };
+    }, [userId]);
+
     const day = useMemo(() => normalizeDay(data[date]), [data, date]);
     const upDay = (patch) => setData(prev => ({ ...prev, [date]: { ...(prev[date] || emptyDay()), ...patch } }));
     const togMed  = (id) => upDay({ meds: { ...day.meds, [id]: !day.meds[id] } });

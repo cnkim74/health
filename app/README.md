@@ -73,11 +73,36 @@ Xcode에서 다시 Run.
 
 ## 다음 단계 (로드맵)
 
-- [ ] **Phase 1**: 본인 아이폰에서 실행 확인 ← 지금 여기
-- [ ] **Phase 2**: HealthKit 연동 — 걸음수·기초대사량 자동 동기화 (단축어 불필요!)
+- [x] **Phase 1**: 본인 아이폰에서 실행 확인 ✅
+- [ ] **Phase 2**: HealthKit 연동 — 걸음수·기초대사량 자동 동기화 (단축어 불필요!) ← 지금 여기
 - [ ] **Phase 3**: 네이티브 복약 알림 (Local Notifications)
 - [ ] **Phase 4**: 앱 아이콘·스플래시 스크린 제작
-- [ ] **Phase 5**: 개인정보 처리방침 페이지 + App Store 심사 제출
+- [ ] **Phase 5**: 구글+애플 로그인 / 개인정보 처리방침 / App Store 심사 제출
+
+## Phase 2: HealthKit 연동 설정
+
+플러그인 코드는 `plugins/health-activity/`에 포함되어 있습니다 (Swift).
+
+```bash
+cd ~/Documents/health && git pull
+cd app
+npm install                 # carenote-health 로컬 플러그인 설치
+bash sync-www.sh            # 최신 index.html 반영
+npx cap sync ios            # 플러그인 → Xcode 프로젝트 연결
+
+# Info.plist에 건강 데이터 사용 목적 문구 추가 (최초 1회)
+/usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string '걸음수, 칼로리, 거리 데이터를 읽어 대시보드에 자동으로 기록합니다.'" ios/App/App/Info.plist
+
+npx cap open ios
+```
+
+Xcode에서 (최초 1회):
+1. 왼쪽 트리 **App** 클릭 → **Signing & Capabilities** 탭
+2. 왼쪽 위 **+ Capability** 클릭 → **HealthKit** 검색 → 더블클릭 추가
+3. **▶ Run**
+
+첫 실행 시 건강 데이터 접근 허용 팝업 → **모두 허용**.
+이후 앱을 열 때마다 오늘의 걸음수·칼로리(활동+기초)·거리가 자동으로 대시보드에 반영됩니다.
 
 ## 알아둘 것
 
