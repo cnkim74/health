@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CARENOTE – 내 몸을 기록하는 노트</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
@@ -79,10 +79,14 @@
       --modal-scrim:     rgba(0,0,0,0.82);
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html { margin: 0; padding: 0; overflow-x: clip; max-width: 100%; }
+    html { margin: 0; padding: 0; overflow-x: clip; max-width: 100%; overscroll-behavior-y: none; }
     body {
       margin: 0; padding: 0;
       overflow-x: hidden;
+      overscroll-behavior-y: none;      /* iOS 고무줄 바운스 방지 */
+      touch-action: pan-y;              /* 세로 스크롤만 허용 — 좌우 이동·더블탭 줌 차단 */
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
       max-width: 100%;
       width: 100%;
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
@@ -5496,7 +5500,7 @@
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
 
         {/* ── CARENOTE Header ── */}
-        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 3vw', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100 }}>
+        <div style={{ background: darkMode ? 'linear-gradient(135deg,#020617 0%,#0f172a 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', padding:'10px 3vw', paddingTop:'calc(10px + env(safe-area-inset-top, 0px))', boxShadow:'0 2px 14px rgba(0,0,0,0.45)', position:'sticky', top:0, zIndex:100 }}>
 
           {/* ─ 1행: 로고+브랜드 · 날짜 · 유저 ─ */}
           <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
