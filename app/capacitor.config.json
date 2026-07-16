@@ -1,0 +1,15 @@
+{
+  "appId": "info.cnbiz.health",
+  "appName": "CARENOTE",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0f2244"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#2F6BFF"
+    }
+  }
+}
