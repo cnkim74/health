@@ -209,6 +209,8 @@
   /* 사이드바 리포트 */
   .cn-sidebar-report { display: block; }
   .cn-sidebar-right { display: block; }
+  /* 헤더 날짜: 기본(데스크탑)은 전체 형식, 모바일은 연도 생략형 */
+  .cn-hdr-date-md { display: none; }
   @media (max-width: 1023px) {
     .main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
     .main-grid > * { min-width: 0 !important; }
@@ -217,9 +219,12 @@
     .cn-hdr-dark    { display: none !important; }
     .cn-hdr-sub     { display: none !important; }
     .cn-hdr-actions { display: none !important; }
-    .cn-hdr-logo    { width: 30px !important; height: 30px !important; }
-    .cn-hdr-logo svg { width: 30px !important; height: 30px !important; }
-    .cn-hdr-title   { font-size: 16px !important; letter-spacing: 0.3px !important; }
+    .cn-hdr-logo    { width: 40px !important; height: 40px !important; }
+    .cn-hdr-logo svg { width: 40px !important; height: 40px !important; }
+    .cn-hdr-title   { font-size: 19px !important; letter-spacing: 0.5px !important; }
+    /* 모바일: 날짜는 연도 생략형으로 */
+    .cn-hdr-date-full { display: none !important; }
+    .cn-hdr-date-md   { display: inline !important; }
     /* 모바일 좌우 여백 — vw 기반으로 화면 크기에 비례 (3vw = 390px에서 약 12px) */
     .cn-main-pad    { padding: 8px 3vw !important; width: 100% !important; box-sizing: border-box !important; }
     .cn-card        { padding: 14px 3vw !important; border-radius: 12px !important; margin-bottom: 10px !important; min-width: 0 !important; width: 100% !important; box-sizing: border-box !important; }
@@ -368,7 +373,11 @@
   const fmtDate = (s) => {
     const d = new Date(s + 'T12:00:00');
     const DAY = ['일','월','화','수','목','금','토'];
-    return { full:`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`, short:`${d.getMonth()+1}/${d.getDate()}` };
+    return {
+      full:`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`,
+      md:  `${d.getMonth()+1}월 ${d.getDate()}일 (${DAY[d.getDay()]})`,   // 모바일 헤더용 (연도 생략)
+      short:`${d.getMonth()+1}/${d.getDate()}`
+    };
   };
   const shiftDate = (s, n) => {
     const d = new Date(s + 'T12:00:00');
@@ -5538,7 +5547,9 @@
                            color:'#fff', fontWeight:'700', fontSize:'13px', whiteSpace:'nowrap',
                            borderRadius:'8px', padding:'4px 10px', cursor:'pointer',
                            display:'flex', alignItems:'center', gap:'5px' }}>
-                  {fmtDate(date).full} <span style={{fontSize:'10px',opacity:0.7}}>▼</span>
+                  <span className="cn-hdr-date-full">{fmtDate(date).full}</span>
+                  <span className="cn-hdr-date-md">{fmtDate(date).md}</span>
+                  <span style={{fontSize:'10px',opacity:0.7}}>▼</span>
                 </button>
                 <input id="cn-date-picker" type="date" value={date}
                   onChange={e => { if (e.target.value) setDate(e.target.value); }}
