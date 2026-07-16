@@ -3781,6 +3781,9 @@
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
         <Row icon="👥" label="커뮤니티 게시판" sub="건강 정보 공유 · 질문 · 후기" onClick={() => window.open('board.html','_blank')} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
+        <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'14px' }}>
+          CARENOTE v2.0 · © 2025 · <a href="mailto:cnkim@kakao.com" style={{ color:'var(--text-mute)' }}>cnkim@kakao.com</a>
+        </div>
       </div>
     );
   };
@@ -6635,10 +6638,11 @@
           </div>
         </div>
 
-        {/* ── 단축어 직접 연동 설정 ── */}
-        <ShortcutGuide />
+        {/* ── 단축어 직접 연동 설정 (웹 전용 — 앱은 HealthKit 자동 동기화) ── */}
+        {!_isNativeApp && <ShortcutGuide />}
 
-        {/* ── 푸터 ── */}
+        {/* ── 푸터 (웹 전용 — 앱에서는 프로필 탭이 대신함) ── */}
+        {!_isNativeApp && (
         <div style={{ borderTop:'1px solid var(--divider)', marginTop:'8px', padding:'22px 16px 28px', background:'var(--card-bg)' }}>
           <div style={{ maxWidth:'1140px', margin:'0 auto', display:'flex', flexDirection:'column', alignItems:'center', gap:'14px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
@@ -6674,6 +6678,7 @@
             <div style={{ fontSize:'11px', color:'var(--text-mute)' }}>CARENOTE v2.0 · © 2025</div>
           </div>
         </div>
+        )}
 
         {/* ── 하단 탭바 (모바일 전용) ── */}
         <nav className="cn-tabbar">
