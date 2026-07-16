@@ -22,11 +22,12 @@ public class HealthActivityPlugin: CAPPlugin {
         return set
     }
 
-    @objc func isAvailable(_ call: CAPPluginCall) {
+    @objc public func isAvailable(_ call: CAPPluginCall) {
         call.resolve(["available": HKHealthStore.isHealthDataAvailable()])
     }
 
-    @objc func requestPermissions(_ call: CAPPluginCall) {
+    // 주의: requestPermissions는 CAPPlugin 기본 메서드와 이름이 충돌하므로 requestAuth 사용
+    @objc public func requestAuth(_ call: CAPPluginCall) {
         guard HKHealthStore.isHealthDataAvailable() else {
             call.reject("이 기기에서 HealthKit을 사용할 수 없습니다")
             return
@@ -40,7 +41,7 @@ public class HealthActivityPlugin: CAPPlugin {
         }
     }
 
-    @objc func getTodayActivity(_ call: CAPPluginCall) {
+    @objc public func getTodayActivity(_ call: CAPPluginCall) {
         guard HKHealthStore.isHealthDataAvailable() else {
             call.reject("이 기기에서 HealthKit을 사용할 수 없습니다")
             return

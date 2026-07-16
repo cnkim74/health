@@ -5187,7 +5187,7 @@
       const syncHK = async () => {
         try {
           if (!localStorage.getItem('cn_hk_perm')) {
-            await HK.requestPermissions();
+            await HK.requestAuth();
             localStorage.setItem('cn_hk_perm', '1');
           }
           const hk = await HK.getTodayActivity();
