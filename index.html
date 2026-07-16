@@ -3346,6 +3346,85 @@
     );
   };
 
+  /* ── LibreLinkUp 연동 모달 ── */
+  const LibreLinkModal = ({ onClose, onSync }) => {
+    const saved0 = (() => { try { return JSON.parse(localStorage.getItem('cn_llu_cred') || 'null'); } catch { return null; } })();
+    const [email, setEmail] = React.useState(saved0?.email || '');
+    const [pw,    setPw]    = React.useState(saved0?.password || '');
+    const [msg,   setMsg]   = React.useState('');
+    const [busy,  setBusy]  = React.useState(false);
+    const [connected, setConnected] = React.useState(!!saved0);
+    const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
+                  fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  background:'var(--input-bg)', color:'var(--text)', marginBottom:'10px' };
+
+    const testAndSave = async () => {
+      if (!email.trim() || !pw) { setMsg('⚠️ 이메일과 비밀번호를 입력해 주세요'); return; }
+      setBusy(true); setMsg('🔄 리브레 서버에 연결 중...');
+      localStorage.setItem('cn_llu_cred', JSON.stringify({ email: email.trim(), password: pw }));
+      localStorage.removeItem('cn_llu_auth');
+      try {
+        const r = await onSync();
+        if (!r) throw new Error('동기화 실패');
+        setConnected(true);
+        setMsg(`✅ 연동 성공! ${r.patient || ''} — 최근 혈당 ${r.latest?.mgdl ?? '-'} mg/dL · ${(r.readings||[]).length}건 수집됨. 이후 15분마다 자동 수집됩니다.`);
+      } catch (e) {
+        localStorage.removeItem('cn_llu_cred');
+        setConnected(false);
+        setMsg('❌ ' + (e?.message || '연동 실패'));
+      }
+      setBusy(false);
+    };
+    const disconnect = () => {
+      localStorage.removeItem('cn_llu_cred'); localStorage.removeItem('cn_llu_auth');
+      setConnected(false); setEmail(''); setPw(''); setMsg('연동이 해제되었습니다.');
+    };
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'400px', maxHeight:'86vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🩸 리브레 실시간 연동 {connected && <span style={{fontSize:'11px', color:'var(--cn-ok)'}}>● 연동됨</span>}</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.7, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'14px', border:'1px solid var(--card-border)' }}>
+            <strong>사전 준비 (최초 1회)</strong><br/>
+            ① 앱스토어에서 <strong>LibreLinkUp</strong> 앱 설치 → 계정 생성<br/>
+            ② <strong>리브레(LibreLink) 앱</strong> → 공유 → 연결된 앱 → LibreLinkUp에서 위 계정 초대<br/>
+            ③ LibreLinkUp 앱에서 초대 수락<br/>
+            ④ 아래에 LibreLinkUp 계정 입력 → 연동
+          </div>
+
+          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>LibreLinkUp 이메일</div>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} placeholder="example@email.com" autoComplete="off" />
+          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>비밀번호</div>
+          <input type="password" value={pw} onChange={e => setPw(e.target.value)} style={inp} placeholder="LibreLinkUp 비밀번호" autoComplete="off" />
+
+          {msg && <div style={{ fontSize:'12px', color:'var(--text)', lineHeight:1.6, background:'var(--input-bg)', borderRadius:'8px', padding:'8px 10px', marginBottom:'10px' }}>{msg}</div>}
+
+          <button onClick={testAndSave} disabled={busy}
+            style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
+                     borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800', marginBottom:'8px', opacity: busy ? 0.6 : 1 }}>
+            {busy ? '연결 중...' : (connected ? '🔄 지금 동기화' : '연동 테스트 & 저장')}
+          </button>
+          {connected && (
+            <button onClick={disconnect}
+              style={{ width:'100%', padding:'10px', background:'none', color:'var(--cn-danger)', border:'1px solid var(--card-border)',
+                       borderRadius:'10px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
+              연동 해제
+            </button>
+          )}
+          <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'10px', lineHeight:1.6 }}>
+            ⚠️ 계정 정보는 이 기기(브라우저)에만 저장됩니다. 수집된 혈당은 시간대별(아침식전 등)로 자동 분류되며, 직접 입력한 값은 덮어쓰지 않습니다.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   /* ── 목표 설정 모달 ── */
   const GoalsModal = ({ goals, onSave, onClose }) => {
     const [steps,  setSteps]  = React.useState(String(goals?.steps || 10000));
@@ -3779,7 +3858,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -3829,6 +3908,7 @@
         </div>
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
+        <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
         <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 · 삼성 헬스" onClick={onImport} />
         <Row icon="🔄" label="기기 동기화" sub="다른 기기와 사용자 ID 공유" onClick={onSync} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
@@ -4770,6 +4850,9 @@
     useEffect(() => { goalsRef.current = goals; }, [goals]);
     const medsConfigRef = useRef([]);
     useEffect(() => { medsConfigRef.current = medsConfig; }, [medsConfig]);
+    /* ── LibreLinkUp (리브레 CGM 자동 수집) ── */
+    const [lluLatest, setLluLatest] = useState(null);
+    const [showLibre, setShowLibre] = useState(false);
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -5373,6 +5456,73 @@
       await saveAllToSupabase(merged);
     };
 
+    /* ── LibreLinkUp 동기화 ──────────────────────────────────────────────
+       Edge Function(libre-sync) 경유로 리브레 CGM 최근 ~12시간 혈당을 수집,
+       기존 가져오기 파이프라인(buildDashboardData→handleImport)으로 병합.
+       수동 입력값은 보존됨 (handleImport의 bs 병합 규칙). ── */
+    const handleImportRef = useRef(null);
+    handleImportRef.current = handleImport; // 매 렌더마다 최신 클로저 유지 (stale data 방지)
+    const lluBusyRef = useRef(false);
+
+    const syncLibre = async (opts = {}) => {
+      if (lluBusyRef.current) return null;
+      const credS = localStorage.getItem('cn_llu_cred');
+      if (!credS) return null;
+      lluBusyRef.current = true;
+      try {
+        const cred = JSON.parse(credS);
+        const body = { email: cred.email, password: cred.password };
+        try {
+          const cache = JSON.parse(localStorage.getItem('cn_llu_auth') || 'null');
+          if (cache?.token && cache?.accountId && (cache.expires || 0) * 1000 > Date.now() + 60000) {
+            Object.assign(body, cache);
+          }
+        } catch {}
+        const res = await fetch(`${SUPA_URL}/functions/v1/libre-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` },
+          body: JSON.stringify(body)
+        });
+        const j = await res.json();
+        if (!j.ok) {
+          localStorage.removeItem('cn_llu_auth'); // 토큰 문제일 수 있으니 캐시 폐기
+          throw new Error(j.error || '동기화 실패');
+        }
+        if (j.auth) localStorage.setItem('cn_llu_auth', JSON.stringify(j.auth));
+        // readings → 일자별 {hour, value} 목록
+        const byDay = {};
+        (j.readings || []).forEach(r => {
+          const d = new Date(r.ts);
+          if (isNaN(d.getTime())) return;
+          const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          (byDay[day] = byDay[day] || []).push({ hour: d.getHours() + d.getMinutes()/60, value: Math.round(r.mgdl) });
+        });
+        if (Object.keys(byDay).length && handleImportRef.current) {
+          const mapped = buildDashboardData({ glucoseByDay: byDay });
+          await handleImportRef.current(mapped);
+        }
+        if (j.latest) setLluLatest({ ...j.latest, at: Date.now() });
+        return j;
+      } catch (e) {
+        if (!opts.silent) throw e;
+        console.log('LibreLinkUp sync skip:', e?.message || e);
+        return null;
+      } finally { lluBusyRef.current = false; }
+    };
+    const syncLibreRef = useRef(null);
+    syncLibreRef.current = syncLibre;
+
+    // 자동 동기화: 로그인 후 즉시 + 15분마다 + 화면 복귀 시
+    useEffect(() => {
+      if (!userId) return;
+      const run = () => { if (document.visibilityState === 'visible') syncLibreRef.current?.({ silent: true }); };
+      run();
+      const timer = setInterval(run, 15 * 60 * 1000);
+      const onVis = () => { if (document.visibilityState === 'visible') run(); };
+      document.addEventListener('visibilitychange', onVis);
+      return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVis); };
+    }, [userId]);
+
     /* ── 복약 설정 로드 ──────────────────────────────────────────────────────
        원칙:
          1. Supabase → localStorage 순으로 시도
@@ -5899,7 +6049,12 @@
 
               {/* 혈당 */}
               <Card tab="record">
-                <STitle icon="🩸" label="혈당 기록" right="단위: mg/dL" />
+                <STitle icon="🩸" label="혈당 기록" right={(() => {
+                  if (!lluLatest) return "단위: mg/dL";
+                  const arrows = {1:'↓',2:'↘',3:'→',4:'↗',5:'↑'};
+                  const mins = Math.max(0, Math.round((Date.now() - new Date(lluLatest.ts).getTime()) / 60000));
+                  return `📡 ${lluLatest.mgdl} ${arrows[lluLatest.trend]||''} mg/dL · ${isNaN(mins) ? '' : mins + '분 전'}`;
+                })()} />
                 <div style={{ display:'flex', gap:'10px', marginBottom:'14px', flexWrap:'wrap', fontSize:'16px' }}>
                   {[{c:'var(--cn-low)',t:'저혈당 (<70)'},{c:'var(--cn-ok)',t:'정상 (70–140)'},{c:'var(--cn-warn)',t:'주의 (140–180)'},{c:'var(--cn-danger)',t:'높음 (>180)'}].map(l => (
                     <div key={l.t} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
@@ -6754,6 +6909,7 @@
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
               onGoals={() => setShowGoals(true)}
+              onLibre={() => setShowLibre(true)}
             />
           </div>
         </div>
@@ -6839,6 +6995,7 @@
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
+        {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
 
         {/* Data Recovery Modal */}
         {showDataRecovery && (
