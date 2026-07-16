@@ -633,7 +633,15 @@
   /* ── Supabase 초기화 ─────────────────────────────────────── */
   const SUPA_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
   const SUPA_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
-  const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+  // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
+  // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
+  const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const supa = supabase.createClient(SUPA_URL, SUPA_KEY, _isNativeApp ? {
+    auth: {
+      lock: (_name, _timeout, fn) => fn(),
+      detectSessionInUrl: false
+    }
+  } : undefined);
 
   /* ── e약은요 의약품 정보 API ───────────────────────────────── */
   const DRUG_API_KEY = '12c113eddc12643698f9d49c82bc7ac526c33cc339906c4964299ef4b258ff9d';
