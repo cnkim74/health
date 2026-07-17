@@ -173,21 +173,37 @@
     background: var(--card-bg);
     border-top: 1px solid var(--card-border);
     display: grid; grid-template-columns: repeat(5, 1fr);
-    z-index: 100; padding: 6px 0 max(6px, env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+    z-index: 100; padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 14px rgba(0,0,0,0.10);
+    overflow: visible;
   }
   .cn-tab-btn {
     background: none; border: none; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 8px 4px; color: var(--text-mute);
-    font-size: 11px; font-weight: 600; font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 8px 2px; color: var(--text-mute);
+    font-size: 13px; font-weight: 700; font-family: inherit;
     transition: color 0.15s ease;
   }
-  .cn-tab-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .cn-tab-btn svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .cn-tab-btn.active { color: var(--cn-brand); }
   .cn-tab-btn:hover { color: var(--text); }
   .cn-tab-btn.active:hover { color: var(--cn-brand); }
-  body.has-tabbar { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+  /* 중앙 '기록' 버튼 — 크고 도드라지게 (어르신 접근성) */
+  .cn-tab-center { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  .cn-tab-center-btn {
+    position: absolute; left: 50%; top: -26px; transform: translateX(-50%);
+    width: 68px; height: 68px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--cn-brand), var(--cn-brand-600));
+    border: 5px solid var(--card-bg);
+    box-shadow: 0 6px 18px rgba(47,107,255,0.5);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+    transition: transform 0.15s ease;
+  }
+  .cn-tab-center-btn:active { transform: translateX(-50%) scale(0.94); }
+  .cn-tab-center-btn svg { width: 34px; height: 34px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .cn-tab-center-label { font-size: 13px; font-weight: 800; color: var(--cn-brand); margin-top: 46px; white-space: nowrap; }
+  body.has-tabbar { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
   /* 데스크톱에서는 탭바 숨기고 기존 레이아웃 유지 */
   @media (min-width: 1024px) {
     .cn-tabbar { display: none; }
@@ -280,13 +296,14 @@
     .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
     .dash-metric-grid { gap: 8px !important; margin-bottom: 10px !important; }
     .dash-metric-card { padding: 10px 12px !important; border-radius: 10px !important; gap: 3px !important; }
-    .dash-metric-val  { font-size: 18px !important; }
-    .dash-metric-label { font-size: 10px !important; }
-    .dash-metric-unit  { font-size: 10px !important; }
-    .dash-insight-card { padding: 10px 12px !important; margin-bottom: 6px !important; border-radius: 10px !important; }
-    .dash-insight-text { font-size: 12px !important; line-height: 1.6 !important; }
+    /* 어르신 접근성: 핵심 수치·라벨 키움 */
+    .dash-metric-val  { font-size: 24px !important; }
+    .dash-metric-label { font-size: 13px !important; }
+    .dash-metric-unit  { font-size: 12px !important; }
+    .dash-insight-card { padding: 12px 14px !important; margin-bottom: 8px !important; border-radius: 10px !important; }
+    .dash-insight-text { font-size: 15px !important; line-height: 1.7 !important; }
     .dash-steps-bars   { height: 44px !important; gap: 4px !important; }
-    .dash-step-day     { font-size: 8px !important; }
+    .dash-step-day     { font-size: 9px !important; }
 
     /* ─ 기록 탭: 혈당 입력 ─ */
     .bs-num-input { font-size: 30px !important; }
@@ -303,9 +320,9 @@
     .cn-challenge-card { padding: 10px 12px !important; }
     .cn-streak-big { font-size: 28px !important; }
 
-    /* ─ 공통 카드 헤더·폰트 ─ */
-    .cn-card-title, h3 { font-size: 14px !important; }
-    .cn-section-title  { font-size: 13px !important; }
+    /* ─ 공통 카드 헤더·폰트 (어르신 접근성: 키움) ─ */
+    .cn-card-title, h3 { font-size: 16px !important; }
+    .cn-section-title  { font-size: 16px !important; }
   }
 
   </style>
@@ -420,9 +437,9 @@
     </div>
   );
   const STitle = ({icon, label, right}) => (
-    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'16px', fontWeight:'700', color:'var(--text)', marginBottom:'14px' }}>
-      <span>{icon}</span><span>{label}</span>
-      {right && <span style={{ marginLeft:'auto', fontSize:'14px', color:'var(--text-sub)', fontWeight:'500' }}>{right}</span>}
+    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'18px', fontWeight:'800', color:'var(--text)', marginBottom:'14px' }}>
+      <span style={{fontSize:'20px'}}>{icon}</span><span>{label}</span>
+      {right && <span style={{ marginLeft:'auto', fontSize:'14px', color:'var(--text-sub)', fontWeight:'600' }}>{right}</span>}
     </div>
   );
 
@@ -7026,15 +7043,22 @@
         </div>
         )}
 
-        {/* ── 하단 탭바 (모바일 전용) ── */}
+        {/* ── 하단 탭바 (모바일 전용) — 기록을 중앙 큰 버튼으로 ── */}
         <nav className="cn-tabbar">
           {[
             { id:'home',      label:'홈',    icon:<><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></>    },
-            { id:'record',    label:'기록',   icon:<><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></> },
             { id:'report',    label:'리포트', icon:<><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></>       },
+            { id:'record',    label:'기록', center:true, icon:<><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></> },
             { id:'challenge', label:'커뮤니티', icon:<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></> },
             { id:'profile',   label:'프로필', icon:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></> },
-          ].map(t => (
+          ].map(t => t.center ? (
+            <div key={t.id} className="cn-tab-center">
+              <button className="cn-tab-center-btn" onClick={() => setCurrentTab(t.id)} aria-label="기록">
+                <svg viewBox="0 0 24 24">{t.icon}</svg>
+              </button>
+              <span className="cn-tab-center-label" style={{ color: currentTab===t.id ? 'var(--cn-brand)' : 'var(--text-mute)' }}>{t.label}</span>
+            </div>
+          ) : (
             <button key={t.id} className={'cn-tab-btn' + (currentTab===t.id?' active':'')}
               onClick={() => setCurrentTab(t.id)}>
               <svg viewBox="0 0 24 24">{t.icon}</svg>
