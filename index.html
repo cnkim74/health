@@ -269,21 +269,24 @@
   /* ── 대시보드 홈탭 추가 스타일 ── */
   .dash-score-card { background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-soft) 100%); border: 1px solid var(--card-border); border-radius: 16px; padding: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 18px; box-shadow: var(--card-shadow); }
   .dash-score-info { flex: 1; }
-  .dash-score-title { font-size: 12px; font-weight: 700; color: var(--text-sub); margin-bottom: 2px; }
+  .dash-score-title { font-family: var(--font-title); font-size: 15px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px; letter-spacing: -0.2px; }
   .dash-score-breakdown { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
   .dash-score-row { display: flex; align-items: center; gap: 6px; }
   .dash-score-bar-bg { flex: 1; height: 5px; background: var(--bg-soft); border-radius: 3px; border: 1px solid var(--card-border); overflow: hidden; }
   .dash-score-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
   .dash-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-  .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px 16px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 5px; }
-  .dash-metric-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
-  .dash-metric-emoji { font-size: 26px; line-height: 1; }
-  /* 3D 아이콘 칩 — 밝은 배경이라 라이트/다크 모두 자연스럽게 */
-  .dash-ic-chip { width: 40px; height: 40px; border-radius: 11px; background: radial-gradient(circle at 50% 40%, #ffffff 0%, #eef2f8 90%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .dash-ic-chip img { width: 34px; height: 34px; object-fit: contain; }
+  .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 18px 14px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+  .dash-metric-head { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-bottom: 2px; }
+  .dash-metric-emoji { font-size: 30px; line-height: 1; }
+  /* 3D 아이콘 칩 — 크게, 안 잘리게 (밝은 배경이라 라이트/다크 모두 자연스럽게) */
+  .dash-ic-chip { width: 56px; height: 56px; border-radius: 16px; background: radial-gradient(circle at 50% 38%, #ffffff 0%, #eef2f8 92%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 4px rgba(11,27,59,0.10); }
+  .dash-ic-chip img { width: 48px; height: 48px; object-fit: contain; }
   /* 섹션 제목용 큰 아이콘 칩 */
   .stitle-chip { width: 46px; height: 46px; border-radius: 14px; background: radial-gradient(circle at 50% 38%, #ffffff 0%, #eef2f8 92%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 4px rgba(11,27,59,0.10); }
   .stitle-chip img { width: 40px; height: 40px; object-fit: contain; }
+  /* 소제목 미니 아이콘 칩 */
+  .mini-ic-chip { width: 36px; height: 36px; border-radius: 11px; background: radial-gradient(circle at 50% 38%, #ffffff 0%, #eef2f8 92%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 3px rgba(11,27,59,0.08); }
+  .mini-ic-chip img { width: 30px; height: 30px; object-fit: contain; }
   .dash-metric-label { font-size: 14px; font-weight: 800; color: var(--text-sub); }
   .dash-metric-val { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.5px; }
   .dash-metric-unit { font-size: 13px; color: var(--text-mute); font-weight: 600; }
@@ -457,6 +460,17 @@
     <span className="dash-ic-chip"><img src={src} alt=""/></span>
   );
 
+  // 카드 헤더 (아이콘 + 제목) — 홈탭 소제목용
+  const CardHd = ({src, emoji, label, right}) => (
+    <div style={{ display:'flex', alignItems:'center', gap:'9px', marginBottom:'12px' }}>
+      {src
+        ? <span className="mini-ic-chip"><img src={src} alt=""/></span>
+        : <span style={{ fontSize:'24px', lineHeight:1 }}>{emoji}</span>}
+      <span style={{ fontFamily:'var(--font-title)', fontSize:'16px', fontWeight:'700', color:'var(--text-sub)', letterSpacing:'-0.2px' }}>{label}</span>
+      {right && <span style={{ marginLeft:'auto' }}>{right}</span>}
+    </div>
+  );
+
   const STitle = ({icon, label, right}) => {
     const isImg = typeof icon === 'string' && icon.indexOf('/') >= 0;
     return (
@@ -470,19 +484,11 @@
     );
   };
 
-  /* CARENOTE 펄스 라인 로고 */
-  const CareNoteLogo = ({ size = 38, onDark = true }) => {
-    const ring = onDark ? 'rgba(255,255,255,0.95)' : 'var(--cn-brand)';
-    const pulse = onDark ? '#5B8CFF' : 'var(--cn-brand)';
-    const accent = onDark ? '#34D399' : 'var(--cn-ok)';
-    return (
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="19" stroke={ring} strokeWidth="2.5" fill="none"/>
-        <path d="M7 24 L14 24 L17 24 L19 17 L22 31 L25 20 L28 27 L31 24 L41 24" stroke={pulse} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        <circle cx="22" cy="31" r="1.8" fill={accent}/>
-      </svg>
-    );
-  };
+  /* CARENOTE 하트 로고 (3D) */
+  const CareNoteLogo = ({ size = 38 }) => (
+    <img src="icons/logo-heart.png" alt="CARENOTE" width={size} height={size}
+      style={{ objectFit:'contain', display:'block' }} />
+  );
 
   /* ── Gemini 식사 사진 분석 ─────────────────────────────────── */
   const GEMINI_KEY = 'AIzaSyBBebZagK3luXFz2f5Lu8NqzeJqEncF3-M';
@@ -3953,7 +3959,6 @@
             <div>
               {profileName && <div style={{ fontSize:'15px', fontWeight:'800', marginBottom:'2px' }}>{profileName}</div>}
               <div style={{ fontSize:'12px', opacity:0.85, wordBreak:'break-all' }}>{authUser?.email || 'Guest'}</div>
-              <div style={{ fontSize:'10px', opacity:0.6, marginTop:'2px', fontFamily:'var(--font-num)' }}>ID: {(userId||'').slice(0,12)}...</div>
             </div>
           </div>
           <button onClick={() => setShowEdit(true)}
@@ -4649,7 +4654,7 @@
 
         {/* 주간 운동 현황 */}
         <div className="cn-card" style={{padding:'14px 14px 10px',marginBottom:14}}>
-          <div style={{fontSize:13,fontWeight:700,color:'var(--text-sub)',marginBottom:10}}>🏃 주간 운동</div>
+          <CardHd src="icons/ic-dumbbell.png" label="주간 운동" />
           <div className="dash-steps-bars">
             {exDays7.map((x,i) => {
               const dt = new Date(x.d+'T12:00:00');
@@ -4676,7 +4681,7 @@
           return (
             <div className="cn-card" style={{padding:'14px 14px 12px', marginBottom:14}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: hasSteps ? 8 : 0}}>
-                <div style={{fontSize:13, fontWeight:700, color:'var(--text-sub)'}}>👟 오늘 걸음수</div>
+                <CardHd src="icons/ic-steps.png" label="오늘 걸음수" />
                 {hasSteps && stepsNum >= stepGoal && <span style={{fontSize:11, color:'var(--cn-ok)', fontWeight:700}}>🎉 목표 달성!</span>}
               </div>
               {hasSteps ? (
@@ -4712,7 +4717,7 @@
 
         {/* AI 인사이트 */}
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:13,fontWeight:700,color:'var(--text-sub)',marginBottom:8}}>🤖 AI 인사이트</div>
+          <CardHd emoji="🤖" label="AI 인사이트" />
           {insights.map((text,i)=>(
             <div key={i} className="dash-insight-card">
               <div className="dash-insight-text">{text}</div>
@@ -6087,11 +6092,16 @@
 
               {/* 복약 */}
               <Card tab="record">
-                {/* 헤더 — 탭하면 접기/펴기 */}
-                <div onClick={() => setMedOpen(o => !o)}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom: medOpen ? '0' : '0' }}>
-                  <STitle icon="icons/ic-meds.png" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
-                  <span style={{ fontSize:'18px', color:'var(--text-mute)', marginLeft:'8px', transition:'transform 0.2s', transform: medOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink:0 }}>▾</span>
+                {/* 헤더 — 탭하면 접기/펴기 + 설정 버튼 */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', userSelect:'none' }}>
+                  <div onClick={() => setMedOpen(o => !o)} style={{ display:'flex', alignItems:'center', cursor:'pointer', flex:1, minWidth:0 }}>
+                    <STitle icon="icons/ic-meds.png" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
+                    <span style={{ fontSize:'18px', color:'var(--text-mute)', marginLeft:'8px', transition:'transform 0.2s', transform: medOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink:0 }}>▾</span>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setShowMedSettings(true); }}
+                    style={{ marginLeft:'8px', marginBottom:'18px', background:'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', color:'var(--cn-brand)', borderRadius:'9px', padding:'7px 12px', cursor:'pointer', fontSize:'13px', fontWeight:'700', whiteSpace:'nowrap', flexShrink:0 }}>
+                    ⚙️ 설정
+                  </button>
                 </div>
 
                 {/* 접기/펴기 영역 */}
