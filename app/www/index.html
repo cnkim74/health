@@ -6263,27 +6263,33 @@
             {/* ── LEFT ── */}
             <div style={{ minWidth:0 }}>
 
-              {/* 상단 요약 카드 2개 (복약·혈당) — 헤더 배지 대체 */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
-                <div className="cn-card" style={{ padding:'16px 14px', display:'flex', alignItems:'center', gap:'12px' }}>
-                  <span className="dash-ic-chip"><img src="icons/drug3.png" alt=""/></span>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>오늘 복약</div>
-                    <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: medPct===100?'var(--cn-ok)':'var(--text)', lineHeight:1.1 }}>
-                      {medDone}<span style={{ fontSize:'14px', color:'var(--text-mute)' }}>/{allMedIds.length}</span>
+              {/* 상단 요약 카드 2개 (복약·혈당) — 아래 카드와 동일 패딩(18px 4vw) */}
+              {(() => {
+                const sc = { background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px',
+                             boxShadow:'var(--card-shadow)', padding:'18px 4vw', display:'flex', alignItems:'center', gap:'12px', boxSizing:'border-box', minWidth:0 };
+                return (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px' }}>
+                    <div style={sc}>
+                      <span className="dash-ic-chip"><img src="icons/drug3.png" alt=""/></span>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>오늘 복약</div>
+                        <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: medPct===100?'var(--cn-ok)':'var(--text)', lineHeight:1.1 }}>
+                          {medDone}<span style={{ fontSize:'14px', color:'var(--text-mute)' }}>/{allMedIds.length}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={sc}>
+                      <span className="dash-ic-chip"><img src="icons/case.png" alt=""/></span>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>평균 혈당</div>
+                        <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: bsAvg?bsColor(bsAvg):'var(--text-mute)', lineHeight:1.1 }}>
+                          {bsAvg || '---'}<span style={{ fontSize:'13px', color:'var(--text-mute)', fontWeight:'600' }}> mg/dL</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="cn-card" style={{ padding:'16px 14px', display:'flex', alignItems:'center', gap:'12px' }}>
-                  <span className="dash-ic-chip"><img src="icons/case.png" alt=""/></span>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>평균 혈당</div>
-                    <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: bsAvg?bsColor(bsAvg):'var(--text-mute)', lineHeight:1.1 }}>
-                      {bsAvg || '---'}<span style={{ fontSize:'13px', color:'var(--text-mute)', fontWeight:'600' }}> mg/dL</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* 오늘 활동 요약 4카드 */}
               <Card tab="record">
