@@ -1173,7 +1173,7 @@
   /* ── 가져오기 모달 ─────────────────────────────────────── */
   const ImportModal = ({ onClose, onImport }) => {
     const dm = _dm;
-    const [tab,     setTab]     = useState('libreview'); // 'apple' | 'android' | 'libreview'
+    const [tab,     setTab]     = useState('apple'); // 'apple' | 'libreview'
     const [status,  setStatus]  = useState('idle');
     const [preview, setPreview] = useState(null);
     const [errMsg,  setErrMsg]  = useState('');
@@ -1312,7 +1312,7 @@
           {/* Header */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
             <div>
-              <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)' }}>혈당 데이터 가져오기</div>
+              <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)' }}>과거 데이터 가져오기</div>
               <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'2px' }}>리브레2 혈당 기록을 대시보드에 자동 반영</div>
             </div>
             <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
@@ -1321,10 +1321,8 @@
           {/* 탭 선택 */}
           <div style={{ display:'flex', gap:'6px', marginBottom:'20px', background:'var(--input-bg)', borderRadius:'10px', padding:'4px' }}>
             {[
-              { key:'libreview',  label:'📊 LibreView', sub:'혈당 CSV' },
-              { key:'apple',      label:'🍎 iOS',        sub:'건강앱 ZIP' },
-              { key:'android',    label:'🤖 삼성 헬스',  sub:'Android' },
-              { key:'googlefit',  label:'🏃 Google Fit', sub:'테이크아웃' }
+              { key:'apple',      label:'🍎 애플 건강',  sub:'과거 데이터 ZIP' },
+              { key:'libreview',  label:'📊 리브레뷰',   sub:'혈당 CSV' },
             ].map(t => (
               <button key={t.key} onClick={() => onTabChange(t.key)} style={{
                 flex:1, padding:'10px 6px', border:'none', borderRadius:'8px', cursor:'pointer',
@@ -2606,7 +2604,7 @@
       { icon:'💊', title:'복약 관리', desc:'시간대별 복약 체크리스트와 알람으로 복용 누락 방지' },
       { icon:'🩸', title:'혈당·혈압·체중', desc:'매일의 측정값을 한곳에 기록하고 추이 그래프로 한눈에' },
       { icon:'🍽️', title:'AI 식단 분석', desc:'사진 한 장으로 음식·칼로리·영양소 자동 추정' },
-      { icon:'🏃', title:'활동 자동 기록', desc:'iPhone 건강앱·삼성헬스·Google Fit 자동 동기화' },
+      { icon:'🏃', title:'활동 자동 기록', desc:'iPhone 건강앱 HealthKit 자동 동기화' },
       { icon:'📊', title:'30일 리포트', desc:'AI가 자동으로 인사이트와 건강 점수 생성' },
       { icon:'📖', title:'나만의 건강 일기', desc:'클라우드 안전 보관, 어느 기기에서나 이어보기' },
     ];
@@ -2707,10 +2705,10 @@
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px' }}>
             {[
-              { emoji:'🍎', name:'iPhone 건강앱', desc:'단축어로 매일 자동 동기화' },
+              { emoji:'🍎', name:'iPhone 건강앱', desc:'HealthKit 자동 동기화' },
               { emoji:'⌚', name:'Apple Watch', desc:'걸음수·기초대사량 자동 합산' },
-              { emoji:'📱', name:'삼성 헬스', desc:'ZIP 가져오기로 일괄 백필' },
-              { emoji:'🤖', name:'Google Fit', desc:'테이크아웃 ZIP 일괄 가져오기' },
+              { emoji:'🩸', name:'리브레 CGM', desc:'실시간 혈당 자동 수집' },
+              { emoji:'📥', name:'과거 데이터', desc:'애플 건강 ZIP 백필' },
             ].map(s => (
               <div key={s.name} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'18px', textAlign:'center' }}>
                 <div style={{ fontSize:'28px', marginBottom:'6px' }}>{s.emoji}</div>
@@ -4008,7 +4006,7 @@
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
         <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
-        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 · 삼성 헬스" onClick={onImport} />
+        <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
