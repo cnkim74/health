@@ -26,8 +26,14 @@
 	<string>혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>식사 사진을 촬영해 칼로리를 분석하기 위해 카메라를 사용합니다.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>걸음수, 칼로리, 거리 데이터를 읽어 대시보드에 자동으로 기록합니다.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>달리기·걷기 경로와 거리를 기록하기 위해 위치를 사용합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>식사 사진을 선택해 칼로리를 분석하기 위해 사진에 접근합니다.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
