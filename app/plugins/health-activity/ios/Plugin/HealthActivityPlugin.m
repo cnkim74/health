@@ -5,4 +5,5 @@ CAP_PLUGIN(HealthActivityPlugin, "HealthActivity",
   CAP_PLUGIN_METHOD(isAvailable, CAPPluginReturnPromise);
   CAP_PLUGIN_METHOD(requestAuth, CAPPluginReturnPromise);
   CAP_PLUGIN_METHOD(getTodayActivity, CAPPluginReturnPromise);
+  CAP_PLUGIN_METHOD(getRecentGlucose, CAPPluginReturnPromise);
 )

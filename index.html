@@ -5382,6 +5382,23 @@
             } catch {}
             return { ...prev, [t]: merged };
           });
+
+          // ── 혈당(리브레 등 CGM이 애플 건강에 기록한 값) 자동 반영 ──
+          try {
+            const gRes = await HK.getRecentGlucose({ days: 3 });
+            if (cancelled || !gRes?.readings?.length) return;
+            const byDay = {};
+            gRes.readings.forEach(r => {
+              const d = new Date(r.ts);
+              if (isNaN(d.getTime()) || !(r.mgdl > 0)) return;
+              const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+              (byDay[day] = byDay[day] || []).push({ hour: d.getHours() + d.getMinutes()/60, value: Math.round(r.mgdl) });
+            });
+            if (Object.keys(byDay).length && handleImportRef.current) {
+              const mapped = buildDashboardData({ glucoseByDay: byDay });
+              await handleImportRef.current(mapped);
+            }
+          } catch (ge) { console.log('HealthKit glucose skip:', ge?.message || ge); }
         } catch (e) { console.log('HealthKit sync skip:', e?.message || e); }
       };
 

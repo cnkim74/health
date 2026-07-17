@@ -5,18 +5,23 @@ import HealthKit
 /**
  * CARENOTE HealthKit 브리지
  * 오늘(자정~현재)의 걸음수·활동 칼로리·기초대사량·걷기/달리기 거리를 합산해 반환.
- * Apple Watch 데이터도 HealthKit에 자동 병합되므로 별도 처리 불필요.
+ * 최근 며칠간의 혈당(리브레 등 CGM이 애플 건강에 기록한 값)도 반환.
+ * Apple Watch·리브레 데이터도 HealthKit에 자동 병합되므로 별도 처리 불필요.
  */
 @objc(HealthActivityPlugin)
 public class HealthActivityPlugin: CAPPlugin {
     private let store = HKHealthStore()
+
+    // mg/dL 단위
+    private let mgdl = HKUnit.gramUnit(with: .milli).unitDivided(by: HKUnit.literUnit(with: .deci))
 
     private var readTypes: Set<HKObjectType> {
         var set = Set<HKObjectType>()
         for ident in [HKQuantityTypeIdentifier.stepCount,
                       .activeEnergyBurned,
                       .basalEnergyBurned,
-                      .distanceWalkingRunning] {
+                      .distanceWalkingRunning,
+                      .bloodGlucose] {
             if let t = HKObjectType.quantityType(forIdentifier: ident) { set.insert(t) }
         }
         return set
@@ -86,5 +91,38 @@ public class HealthActivityPlugin: CAPPlugin {
                 "dist":  ((result["dist"] ?? 0) * 100).rounded() / 100
             ])
         }
+    }
+
+    /**
+     * 최근 N일(기본 3일)간의 혈당 샘플을 반환.
+     * 리브레·CGM이 애플 건강에 기록해 둔 값을 그대로 읽음 (별도 연동 불필요).
+     * 반환: { readings: [ { ts: ISO8601, mgdl: Int } ] }
+     */
+    @objc public func getRecentGlucose(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let qt = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) else {
+            call.resolve(["readings": []])
+            return
+        }
+        let days = call.getInt("days") ?? 3
+        let now = Date()
+        let start = Calendar.current.date(byAdding: .day, value: -max(1, days), to: now) ?? now
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        let iso = ISO8601DateFormatter()
+        let query = HKSampleQuery(sampleType: qt, predicate: predicate,
+                                  limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { [weak self] _, samples, _ in
+            guard let self = self else { call.resolve(["readings": []]); return }
+            var readings: [[String: Any]] = []
+            for s in (samples as? [HKQuantitySample]) ?? [] {
+                let v = s.quantity.doubleValue(for: self.mgdl)
+                if v > 0 {
+                    readings.append(["ts": iso.string(from: s.startDate), "mgdl": Int(v.rounded())])
+                }
+            }
+            call.resolve(["readings": readings])
+        }
+        store.execute(query)
     }
 }
