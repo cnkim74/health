@@ -115,7 +115,17 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     }
 
     public func centralManager(_ cm: CBCentralManager, didFailToConnect p: CBPeripheral, error: Error?) {
-        fail("혈당기 연결 실패: \(error?.localizedDescription ?? "알 수 없음")")
+        // 암호화(페어링) 실패는 일시적일 수 있어 몇 차례 재시도
+        if reconnectCount < 3 {
+            reconnectCount += 1
+            paired = false; measureChar = nil; racpChar = nil; featureChar = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                guard let self = self, !self.finished else { return }
+                cm.connect(p, options: nil)
+            }
+            return
+        }
+        fail("페어링에 실패했어요. ①아이폰 설정>블루투스에서 혈당기 '이 기기 지우기' ②혈당기에서도 페어링 삭제 ③아이폰 재시동 후 새로 페어링해 주세요.")
     }
 
     public func centralManager(_ cm: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
