@@ -20,7 +20,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* 제목용 Gmarket Sans (본문은 Pretendard) */
+    @font-face { font-family:'GmarketSans'; font-weight:700; font-display:swap;
+      src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff'); }
+    @font-face { font-family:'GmarketSans'; font-weight:500; font-display:swap;
+      src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff'); }
     :root {
+      --font-title: 'GmarketSans', 'Pretendard', -apple-system, sans-serif;
       /* CARENOTE Design Tokens v2.0 */
       --cn-brand:        #2F6BFF;
       --cn-brand-600:    #1F4FD9;
@@ -98,6 +104,7 @@
       word-break: keep-all;
       transition: background 0.25s, color 0.25s;
     }
+    h1, h2, h3, .cn-section-title, .cn-card-title { font-family: var(--font-title); letter-spacing: -0.2px; }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
@@ -237,13 +244,13 @@
     .cn-hdr-actions { display: none !important; }
     .cn-hdr-logo    { width: 40px !important; height: 40px !important; }
     .cn-hdr-logo svg { width: 40px !important; height: 40px !important; }
-    .cn-hdr-title   { font-size: 19px !important; letter-spacing: 0.5px !important; }
+    .cn-hdr-title   { font-size: 22px !important; letter-spacing: 0.5px !important; }
     /* 모바일: 날짜는 연도 생략형으로 */
     .cn-hdr-date-full { display: none !important; }
     .cn-hdr-date-md   { display: inline !important; }
     /* 모바일 좌우 여백 — vw 기반으로 화면 크기에 비례 (3vw = 390px에서 약 12px) */
-    .cn-main-pad    { padding: 8px 3vw !important; width: 100% !important; box-sizing: border-box !important; }
-    .cn-card        { padding: 14px 3vw !important; border-radius: 12px !important; margin-bottom: 10px !important; min-width: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+    .cn-main-pad    { padding: 10px 4vw !important; width: 100% !important; box-sizing: border-box !important; }
+    .cn-card        { padding: 18px 4vw !important; border-radius: 16px !important; margin-bottom: 14px !important; min-width: 0 !important; width: 100% !important; box-sizing: border-box !important; }
     /* 탭바 높이 및 safe-area */
     .cn-tabbar {
       padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -274,6 +281,9 @@
   /* 3D 아이콘 칩 — 밝은 배경이라 라이트/다크 모두 자연스럽게 */
   .dash-ic-chip { width: 40px; height: 40px; border-radius: 11px; background: radial-gradient(circle at 50% 40%, #ffffff 0%, #eef2f8 90%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .dash-ic-chip img { width: 34px; height: 34px; object-fit: contain; }
+  /* 섹션 제목용 큰 아이콘 칩 */
+  .stitle-chip { width: 46px; height: 46px; border-radius: 14px; background: radial-gradient(circle at 50% 38%, #ffffff 0%, #eef2f8 92%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 4px rgba(11,27,59,0.10); }
+  .stitle-chip img { width: 40px; height: 40px; object-fit: contain; }
   .dash-metric-label { font-size: 14px; font-weight: 800; color: var(--text-sub); }
   .dash-metric-val { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.5px; }
   .dash-metric-unit { font-size: 13px; color: var(--text-mute); font-weight: 600; }
@@ -447,12 +457,18 @@
     <span className="dash-ic-chip"><img src={src} alt=""/></span>
   );
 
-  const STitle = ({icon, label, right}) => (
-    <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'18px', fontWeight:'800', color:'var(--text)', marginBottom:'14px' }}>
-      <span style={{fontSize:'20px'}}>{icon}</span><span>{label}</span>
-      {right && <span style={{ marginLeft:'auto', fontSize:'14px', color:'var(--text-sub)', fontWeight:'600' }}>{right}</span>}
-    </div>
-  );
+  const STitle = ({icon, label, right}) => {
+    const isImg = typeof icon === 'string' && icon.indexOf('/') >= 0;
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:'11px', marginBottom:'18px' }}>
+        {isImg
+          ? <span className="stitle-chip"><img src={icon} alt=""/></span>
+          : <span style={{ fontSize:'26px', lineHeight:1 }}>{icon}</span>}
+        <span style={{ fontFamily:'var(--font-title)', fontSize:'21px', fontWeight:'700', color:'var(--text)', letterSpacing:'-0.2px' }}>{label}</span>
+        {right && <span style={{ marginLeft:'auto', fontSize:'14px', color:'var(--text-sub)', fontWeight:'600' }}>{right}</span>}
+      </div>
+    );
+  };
 
   /* CARENOTE 펄스 라인 로고 */
   const CareNoteLogo = ({ size = 38, onDark = true }) => {
@@ -4564,7 +4580,7 @@
             <Sparkline vals={bpSysVals.slice(-10)} color="var(--cn-danger)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-head"><IcChip src="icons/ic-water.png"/><span className="dash-metric-label">혈당 (최근)</span></div>
+            <div className="dash-metric-head"><IcChip src="icons/ic-glucose.png"/><span className="dash-metric-label">혈당 (최근)</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:lastBS?bsColor(lastBS):'var(--text-mute)'}}>{lastBS||'---'}</span>
               <span className="dash-metric-unit">mg/dL</span>
@@ -5872,7 +5888,7 @@
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
               <div className="cn-hdr-logo"><CareNoteLogo size={40} /></div>
               <div>
-                <div className="cn-hdr-title" style={{ fontSize:'18px', fontWeight:'800', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
+                <div className="cn-hdr-title" style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color:'#fff', letterSpacing:'0.5px', lineHeight:'1.15' }}>CARENOTE</div>
                 <div className="cn-hdr-sub" style={{ fontSize:'11px', color:'rgba(147,197,253,0.8)', fontWeight:'500' }}>내 몸을 기록하는 노트</div>
               </div>
               <a href="board.html" target="_blank" rel="noopener noreferrer"
@@ -5989,7 +6005,7 @@
 
               {/* 오늘 활동 요약 4카드 */}
               <Card tab="record">
-                <STitle icon="🏃" label="오늘 활동" />
+                <STitle icon="icons/ic-activity.png" label="오늘 활동" />
                 {(() => {
                   // 활동 데이터 유효성 검사 — 0도 유효한 값으로 처리 (단축어·건강앱 연동 시 0 기록 가능)
                   const hasVal = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
@@ -6074,7 +6090,7 @@
                 {/* 헤더 — 탭하면 접기/펴기 */}
                 <div onClick={() => setMedOpen(o => !o)}
                   style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', marginBottom: medOpen ? '0' : '0' }}>
-                  <STitle icon="💊" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
+                  <STitle icon="icons/ic-meds.png" label="오늘의 복약 체크리스트" right={`${medDone}/${allMedIds.length} 완료`} />
                   <span style={{ fontSize:'18px', color:'var(--text-mute)', marginLeft:'8px', transition:'transform 0.2s', transform: medOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink:0 }}>▾</span>
                 </div>
 
@@ -6147,7 +6163,7 @@
 
               {/* 혈당 */}
               <Card tab="record">
-                <STitle icon="🩸" label="혈당 기록" right={(() => {
+                <STitle icon="icons/ic-glucose.png" label="혈당 기록" right={(() => {
                   if (!lluLatest) return "단위: mg/dL";
                   const arrows = {1:'↓',2:'↘',3:'→',4:'↗',5:'↑'};
                   const mins = Math.max(0, Math.round((Date.now() - new Date(lluLatest.ts).getTime()) / 60000));
@@ -6239,7 +6255,7 @@
 
                 return (
                   <Card tab="record">
-                    <STitle icon="💓" label="혈압 기록" />
+                    <STitle icon="icons/ic-bp.png" label="혈압 기록" />
 
                     {/* 분류 기준 범례 */}
                     <div className="bp-legend" style={{ display:'flex', gap:'8px', marginBottom:'14px', flexWrap:'wrap', fontSize:'12px' }}>
@@ -6415,7 +6431,7 @@
 
               {/* 식사 */}
               <Card tab="record">
-                <STitle icon="🍽️" label="식사 기록" />
+                <STitle icon="icons/ic-meal.png" label="식사 기록" />
                 <div style={{ background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px', padding:'12px 14px', marginBottom:'12px', fontSize:'14px' }}>
                   <div style={{ fontWeight:'700', color:'var(--cn-ok)', marginBottom:'8px' }}>💡 당뇨 식단 가이드</div>
                   <div style={{ display:'flex', gap:'20px', flexWrap:'wrap' }}>
@@ -6589,7 +6605,7 @@
 
               {/* 주간 차트 */}
               <Card tab="report">
-                <STitle icon="📈" label="최근 7일 평균 혈당" />
+                <STitle icon="icons/ic-report.png" label="최근 7일 평균 혈당" />
                 <div className="chart-wrap"><canvas ref={chartRef}/></div>
                 <div style={{ display:'flex', gap:'14px', marginTop:'10px', justifyContent:'center', fontSize:'14px', color:'var(--text-sub)' }}>
                   <span>🟣 저혈당</span><span>🟢 정상</span><span>🟡 주의</span><span>🔴 높음</span>
@@ -6602,7 +6618,7 @@
               {/* 종합 건강 리포트 — 모바일 리포트탭 전용 (데스크탑은 사이드바로 고정) */}
               <div className="cn-report-tab-only">
                 <Card tab="report">
-                  <STitle icon="🏥" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
+                  <STitle icon="icons/ic-checkup.png" label="종합 건강 리포트" right={<span style={{fontSize:'12px',color:'var(--text-mute)',fontWeight:'600'}}>최근 30일</span>} />
                   <HealthReportSection data={data} medsConfig={medsConfig} allMedIds={allMedIds} />
                 </Card>
               </div>
@@ -6646,7 +6662,7 @@
 
               {/* 체중 / 체지방 */}
               <Card tab="record">
-                <STitle icon="⚖️" label="체중 · 체지방 기록" />
+                <STitle icon="icons/ic-weight.png" label="체중 · 체지방 기록" />
 
                 {/* 입력 행 */}
                 <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap' }}>
@@ -6883,7 +6899,7 @@
 
               {/* 운동 & 활동 */}
               <Card tab="record">
-                <STitle icon="🏃" label="활동 & 운동 기록" />
+                <STitle icon="icons/ic-exercise.png" label="활동 & 운동 기록" />
 
                 {/* 걸음수 / 칼로리 / 거리 카드 — 탭하면 직접 입력 */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
@@ -6982,7 +6998,7 @@
 
               {/* 메모 */}
               <Card tab="home">
-                <STitle icon="📝" label="오늘의 메모" />
+                <STitle icon="icons/ic-checkup.png" label="오늘의 메모" />
                 <textarea value={day.note||''} onChange={e=>upDay({note:e.target.value})} placeholder="특이사항, 컨디션, 저혈당 증상, 의사 선생님께 전달할 내용 등…" rows={4}
                   style={{ ...inpSt, resize:'vertical', lineHeight:'1.6', fontFamily:'inherit' }} />
               </Card>
