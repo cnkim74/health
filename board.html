@@ -333,7 +333,10 @@ function renderMain(){
 async function renderList(wrap){
   wrap.innerHTML = `
     <div class="page-hdr">
-      <div class="page-title">👥 커뮤니티</div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px;justify-content:center;">
+        <img src="icons/community.png" alt="" style="width:40px;height:40px;object-fit:contain;background:radial-gradient(circle at 50% 38%,#fff,#eef2f8);border-radius:12px;padding:2px;box-shadow:0 1px 3px rgba(11,27,59,.08);"/>
+        커뮤니티
+      </div>
       <div class="page-sub">CARENOTE 회원들과 건강 정보를 나눠보세요</div>
     </div>
     <div class="cat-tabs" id="cat-tabs"></div>
