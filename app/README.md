@@ -126,6 +126,26 @@ Xcode에서 **Product → Clean Build Folder** 후 **Cmd + R**.
 
 사용법: 혈당 기록 카드의 **"📲 혈당기에서 가져오기"** 버튼 → 혈당기 블루투스(동기화 모드) 켜기 → 첫 연결 시 페어링 PIN 입력 → 저장된 기록 자동 반영.
 
+## Phase: GPS 러닝/걷기 트래커 (V1)
+
+지도에 경로를 그리고 거리·페이스·시간을 실시간 기록, km마다 음성 안내.
+
+```bash
+cd ~/Documents/health && git pull origin main
+cd app
+npm install                 # carenote-run-tracker 로컬 플러그인 설치
+bash sync-www.sh
+npx cap sync ios
+
+# Info.plist에 위치 사용 목적 문구 추가 (최초 1회)
+/usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string '달리기·걷기 경로와 거리를 기록하기 위해 위치를 사용합니다.'" ios/App/App/Info.plist
+
+npx cap open ios
+```
+
+Xcode에서 **Product → Clean Build Folder** 후 **Cmd + R**.
+사용법: 기록 탭 → **활동 & 운동 기록** → **달리기/걷기** 버튼 → 시작 → 위치 허용 → 지도에 경로 그려짐 → 종료 후 저장.
+
 ## 알아둘 것
 
 - **이메일 로그인**은 앱 안에서 바로 작동합니다.
