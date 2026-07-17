@@ -307,16 +307,18 @@
   /* ── 모바일 탭별 최적화 (max-width: 600px) ── */
   @media (max-width: 600px) {
 
-    /* ─ 홈 탭 ─ */
+    /* ─ 홈 탭 (카드 너비·모서리·간격을 cn-card와 통일) ─ */
     .dash-score-card {
-      padding: 12px !important;
+      padding: 18px 4vw !important;
       gap: 12px !important;
-      margin-bottom: 10px !important;
-      border-radius: 14px !important;
+      margin-bottom: 14px !important;
+      border-radius: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
     .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
-    .dash-metric-grid { gap: 12px !important; margin-bottom: 14px !important; }
-    .dash-metric-card { padding: 14px 14px !important; border-radius: 14px !important; gap: 4px !important; }
+    .dash-metric-grid { gap: 12px !important; margin-bottom: 14px !important; width: 100% !important; box-sizing: border-box !important; }
+    .dash-metric-card { padding: 16px 14px !important; border-radius: 16px !important; gap: 4px !important; box-sizing: border-box !important; }
     /* 어르신 접근성: 핵심 수치·라벨 키움 */
     .dash-metric-emoji { font-size: 24px !important; }
     .dash-metric-val  { font-size: 28px !important; }
@@ -1173,7 +1175,7 @@
   /* ── 가져오기 모달 ─────────────────────────────────────── */
   const ImportModal = ({ onClose, onImport }) => {
     const dm = _dm;
-    const [tab,     setTab]     = useState('libreview'); // 'apple' | 'android' | 'libreview'
+    const [tab,     setTab]     = useState('apple'); // 'apple' | 'libreview'
     const [status,  setStatus]  = useState('idle');
     const [preview, setPreview] = useState(null);
     const [errMsg,  setErrMsg]  = useState('');
@@ -1312,7 +1314,7 @@
           {/* Header */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
             <div>
-              <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)' }}>혈당 데이터 가져오기</div>
+              <div style={{ fontSize:'14px', fontWeight:'800', color:'var(--text)' }}>과거 데이터 가져오기</div>
               <div style={{ fontSize:'14px', color:'var(--text-sub)', marginTop:'2px' }}>리브레2 혈당 기록을 대시보드에 자동 반영</div>
             </div>
             <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
@@ -1321,10 +1323,8 @@
           {/* 탭 선택 */}
           <div style={{ display:'flex', gap:'6px', marginBottom:'20px', background:'var(--input-bg)', borderRadius:'10px', padding:'4px' }}>
             {[
-              { key:'libreview',  label:'📊 LibreView', sub:'혈당 CSV' },
-              { key:'apple',      label:'🍎 iOS',        sub:'건강앱 ZIP' },
-              { key:'android',    label:'🤖 삼성 헬스',  sub:'Android' },
-              { key:'googlefit',  label:'🏃 Google Fit', sub:'테이크아웃' }
+              { key:'apple',      label:'🍎 애플 건강',  sub:'과거 데이터 ZIP' },
+              { key:'libreview',  label:'📊 리브레뷰',   sub:'혈당 CSV' },
             ].map(t => (
               <button key={t.key} onClick={() => onTabChange(t.key)} style={{
                 flex:1, padding:'10px 6px', border:'none', borderRadius:'8px', cursor:'pointer',
@@ -2606,7 +2606,7 @@
       { icon:'💊', title:'복약 관리', desc:'시간대별 복약 체크리스트와 알람으로 복용 누락 방지' },
       { icon:'🩸', title:'혈당·혈압·체중', desc:'매일의 측정값을 한곳에 기록하고 추이 그래프로 한눈에' },
       { icon:'🍽️', title:'AI 식단 분석', desc:'사진 한 장으로 음식·칼로리·영양소 자동 추정' },
-      { icon:'🏃', title:'활동 자동 기록', desc:'iPhone 건강앱·삼성헬스·Google Fit 자동 동기화' },
+      { icon:'🏃', title:'활동 자동 기록', desc:'iPhone 건강앱 HealthKit 자동 동기화' },
       { icon:'📊', title:'30일 리포트', desc:'AI가 자동으로 인사이트와 건강 점수 생성' },
       { icon:'📖', title:'나만의 건강 일기', desc:'클라우드 안전 보관, 어느 기기에서나 이어보기' },
     ];
@@ -2707,10 +2707,10 @@
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px' }}>
             {[
-              { emoji:'🍎', name:'iPhone 건강앱', desc:'단축어로 매일 자동 동기화' },
+              { emoji:'🍎', name:'iPhone 건강앱', desc:'HealthKit 자동 동기화' },
               { emoji:'⌚', name:'Apple Watch', desc:'걸음수·기초대사량 자동 합산' },
-              { emoji:'📱', name:'삼성 헬스', desc:'ZIP 가져오기로 일괄 백필' },
-              { emoji:'🤖', name:'Google Fit', desc:'테이크아웃 ZIP 일괄 가져오기' },
+              { emoji:'🩸', name:'리브레 CGM', desc:'실시간 혈당 자동 수집' },
+              { emoji:'📥', name:'과거 데이터', desc:'애플 건강 ZIP 백필' },
             ].map(s => (
               <div key={s.name} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'18px', textAlign:'center' }}>
                 <div style={{ fontSize:'28px', marginBottom:'6px' }}>{s.emoji}</div>
@@ -3512,6 +3512,44 @@
     general:          { title:'건강한 하루!',         items:['혈압·혈당·체중 기록','균형 잡힌 식사','매일 걷기','충분한 수면','정기 건강검진'], warn:'꾸준함이 가장 중요합니다.' },
   };
 
+  /* ── 알림 설정 모달 ── */
+  const NotifSettingsModal = ({ onClose, onChanged }) => {
+    const [medOn,   setMedOn]   = React.useState(localStorage.getItem('cn_notif_off') !== '1');
+    const [standOn, setStandOn] = React.useState(localStorage.getItem('cn_stand_on') === '1');
+    const [waterOn, setWaterOn] = React.useState(localStorage.getItem('cn_water_on') === '1');
+    const save = (k, v) => { localStorage.setItem(k, v ? '1' : '0'); onChanged && onChanged(); };
+    const Toggle = ({ on, set, storageKey, invert, icon, title, desc }) => (
+      <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 0', borderBottom:'1px solid var(--card-border)' }}>
+        <span style={{ fontSize:'26px' }}>{icon}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>{title}</div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'1px' }}>{desc}</div>
+        </div>
+        <button onClick={() => { const nv=!on; set(nv); save(storageKey, invert ? !nv : nv); }}
+          style={{ width:'52px', height:'30px', borderRadius:'15px', border:'none', cursor:'pointer', position:'relative',
+            background: on ? 'var(--cn-ok)' : 'var(--card-border)', transition:'background 0.2s' }}>
+          <span style={{ position:'absolute', top:'3px', left: on ? '25px' : '3px', width:'24px', height:'24px', borderRadius:'50%', background:'#fff', transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+        </button>
+      </div>
+    );
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'400px' }} onClick={e=>e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'18px', fontWeight:'700', color:'var(--text)' }}>🔔 알림 설정</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          <Toggle on={medOn} set={setMedOn} storageKey="cn_notif_off" invert icon="💊" title="복약 알림" desc="복약 설정의 시간대마다 알림" />
+          <Toggle on={standOn} set={setStandOn} storageKey="cn_stand_on" icon="🧍" title="일어서기 알림" desc="낮 시간대(9~21시) 매시간 몸 움직이기" />
+          <Toggle on={waterOn} set={setWaterOn} storageKey="cn_water_on" icon="💧" title="물 마시기 알림" desc="낮 시간대 2시간마다 수분 섭취" />
+          <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'14px', lineHeight:1.6 }}>
+            ⚠️ 알림은 앱에서 <strong>알림 허용</strong>을 해야 울립니다. 복약 알림 시간은 <strong>복약 설정</strong>에서 시간대별로 지정하세요.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const GoalsModal = ({ goals, onSave, onClose }) => {
     const [steps,  setSteps]  = React.useState(String(goals?.steps || 10000));
     const [weight, setWeight] = React.useState(goals?.weight || '');
@@ -3958,7 +3996,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4007,8 +4045,9 @@
         </div>
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
+        <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
         <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
-        <Row icon="📥" label="가져오기" sub="리브레뷰 CSV · 애플 건강 · 삼성 헬스" onClick={onImport} />
+        <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
@@ -4520,7 +4559,7 @@
   };
 
   /* ── 대시보드: 홈탭 ── */
-  const DashboardHome = ({ data, date, medsConfig, allMedIds, goals }) => {
+  const DashboardHome = ({ data, date, medsConfig, allMedIds, goals, height }) => {
     const stepGoal = Math.max(1000, parseInt(goals?.steps) || 10000);
     const score = useMemo(() => calcHealthScore(data), [data]);
     const insights = useMemo(() => genInsights(data), [data]);
@@ -4547,6 +4586,18 @@
         || (bsVals.length ? bsVals[bsVals.length-1] : null);
     })();
     const lastW = todayData.weight || (weightVals.length ? weightVals[weightVals.length-1] : null);
+
+    // BMI (체질량지수) — 키(cm) + 최근 체중(kg)
+    const bmi = (() => {
+      const h = parseFloat(height), w = parseFloat(lastW);
+      if (!h || !w || h < 50 || h > 250) return null;
+      return w / ((h/100) ** 2);
+    })();
+    const bmiCat = bmi == null ? null
+      : bmi < 18.5 ? { label:'저체중', color:'#3b82f6', pos: bmi/40*100 }
+      : bmi < 23   ? { label:'정상',   color:'var(--cn-ok)', pos: bmi/40*100 }
+      : bmi < 25   ? { label:'과체중', color:'var(--cn-warn)', pos: bmi/40*100 }
+      : { label:'비만', color:'var(--cn-danger)', pos: Math.min(bmi,40)/40*100 };
 
     // 복약 현황
     const medsToday = allMedIds.filter(id => todayData.meds && todayData.meds[id]).length;
@@ -4659,6 +4710,42 @@
             </div>
             <span style={{fontSize:13,color:medsPct===100?'var(--cn-ok)':'var(--text-sub)',fontWeight:700,marginTop:2}}>{medsPct===100?'✓ 완료':medsPct+'% 완료'}</span>
           </div>
+        </div>
+
+        {/* BMI 건강지수 카드 */}
+        <div className="cn-card" style={{ marginBottom:14 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: bmi!=null ? 14 : 0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:11 }}>
+              <span className="dash-ic-chip"><img src="icons/weight.png" alt=""/></span>
+              <div>
+                <div style={{ fontFamily:'var(--font-title)', fontSize:'17px', fontWeight:'700', color:'var(--text)' }}>체질량지수 (BMI)</div>
+                <div style={{ fontSize:'12px', color:'var(--text-mute)' }}>{bmi!=null ? `키 ${parseFloat(height)}cm · 체중 ${parseFloat(lastW)}kg` : '키·체중 입력 시 표시'}</div>
+              </div>
+            </div>
+            {bmi!=null && (
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontFamily:'var(--font-title)', fontSize:'34px', fontWeight:'700', color:bmiCat.color, lineHeight:1 }}>{bmi.toFixed(1)}</div>
+                <div style={{ display:'inline-block', fontSize:'12px', fontWeight:'800', color:'#fff', background:bmiCat.color, borderRadius:'20px', padding:'2px 12px', marginTop:'3px' }}>{bmiCat.label}</div>
+              </div>
+            )}
+          </div>
+          {bmi!=null && (() => {
+            // 게이지: 저체중(<18.5)·정상(18.5-23)·과체중(23-25)·비만(25+) → 40 스케일
+            const seg = [[0,18.5,'#3b82f6'],[18.5,23,'var(--cn-ok)'],[23,25,'var(--cn-warn)'],[25,40,'var(--cn-danger)']];
+            return (
+              <div>
+                <div style={{ display:'flex', height:'10px', borderRadius:'6px', overflow:'hidden' }}>
+                  {seg.map(([a,b,c],i) => <div key={i} style={{ flex: b-a, background:c }}/>)}
+                </div>
+                <div style={{ position:'relative', height:'0' }}>
+                  <div style={{ position:'absolute', left:`${Math.min(Math.max(bmi/40*100,1),99)}%`, top:'-15px', transform:'translateX(-50%)', width:'3px', height:'16px', background:'var(--text)', borderRadius:'2px', boxShadow:'0 0 0 2px var(--card-bg)' }}/>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--text-mute)', marginTop:'8px', fontWeight:'600' }}>
+                  <span>저체중</span><span>정상</span><span>과체중</span><span>비만</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* 혈압 추이 차트 */}
@@ -5165,6 +5252,8 @@
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
     const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
+    const [showNotif, setShowNotif] = useState(false);
+    const [notifTick, setNotifTick] = useState(0); // 알림 설정 변경 시 리마인더 재예약 트리거
     const [bleMsg, setBleMsg]   = useState('');
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
@@ -5208,42 +5297,102 @@
         .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
     }, [userId]);
 
-    // ── 복약 알람 스케줄러 (매 분 체크) — medsConfig 선언 후 위치 ──
+    // ── 복약 알람 스케줄러 ──
+    // 네이티브 앱: LocalNotifications로 매일 반복 예약 (앱이 꺼져 있어도 울림)
+    // 웹: 브라우저 Notification + 매 분 체크 (앱 켜져 있을 때만)
     useEffect(() => {
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+
+      if (LN) {
+        (async () => {
+          try {
+            if (localStorage.getItem('cn_notif_off') === '1') { // 사용자가 알림 끔
+              const p = await LN.getPending();
+              const ids = (p.notifications||[]).filter(n => n.id>=4000 && n.id<4100).map(n => ({id:n.id}));
+              if (ids.length) await LN.cancel({ notifications: ids });
+              return;
+            }
+            await LN.requestPermissions();
+            // 기존 복약 알림(4000~4099) 취소 후 재예약
+            const p = await LN.getPending();
+            const old = (p.notifications||[]).filter(n => n.id>=4000 && n.id<4100).map(n => ({id:n.id}));
+            if (old.length) await LN.cancel({ notifications: old });
+            const notifs = [];
+            medsConfig.forEach((slot, i) => {
+              if (!slot.notifTime) return;
+              const [h, m] = slot.notifTime.split(':').map(Number);
+              if (isNaN(h) || isNaN(m)) return;
+              const items = (slot.items||[]).filter(x => x.name && x.name.trim());
+              if (!items.length) return;
+              notifs.push({
+                id: 4000 + i,
+                title: `${slot.icon||'💊'} ${slot.slot} 복약 시간이에요`,
+                body: items.map(x => `${x.name}${x.dose ? ' '+x.dose : ''}`).join(', '),
+                schedule: { on: { hour: h, minute: m }, repeats: true },
+                sound: 'default'
+              });
+            });
+            if (notifs.length) await LN.schedule({ notifications: notifs });
+          } catch (e) { console.log('복약 알림 예약 skip:', e?.message || e); }
+        })();
+        return;
+      }
+
+      // ── 웹 폴백: 매 분 체크 ──
       if (!medsConfig.length) return;
       const firedKey = new Set();
-
       const check = () => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        if (localStorage.getItem('cn_notif_off') === '1') return;
         const now = new Date();
         const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const key  = `${hhmm}_${now.toDateString()}`;
-        if (firedKey.has(key)) return;
-
         medsConfig.forEach(slot => {
           if (!slot.notifTime || slot.notifTime !== hhmm) return;
           if (firedKey.has(key + slot.key)) return;
           firedKey.add(key + slot.key);
-
-          const activeItems = (slot.items||[]).filter(m => {
-            const today = now.toISOString().slice(0,10);
-            return isMedActive(m, today);
-          });
+          const activeItems = (slot.items||[]).filter(m => isMedActive(m, now.toISOString().slice(0,10)));
           if (!activeItems.length) return;
-
-          if (typeof Notification !== 'undefined') new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
+          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
             body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
-            icon: '/favicon-192.png',
-            badge: '/favicon-192.png',
-            tag: slot.key,
+            icon: '/favicon-192.png', badge: '/favicon-192.png', tag: slot.key,
           });
         });
       };
-
       check();
       const timer = setInterval(check, 60000);
       return () => clearInterval(timer);
     }, [medsConfig]);
+
+    // ── 일어서기·물마시기 리마인더 (네이티브, 낮 시간대 매시간 반복) ──
+    useEffect(() => {
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+      if (!LN) return;
+      (async () => {
+        try {
+          await LN.requestPermissions();
+          const p = await LN.getPending();
+          // 일어서기 4100~4199, 물마시기 4200~4299 취소 후 재예약
+          const old = (p.notifications||[]).filter(n => n.id>=4100 && n.id<4300).map(n => ({id:n.id}));
+          if (old.length) await LN.cancel({ notifications: old });
+          const notifs = [];
+          const standOn = localStorage.getItem('cn_stand_on') === '1';
+          const waterOn = localStorage.getItem('cn_water_on') === '1';
+          const startH = 9, endH = 21; // 낮 시간대
+          if (standOn) {
+            for (let h = startH; h <= endH; h++) {
+              notifs.push({ id: 4100 + h, title: '🧍 일어설 시간이에요', body: '1분만 일어나서 몸을 움직여 볼까요?', schedule: { on:{ hour:h, minute:50 }, repeats:true }, sound:'default' });
+            }
+          }
+          if (waterOn) {
+            for (let h = startH; h <= endH; h += 2) {
+              notifs.push({ id: 4200 + h, title: '💧 물 마실 시간이에요', body: '물 한 잔으로 수분을 채워 주세요.', schedule: { on:{ hour:h, minute:0 }, repeats:true }, sound:'default' });
+            }
+          }
+          if (notifs.length) await LN.schedule({ notifications: notifs });
+        } catch (e) { console.log('리마인더 예약 skip:', e?.message || e); }
+      })();
+    }, [notifTick]);
 
     // ── 포커스 복귀 시 자동 새로고침 (단축어 → PWA 전환 대응) ──
     useEffect(() => {
@@ -6263,27 +6412,33 @@
             {/* ── LEFT ── */}
             <div style={{ minWidth:0 }}>
 
-              {/* 상단 요약 카드 2개 (복약·혈당) — 헤더 배지 대체 */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
-                <div className="cn-card" style={{ padding:'16px 14px', display:'flex', alignItems:'center', gap:'12px' }}>
-                  <span className="dash-ic-chip"><img src="icons/drug3.png" alt=""/></span>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>오늘 복약</div>
-                    <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: medPct===100?'var(--cn-ok)':'var(--text)', lineHeight:1.1 }}>
-                      {medDone}<span style={{ fontSize:'14px', color:'var(--text-mute)' }}>/{allMedIds.length}</span>
+              {/* 상단 요약 카드 2개 (복약·혈당) — 아래 카드와 동일 패딩(18px 4vw) */}
+              {(() => {
+                const sc = { background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px',
+                             boxShadow:'var(--card-shadow)', padding:'18px 4vw', display:'flex', alignItems:'center', gap:'12px', boxSizing:'border-box', minWidth:0 };
+                return (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px' }}>
+                    <div style={sc}>
+                      <span className="dash-ic-chip"><img src="icons/drug3.png" alt=""/></span>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>오늘 복약</div>
+                        <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: medPct===100?'var(--cn-ok)':'var(--text)', lineHeight:1.1 }}>
+                          {medDone}<span style={{ fontSize:'14px', color:'var(--text-mute)' }}>/{allMedIds.length}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={sc}>
+                      <span className="dash-ic-chip"><img src="icons/case.png" alt=""/></span>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>평균 혈당</div>
+                        <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: bsAvg?bsColor(bsAvg):'var(--text-mute)', lineHeight:1.1 }}>
+                          {bsAvg || '---'}<span style={{ fontSize:'13px', color:'var(--text-mute)', fontWeight:'600' }}> mg/dL</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="cn-card" style={{ padding:'16px 14px', display:'flex', alignItems:'center', gap:'12px' }}>
-                  <span className="dash-ic-chip"><img src="icons/case.png" alt=""/></span>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'700' }}>평균 혈당</div>
-                    <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: bsAvg?bsColor(bsAvg):'var(--text-mute)', lineHeight:1.1 }}>
-                      {bsAvg || '---'}<span style={{ fontSize:'13px', color:'var(--text-mute)', fontWeight:'600' }}> mg/dL</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* 오늘 활동 요약 4카드 */}
               <Card tab="record">
@@ -6630,36 +6785,6 @@
                       </div>
                     </div>
 
-                    {/* 건강앱 가져오기 */}
-                    <div style={{ marginBottom:'14px' }}>
-                      <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>📲 건강앱에서 혈압 가져오기</div>
-                      <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-                        {/* iOS */}
-                        <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-brand)', fontWeight:'700', fontSize:'13px',
-                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
-                          <span style={{ fontSize:'16px' }}></span> iOS 건강앱
-                        </button>
-                        {/* Android */}
-                        <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-ok)', fontWeight:'700', fontSize:'13px',
-                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
-                          <span style={{ fontSize:'16px' }}>🤖</span> 삼성 헬스
-                        </button>
-                      </div>
-                      {weightImporting  && <div style={{ fontSize:'12px', color:'var(--cn-brand)', marginTop:'6px', fontWeight:'600' }}>⏳ {weightImportMsg}</div>}
-                      {androidImporting && <div style={{ fontSize:'12px', color:'var(--cn-ok)', marginTop:'6px', fontWeight:'600' }}>⏳ {androidImportMsg}</div>}
-                      {!weightImporting  && weightImportMsg  && <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{weightImportMsg}</div>}
-                      {!androidImporting && androidImportMsg && <div style={{ fontSize:'12px', color: androidImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{androidImportMsg}</div>}
-                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'5px' }}>
-                        iOS: 건강앱 → 내보내기 .zip · Android: 삼성 헬스 → 설정 → 개인 데이터 다운로드 .zip
-                      </div>
-                    </div>
-
                     {/* 7일 추이 */}
                     {hasBPWeek && (() => {
                       const sysVals = bpWeek.filter(x => x.sys).map(x => x.sys);
@@ -6945,7 +7070,7 @@
               <BannerSlot slotId="sidebar_top" />
 
               {/* 대시보드 홈 */}
-              <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals}/>
+              <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals} height={height}/>
 
               {/* 체중 / 체지방 */}
               <Card tab="record">
@@ -7353,6 +7478,7 @@
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
               onGoals={() => setShowGoals(true)}
+              onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
             />
           </div>
@@ -7445,6 +7571,7 @@
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
+        {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
