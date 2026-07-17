@@ -1,0 +1,10 @@
+{
+  "name": "carenote-run-tracker",
+  "version": "1.0.0",
+  "description": "CARENOTE 러닝/걷기 GPS 트래커 (CoreLocation)",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["ios/", "index.js", "CarenoteRunTracker.podspec"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=6.0.0" }
+}

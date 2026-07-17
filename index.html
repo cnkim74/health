@@ -18,6 +18,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <!-- 러닝 트래커 지도 (Leaflet + OpenStreetMap) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
     /* 제목용 Gmarket Sans (본문은 Pretendard) */
@@ -4920,6 +4923,217 @@
     );
   };
 
+  /* ── 러닝/걷기 GPS 트래커 (V1) ───────────────────────────────────────────── */
+  const haversine = (a, b) => {
+    const R = 6371000, toR = d => d * Math.PI / 180;
+    const dLat = toR(b.lat - a.lat), dLng = toR(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s)); // meters
+  };
+  const fmtDur = (s) => {
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
+    return (h>0 ? `${h}:${String(m).padStart(2,'0')}` : `${m}`) + `:${String(sec).padStart(2,'0')}`;
+  };
+  const paceStr = (secPerKm) => {
+    if (!isFinite(secPerKm) || secPerKm <= 0) return "--'--\"";
+    const m = Math.floor(secPerKm/60), s = Math.round(secPerKm%60);
+    return `${m}'${String(s).padStart(2,'0')}"`;
+  };
+  const speak = (text) => {
+    try {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR'; u.rate = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch {}
+  };
+
+  const RunTracker = ({ mode, onClose, onSave }) => {
+    // mode: 'run' | 'walk'
+    const [state, setState] = React.useState('idle'); // idle | running | paused | done
+    const [dist, setDist]   = React.useState(0);   // meters
+    const [elapsed, setElapsed] = React.useState(0); // seconds
+    const [gpsOk, setGpsOk] = React.useState(null);
+    const [msg, setMsg]     = React.useState('');
+    const pointsRef = React.useRef([]);        // {lat,lng,ts}
+    const distRef   = React.useRef(0);
+    const lastKmRef = React.useRef(0);
+    const runStartRef = React.useRef(0);
+    const pausedAccumRef = React.useRef(0);   // 누적 일시정지 시간
+    const pauseStartRef = React.useRef(0);
+    const mapRef = React.useRef(null);
+    const lineRef = React.useRef(null);
+    const markerRef = React.useRef(null);
+    const listenerRef = React.useRef(null);
+    const timerRef = React.useRef(null);
+    const stateRef = React.useRef('idle');
+    stateRef.current = state;
+
+    const RT = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.RunTracker : null;
+
+    // 지도 초기화
+    React.useEffect(() => {
+      if (!window.L) return;
+      const m = window.L.map('run-map', { zoomControl:false, attributionControl:false }).setView([37.5665,126.9780], 16);
+      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
+      lineRef.current = window.L.polyline([], { color:'#2F6BFF', weight:5, lineJoin:'round' }).addTo(m);
+      mapRef.current = m;
+      setTimeout(() => m.invalidateSize(), 200);
+      return () => { try { m.remove(); } catch {} };
+    }, []);
+
+    const onLocation = (pos) => {
+      if (!pos || pos.accuracy > 35) return; // 정확도 낮으면 무시
+      const p = { lat: pos.lat, lng: pos.lng, ts: pos.ts || Date.now() };
+      const pts = pointsRef.current;
+      if (pts.length) {
+        const d = haversine(pts[pts.length-1], p);
+        if (d < 1.5) return;             // 노이즈(정지 중 미세이동) 무시
+        distRef.current += d;
+        setDist(distRef.current);
+      }
+      pts.push(p);
+      // 지도 갱신
+      if (lineRef.current) lineRef.current.addLatLng([p.lat, p.lng]);
+      if (mapRef.current) {
+        mapRef.current.setView([p.lat, p.lng], mapRef.current.getZoom(), { animate:true });
+        if (!markerRef.current) {
+          markerRef.current = window.L.circleMarker([p.lat,p.lng], { radius:8, color:'#fff', weight:3, fillColor:'#2F6BFF', fillOpacity:1 }).addTo(mapRef.current);
+        } else markerRef.current.setLatLng([p.lat,p.lng]);
+      }
+      setGpsOk(true);
+      // km 음성 안내
+      const km = Math.floor(distRef.current / 1000);
+      if (km > lastKmRef.current) {
+        lastKmRef.current = km;
+        const secs = (Date.now() - runStartRef.current - pausedAccumRef.current) / 1000;
+        const pace = secs / (distRef.current/1000);
+        speak(`${km}킬로미터 통과. 평균 페이스 ${Math.floor(pace/60)}분 ${Math.round(pace%60)}초.`);
+      }
+    };
+
+    const attachListener = async () => {
+      if (RT) {
+        listenerRef.current = await RT.addListener('location', onLocation);
+      } else if (navigator.geolocation) {
+        const id = navigator.geolocation.watchPosition(
+          (p) => onLocation({ lat:p.coords.latitude, lng:p.coords.longitude, accuracy:p.coords.accuracy, ts:p.timestamp }),
+          () => {}, { enableHighAccuracy:true, maximumAge:1000, timeout:10000 });
+        listenerRef.current = { remove: () => navigator.geolocation.clearWatch(id) };
+      }
+    };
+    const detachListener = () => { try { listenerRef.current?.remove?.(); } catch {} listenerRef.current = null; };
+
+    const start = async () => {
+      setMsg('📍 GPS 신호 잡는 중...');
+      try {
+        if (RT) { await RT.requestPerm(); await RT.start(); }
+        await attachListener();
+        runStartRef.current = Date.now();
+        pausedAccumRef.current = 0;
+        setState('running'); setMsg('');
+        speak(mode === 'run' ? '달리기를 시작합니다.' : '걷기를 시작합니다.');
+        timerRef.current = setInterval(() => {
+          if (stateRef.current === 'running') {
+            setElapsed((Date.now() - runStartRef.current - pausedAccumRef.current) / 1000);
+          }
+        }, 1000);
+      } catch (e) { setMsg('❌ ' + (e?.message || 'GPS 시작 실패')); }
+    };
+    const pause = () => { pauseStartRef.current = Date.now(); setState('paused'); };
+    const resume = () => { pausedAccumRef.current += Date.now() - pauseStartRef.current; setState('running'); };
+    const finish = async () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      detachListener();
+      try { if (RT) await RT.stop(); } catch {}
+      setState('done');
+      speak('운동을 종료합니다. 수고하셨어요.');
+    };
+
+    React.useEffect(() => () => { // 언마운트 정리
+      if (timerRef.current) clearInterval(timerRef.current);
+      detachListener();
+      try { if (RT) RT.stop(); } catch {}
+    }, []);
+
+    const km = dist/1000;
+    const pace = km > 0 ? elapsed / km : 0; // 초/km
+    const speed = elapsed > 0 ? (km / (elapsed/3600)) : 0; // km/h
+
+    const doSave = () => {
+      onSave({
+        mode, distance_km: Math.round(km*100)/100,
+        duration_s: Math.round(elapsed),
+        pace_sec_per_km: Math.round(pace),
+        route: pointsRef.current.map(p => [Math.round(p.lat*1e5)/1e5, Math.round(p.lng*1e5)/1e5]),
+        ts: Date.now()
+      });
+      onClose();
+    };
+
+    const bigStat = (val, label, unit) => (
+      <div style={{ textAlign:'center', flex:1 }}>
+        <div style={{ fontFamily:'var(--font-title)', fontSize:'34px', fontWeight:'700', color:'#fff', lineHeight:1.05 }}>{val}<span style={{fontSize:'15px', fontWeight:'600', opacity:0.8}}> {unit}</span></div>
+        <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.7)', fontWeight:'600', marginTop:'2px' }}>{label}</div>
+      </div>
+    );
+
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:6000, background:'#0B1B3B', display:'flex', flexDirection:'column' }}>
+        {/* 지도 */}
+        <div style={{ position:'relative', flex:1, minHeight:0 }}>
+          <div id="run-map" style={{ position:'absolute', inset:0 }}></div>
+          <button onClick={state==='running'||state==='paused' ? null : onClose} disabled={state==='running'||state==='paused'}
+            style={{ position:'absolute', top:'calc(12px + env(safe-area-inset-top,0px))', left:'14px', zIndex:10,
+              background:'rgba(11,27,59,0.85)', color:'#fff', border:'none', borderRadius:'50%', width:'40px', height:'40px',
+              fontSize:'18px', cursor: state==='idle'||state==='done'?'pointer':'default', opacity: state==='running'||state==='paused'?0.4:1 }}>✕</button>
+          {msg && <div style={{ position:'absolute', top:'calc(14px + env(safe-area-inset-top,0px))', left:'50%', transform:'translateX(-50%)', zIndex:10, background:'rgba(11,27,59,0.9)', color:'#fff', padding:'8px 16px', borderRadius:'20px', fontSize:'13px', fontWeight:'600' }}>{msg}</div>}
+        </div>
+
+        {/* 하단 패널 */}
+        <div style={{ background:'linear-gradient(180deg,#0f2244,#0B1B3B)', padding:'20px 18px calc(24px + env(safe-area-inset-bottom,0px))', boxShadow:'0 -6px 24px rgba(0,0,0,0.4)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginBottom:'16px' }}>
+            <img src={mode==='run'?'icons/shoes.png':'icons/ic-steps.png'} style={{ width:'26px', height:'26px', objectFit:'contain' }} />
+            <span style={{ fontFamily:'var(--font-title)', fontSize:'17px', fontWeight:'700', color:'#fff' }}>{mode==='run'?'달리기':'걷기'}</span>
+          </div>
+          <div style={{ display:'flex', marginBottom:'18px' }}>
+            {bigStat(km.toFixed(2), '거리', 'km')}
+            {bigStat(fmtDur(elapsed), '시간', '')}
+            {bigStat(paceStr(pace), '평균 페이스', '/km')}
+          </div>
+
+          {state==='idle' && (
+            <button onClick={start} style={{ width:'100%', padding:'16px', background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'16px', fontSize:'17px', fontWeight:'800', cursor:'pointer' }}>
+              ▶ 시작
+            </button>
+          )}
+          {state==='running' && (
+            <button onClick={pause} style={{ width:'100%', padding:'16px', background:'var(--cn-warn)', color:'#fff', border:'none', borderRadius:'16px', fontSize:'17px', fontWeight:'800', cursor:'pointer' }}>
+              ⏸ 일시정지
+            </button>
+          )}
+          {state==='paused' && (
+            <div style={{ display:'flex', gap:'10px' }}>
+              <button onClick={resume} style={{ flex:1, padding:'16px', background:'var(--cn-ok)', color:'#fff', border:'none', borderRadius:'16px', fontSize:'16px', fontWeight:'800', cursor:'pointer' }}>▶ 계속</button>
+              <button onClick={finish} style={{ flex:1, padding:'16px', background:'var(--cn-danger)', color:'#fff', border:'none', borderRadius:'16px', fontSize:'16px', fontWeight:'800', cursor:'pointer' }}>■ 종료</button>
+            </div>
+          )}
+          {state==='done' && (
+            <div>
+              <div style={{ textAlign:'center', color:'#fff', fontSize:'15px', marginBottom:'12px' }}>
+                🎉 {km.toFixed(2)}km · {fmtDur(elapsed)} · 평균 {speed.toFixed(1)}km/h
+              </div>
+              <div style={{ display:'flex', gap:'10px' }}>
+                <button onClick={onClose} style={{ flex:1, padding:'14px', background:'rgba(255,255,255,0.15)', color:'#fff', border:'none', borderRadius:'14px', fontSize:'15px', fontWeight:'700', cursor:'pointer' }}>취소</button>
+                <button onClick={doSave} style={{ flex:2, padding:'14px', background:'var(--cn-brand)', color:'#fff', border:'none', borderRadius:'14px', fontSize:'15px', fontWeight:'800', cursor:'pointer' }}>운동 기록 저장</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const App = () => {
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
@@ -4950,6 +5164,7 @@
     const [showLibre, setShowLibre] = useState(false);
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
+    const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
     const [bleMsg, setBleMsg]   = useState('');
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
@@ -5517,6 +5732,15 @@
     const addExLog    = (type='') => { const logs = [...(day.exercise?.logs||[]), {type, mins:''}]; upDay({ exercise: {...(day.exercise||{}), logs} }); };
     const updateExLog = (i,k,v)  => { const logs = (day.exercise?.logs||[]).map((l,idx)=>idx===i?{...l,[k]:v}:l); upDay({ exercise: {...(day.exercise||{}), logs} }); };
     const removeExLog = (i)      => { const logs = (day.exercise?.logs||[]).filter((_,idx)=>idx!==i); upDay({ exercise: {...(day.exercise||{}), logs} }); };
+    // GPS 러닝/걷기 저장 — 운동 일지(logs)에 분 기록 + 상세(runs) 별도 보관
+    const saveRun = (r) => {
+      const mins = Math.max(1, Math.round(r.duration_s/60));
+      const label = r.mode === 'run' ? '달리기(GPS)' : '걷기(GPS)';
+      const ex = day.exercise || {};
+      const logs = [...(ex.logs||[]), { type: label, mins: String(mins) }];
+      const runs = [...(ex.runs||[]), r];
+      upDay({ exercise: { ...ex, logs, runs } });
+    };
 
     /* 가져오기: 기존 수동 입력 유지, 빈 슬롯만 채움 */
     const handleImport = async (importedData) => {
@@ -6964,6 +7188,31 @@
               <Card tab="record">
                 <STitle icon="icons/health1.png" label="활동 & 운동 기록" />
 
+                {/* GPS 러닝/걷기 트래커 시작 */}
+                <div style={{ display:'flex', gap:'10px', marginBottom:'14px' }}>
+                  <button onClick={() => setShowRun('run')}
+                    style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'14px', background:'linear-gradient(135deg,var(--cn-brand),var(--cn-brand-600))', color:'#fff', border:'none', borderRadius:'14px', cursor:'pointer', fontSize:'15px', fontWeight:'800', fontFamily:'var(--font-title)' }}>
+                    <img src="icons/shoes.png" style={{ width:'26px', height:'26px', objectFit:'contain' }} /> 달리기
+                  </button>
+                  <button onClick={() => setShowRun('walk')}
+                    style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'14px', background:'linear-gradient(135deg,var(--cn-ok),#0e9f6e)', color:'#fff', border:'none', borderRadius:'14px', cursor:'pointer', fontSize:'15px', fontWeight:'800', fontFamily:'var(--font-title)' }}>
+                    <img src="icons/ic-steps.png" style={{ width:'26px', height:'26px', objectFit:'contain' }} /> 걷기
+                  </button>
+                </div>
+                {(day.exercise?.runs||[]).length > 0 && (
+                  <div style={{ marginBottom:'14px' }}>
+                    {(day.exercise.runs).slice().reverse().map((r,i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', background:'var(--input-bg)', borderRadius:'12px', marginBottom:'6px', border:'1px solid var(--card-border)' }}>
+                        <img src={r.mode==='run'?'icons/shoes.png':'icons/ic-steps.png'} style={{ width:'30px', height:'30px', objectFit:'contain' }} />
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:'15px', fontWeight:'800', color:'var(--text)', fontFamily:'var(--font-title)' }}>{r.distance_km} km</div>
+                          <div style={{ fontSize:'12px', color:'var(--text-sub)' }}>{fmtDur(r.duration_s)} · 평균 {paceStr(r.pace_sec_per_km)}/km</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* 걸음수 / 칼로리 / 거리 카드 — 탭하면 직접 입력 */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'12px' }}>
                   {[
@@ -7197,6 +7446,7 @@
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
+        {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
         {/* Data Recovery Modal */}
         {showDataRecovery && (
