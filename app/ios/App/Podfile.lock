@@ -1,0 +1,40 @@
+PODS:
+  - Capacitor (6.2.1):
+    - CapacitorCordova
+  - CapacitorCordova (6.2.1)
+  - CapacitorLocalNotifications (6.1.3):
+    - Capacitor
+  - CarenoteGlucoseBle (1.0.0):
+    - Capacitor
+  - CarenoteHealth (1.0.0):
+    - Capacitor
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
+  - CarenoteGlucoseBle (from `../../plugins/glucose-ble`)
+  - CarenoteHealth (from `../../plugins/health-activity`)
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorCordova:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
+  CarenoteGlucoseBle:
+    :path: "../../plugins/glucose-ble"
+  CarenoteHealth:
+    :path: "../../plugins/health-activity"
+
+SPEC CHECKSUMS:
+  Capacitor: c95400d761e376be9da6be5a05f226c0e865cebf
+  CapacitorCordova: 8d93e14982f440181be7304aa9559ca631d77fff
+  CapacitorLocalNotifications: 801867e687c42dd2b33c1e22e08f48e6738d2f72
+  CarenoteGlucoseBle: d112198ed18598d0b1cfb4e3874e21c342520f21
+  CarenoteHealth: 6ccbc6cccfba2380f30e8fc1920375fbfed084e5
+
+PODFILE CHECKSUM: 586fe65453bac47953e1f1f333b5f80b3a49ea09
+
+COCOAPODS: 1.17.0
