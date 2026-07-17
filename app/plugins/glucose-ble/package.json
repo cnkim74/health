@@ -1,0 +1,10 @@
+{
+  "name": "carenote-glucose-ble",
+  "version": "1.0.0",
+  "description": "CARENOTE — 표준 블루투스 혈당기(GATT Glucose Service 0x1808) 리더. 아큐첵 가이드/인스탄트 등 호환.",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["ios/", "index.js", "CarenoteGlucoseBle.podspec"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=6.0.0" }
+}

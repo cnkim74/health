@@ -104,6 +104,28 @@ Xcode에서 (최초 1회):
 첫 실행 시 건강 데이터 접근 허용 팝업 → **모두 허용**.
 이후 앱을 열 때마다 오늘의 걸음수·칼로리(활동+기초)·거리가 자동으로 대시보드에 반영됩니다.
 
+## Phase: 블루투스 혈당기 연동 (아큐첵 가이드 등)
+
+표준 Bluetooth Glucose Service(0x1808)를 지원하는 혈당기의 저장 기록을 읽습니다.
+
+```bash
+cd ~/Documents/health && git pull
+cd app
+npm install                 # carenote-glucose-ble 로컬 플러그인 설치
+bash sync-www.sh
+npx cap sync ios
+
+# Info.plist에 블루투스 사용 목적 문구 추가 (최초 1회)
+/usr/libexec/PlistBuddy -c "Add :NSBluetoothAlwaysUsageDescription string '혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.'" ios/App/App/Info.plist
+/usr/libexec/PlistBuddy -c "Add :NSBluetoothPeripheralUsageDescription string '혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.'" ios/App/App/Info.plist
+
+npx cap open ios
+```
+
+Xcode에서 **Product → Clean Build Folder** 후 **Cmd + R**.
+
+사용법: 혈당 기록 카드의 **"📲 혈당기에서 가져오기"** 버튼 → 혈당기 블루투스(동기화 모드) 켜기 → 첫 연결 시 페어링 PIN 입력 → 저장된 기록 자동 반영.
+
 ## 알아둘 것
 
 - **이메일 로그인**은 앱 안에서 바로 작동합니다.

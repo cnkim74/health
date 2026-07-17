@@ -4855,6 +4855,9 @@
     /* ── LibreLinkUp (리브레 CGM 자동 수집) ── */
     const [lluLatest, setLluLatest] = useState(null);
     const [showLibre, setShowLibre] = useState(false);
+    /* ── 아큐첵 등 블루투스 혈당기 ── */
+    const [bleBusy, setBleBusy] = useState(false);
+    const [bleMsg, setBleMsg]   = useState('');
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -5531,6 +5534,38 @@
     const syncLibreRef = useRef(null);
     syncLibreRef.current = syncLibre;
 
+    /* ── 블루투스 혈당기(아큐첵 가이드 등 표준 GATT) 읽기 ── */
+    const readBleGlucose = async () => {
+      const BLE = (window.Capacitor?.isNativePlatform?.())
+        ? window.Capacitor.Plugins?.GlucoseBle : null;
+      if (!BLE) { setBleMsg('블루투스 혈당기 연결은 앱에서만 지원됩니다.'); return; }
+      if (bleBusy) return;
+      setBleBusy(true);
+      setBleMsg('🔍 혈당기를 찾는 중... 혈당기의 블루투스(동기화)를 켜 주세요');
+      try {
+        await BLE.requestPerm();
+        const res = await BLE.scanAndRead({ timeout: 25 });
+        const rs = res?.readings || [];
+        if (!rs.length) { setBleMsg('연결됐지만 새 기록이 없어요.'); setBleBusy(false); return; }
+        const byDay = {};
+        rs.forEach(r => {
+          const d = new Date(r.ts);
+          if (isNaN(d.getTime()) || !(r.mgdl > 0)) return;
+          const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          (byDay[day] = byDay[day] || []).push({ hour: d.getHours() + d.getMinutes()/60, value: Math.round(r.mgdl) });
+        });
+        if (Object.keys(byDay).length && handleImportRef.current) {
+          const mapped = buildDashboardData({ glucoseByDay: byDay });
+          await handleImportRef.current(mapped);
+        }
+        setBleMsg(`✅ ${res.device || '혈당기'}에서 ${rs.length}건을 가져왔어요!`);
+        setTimeout(() => setBleMsg(''), 4000);
+      } catch (e) {
+        setBleMsg('❌ ' + (e?.message || '혈당기 연결 실패'));
+      }
+      setBleBusy(false);
+    };
+
     // 자동 동기화: 로그인 후 즉시 + 화면 켜져 있으면 90초마다(실시간) + 백그라운드는 폴링 중단
     // 리브레 CGM은 1분마다 갱신되므로 포그라운드에서 촘촘히, 백그라운드에선 배터리 절약
     useEffect(() => {
@@ -6086,6 +6121,19 @@
                     </div>
                   ))}
                 </div>
+                {/* 블루투스 혈당기 가져오기 (앱 전용) */}
+                {_isNativeApp && (
+                  <div style={{ marginBottom:'14px' }}>
+                    <button onClick={readBleGlucose} disabled={bleBusy}
+                      style={{ width:'100%', padding:'11px', background: bleBusy ? 'var(--card-border)' : 'var(--cn-brand-100)',
+                        border:'1px solid var(--cn-brand)', color:'var(--cn-brand)', borderRadius:'10px',
+                        cursor: bleBusy ? 'default' : 'pointer', fontSize:'14px', fontWeight:'700',
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
+                      {bleBusy ? '🔄 연결 중...' : '📲 혈당기에서 가져오기 (아큐첵 등 블루투스)'}
+                    </button>
+                    {bleMsg && <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'6px', lineHeight:1.5, textAlign:'center' }}>{bleMsg}</div>}
+                  </div>
+                )}
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'10px' }}>
                   {BS_FIELDS.map(f => {
                     const v = day.bs[f.id] || ''; const c = bsColor(v);
