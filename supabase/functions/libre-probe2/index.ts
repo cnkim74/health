@@ -1,10 +1,11 @@
-// CARENOTE — LibreView 웹(lv) API 자동수집 진단 probe2 (v2: JWT에서 id 추출)
+// CARENOTE — LibreView 웹(lv) API 자동수집 진단 probe2 (v3: 약관동의 continue 처리)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+const AP = "https://api-ap.libreview.io";
 const H = (token?: string, acc?: string): Record<string, string> => ({
   "accept": "application/json, text/plain, */*",
   "cache-control": "no-cache",
@@ -20,18 +21,17 @@ async function sha256(s: string) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
-function decodeJwt(token: string): any {
+function jwtId(token: string): string | null {
   try {
     let b = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     while (b.length % 4) b += "=";
-    const bytes = Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-    return JSON.parse(new TextDecoder().decode(bytes));
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0)))).id ?? null;
   } catch { return null; }
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  const out: any = {};
+  const out: any = { flow: [] };
   const reply = () =>
     new Response(JSON.stringify(out, null, 2), { headers: { ...cors, "Content-Type": "application/json" } });
   try {
@@ -46,37 +46,44 @@ serve(async (req) => {
     if (!email || !password) { out.error = "email/password 필요"; return reply(); }
 
     // 로그인
-    const r = await fetch("https://api-ap.libreview.io/auth/login", {
-      method: "POST", headers: H(), body: JSON.stringify({ email, password }),
-    });
-    const j = await r.json().catch(() => ({}));
-    const token = j?.data?.authTicket?.token || j?.data?.token || null;
-    out.loginStatus = j?.status;
-    out.hasToken = !!token;
-    if (!token) { out.verdict = "❌ 토큰 없음"; out.dataKeys = Object.keys(j?.data || {}).slice(0, 10); return reply(); }
+    let r = await fetch(`${AP}/auth/login`, { method: "POST", headers: H(), body: JSON.stringify({ email, password }) });
+    let j = await r.json().catch(() => ({}));
+    let token: string | null = j?.data?.authTicket?.token || j?.data?.token || null;
+    out.flow.push({ step: "login", status: j?.status, hasToken: !!token, stepType: j?.data?.step?.type ?? null,
+      dataKeys: Object.keys(j?.data || {}).slice(0, 12) });
 
-    // JWT에서 id 추출 → account-id = sha256(id)
-    const claims = decodeJwt(token) || {};
-    out.jwt = { id: claims.id ?? null, region: claims.region ?? null, role: claims.role ?? null, country: claims.country ?? null };
-    const accountId = claims.id ? await sha256(claims.id) : "";
+    // 약관동의 continue 루프 (status 4 = 문서 동의 필요)
+    let guard = 0;
+    while (j?.status === 4 && token && guard < 4) {
+      guard++;
+      const stepType = j?.data?.step?.type || "tou";
+      const rc = await fetch(`${AP}/auth/continue/${stepType}`, { method: "POST", headers: H(token), body: "{}" });
+      j = await rc.json().catch(() => ({}));
+      token = j?.data?.authTicket?.token || j?.data?.token || token;
+      out.flow.push({ step: `continue/${stepType}`, http: rc.status, status: j?.status,
+        nextStep: j?.data?.step?.type ?? null, hasToken: !!token });
+    }
+    out.finalStatus = j?.status;
+    if (!token) { out.verdict = "❌ 토큰 없음"; return reply(); }
+
+    const id = jwtId(token);
+    const accountId = id ? await sha256(id) : "";
     out.accountIdComputed = !!accountId;
 
     // glucoseHistory
-    const gh = `https://api-ap.libreview.io/patients/${patientId}/glucoseHistory?numPeriods=5&period=14`;
+    const gh = `${AP}/patients/${patientId}/glucoseHistory?numPeriods=5&period=14`;
     const rg = await fetch(gh, { headers: H(token, accountId) });
     const jg = await rg.json().catch(() => ({}));
     out.glucoseHTTP = rg.status;
-    out.glucoseTopKeys = Object.keys(jg || {}).slice(0, 12);
     const d = jg?.data ?? jg;
     out.dataType = Array.isArray(d) ? "array" : typeof d;
-    if (Array.isArray(d)) {
-      out.dataLen = d.length; out.sample = d.slice(0, 2);
-    } else if (d && typeof d === "object") {
+    if (Array.isArray(d)) { out.dataLen = d.length; out.sample = d.slice(0, 2); }
+    else if (d && typeof d === "object") {
       out.dataKeys = Object.keys(d).slice(0, 20);
       for (const k of Object.keys(d)) {
         if (Array.isArray((d as any)[k])) {
           out[`arr_${k}_len`] = (d as any)[k].length;
-          if (!out.firstArraySample) { out.firstArrayKey = k; out.firstArraySample = (d as any)[k].slice(0, 2); }
+          if (!out.firstArraySample) { out.firstArrayKey = k; out.firstArraySample = (d as any)[k].slice(0, 3); }
         }
       }
     }
