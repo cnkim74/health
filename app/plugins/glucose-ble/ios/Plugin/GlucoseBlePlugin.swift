@@ -28,7 +28,13 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     // 표준 UUID
     private let glucoseService   = CBUUID(string: "1808")
     private let cMeasurement     = CBUUID(string: "2A18") // Glucose Measurement (notify)
+    private let cFeature         = CBUUID(string: "2A51") // Glucose Feature (read, 암호화 → 페어링 트리거)
     private let cRACP            = CBUUID(string: "2A52") // Record Access Control Point (write+indicate)
+
+    private var measureChar: CBCharacteristic?
+    private var racpChar: CBCharacteristic?
+    private var featureChar: CBCharacteristic?
+    private var paired = false
 
     private func ensureCentral() {
         if central == nil {
@@ -49,6 +55,8 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
         self.readings = []
         self.deviceName = ""
         self.finished = false
+        self.paired = false
+        self.measureChar = nil; self.racpChar = nil; self.featureChar = nil
         ensureCentral()
         // 블루투스가 켜져 있으면 즉시 스캔, 아니면 centralManagerDidUpdateState에서 시작
         if central.state == .poweredOn { startScan() }
@@ -123,19 +131,28 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
         guard let svc = p.services?.first(where: { $0.uuid == glucoseService }) else {
             fail("이 기기는 표준 혈당 서비스를 지원하지 않아요."); return
         }
-        p.discoverCharacteristics([cMeasurement, cRACP], for: svc)
+        p.discoverCharacteristics([cMeasurement, cFeature, cRACP], for: svc)
     }
 
     public func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let chars = service.characteristics else { fail("특성 탐색 실패"); return }
-        var measure: CBCharacteristic?
-        var racp: CBCharacteristic?
         for c in chars {
-            if c.uuid == cMeasurement { measure = c }
-            if c.uuid == cRACP { racp = c }
+            if c.uuid == cMeasurement { measureChar = c }
+            if c.uuid == cRACP { racpChar = c }
+            if c.uuid == cFeature { featureChar = c }
         }
-        guard let m = measure, let r = racp else { fail("혈당 특성을 찾지 못했어요."); return }
-        // 측정값 알림 구독 → RACP 지시 구독 → 전체 기록 요청
+        guard measureChar != nil, racpChar != nil else { fail("혈당 특성을 찾지 못했어요."); return }
+        // ① 먼저 암호화된 Feature 특성을 읽어 페어링(passkey) 팝업을 확실히 띄움
+        if let f = featureChar {
+            p.readValue(for: f)
+        } else {
+            // Feature 없으면 바로 구독으로 진행 (구독 시 페어링 트리거)
+            subscribeAndRequest(p)
+        }
+    }
+
+    private func subscribeAndRequest(_ p: CBPeripheral) {
+        guard let m = measureChar, let r = racpChar else { return }
         p.setNotifyValue(true, for: m)
         p.setNotifyValue(true, for: r)
     }
@@ -143,13 +160,21 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     public func peripheral(_ p: CBPeripheral, didUpdateNotificationStateFor c: CBCharacteristic, error: Error?) {
         // RACP 구독 완료 후 "저장된 모든 기록 보고" 명령 전송
         if c.uuid == cRACP, c.isNotifying, error == nil {
-            // Op Code 0x01 (Report stored records), Operator 0x01 (All records)
-            let cmd = Data([0x01, 0x01])
+            let cmd = Data([0x01, 0x01]) // Op 0x01(Report stored records), Operator 0x01(All)
             p.writeValue(cmd, for: c, type: .withResponse)
         }
     }
 
     public func peripheral(_ p: CBPeripheral, didUpdateValueFor c: CBCharacteristic, error: Error?) {
+        // Feature 읽기 성공 = 페어링 완료 → 이제 구독+기록요청 시작
+        if c.uuid == cFeature {
+            if let e = error {
+                fail("페어링에 실패했어요: \(e.localizedDescription). 혈당기에 표시된 코드를 아이폰 팝업에 입력해 주세요.")
+                return
+            }
+            if !paired { paired = true; subscribeAndRequest(p) }
+            return
+        }
         if error != nil { return }
         guard let data = c.value else { return }
         if c.uuid == cMeasurement {
