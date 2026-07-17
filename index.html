@@ -2602,8 +2602,16 @@
         {/* Hero */}
         <section style={heroBg}>
           <div style={{ maxWidth:'860px', margin:'0 auto', position:'relative', zIndex:1 }}>
-            <div style={{ display:'inline-block', background:'rgba(255,255,255,0.15)', padding:'5px 14px', borderRadius:'20px', fontSize:'12px', fontWeight:700, letterSpacing:'0.5px', marginBottom:'18px' }}>
-              CARENOTE — 내 몸을 기록하는 노트
+            {/* 마스코트 */}
+            <div style={{ display:'inline-flex', width:'160px', height:'160px', borderRadius:'50%', overflow:'hidden', marginBottom:'16px',
+                          background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 80%)', alignItems:'center', justifyContent:'center',
+                          boxShadow:'0 12px 34px rgba(0,0,0,0.28)' }}>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'150px', height:'150px', objectFit:'cover', objectPosition:'center top' }}/>
+            </div>
+            <div style={{ display:'block', marginBottom:'14px' }}>
+              <span style={{ display:'inline-block', background:'rgba(255,255,255,0.15)', padding:'5px 14px', borderRadius:'20px', fontSize:'12px', fontWeight:700, letterSpacing:'0.5px' }}>
+                CARENOTE — 내 몸을 기록하는 노트
+              </span>
             </div>
             <h1 style={{ fontSize:'34px', fontWeight:900, lineHeight:1.25, marginBottom:'14px', letterSpacing:'-0.8px' }}>
               건강과 복약, 매일을 가볍게<br/>
@@ -2859,19 +2867,20 @@
           )}
 
           {/* 로고 영역 */}
-          <div style={{ textAlign:'center', marginBottom:'32px' }}>
+          <div style={{ textAlign:'center', marginBottom:'28px' }}>
+            {/* 마스코트 캐릭터 */}
             <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center',
-                          background:'linear-gradient(135deg,#0f172a,#1e3a5f)',
-                          borderRadius:'20px', padding:'14px', marginBottom:'16px',
-                          boxShadow:'0 8px 24px rgba(15,23,42,0.4)' }}>
-              <CareNoteLogo size={48} />
+                          width:'150px', height:'150px', borderRadius:'50%',
+                          background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 75%, #e2e9f5 100%)',
+                          marginBottom:'14px', boxShadow:'0 10px 30px rgba(15,23,42,0.35)', overflow:'hidden' }}>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'138px', height:'138px', objectFit:'cover', objectPosition:'center top' }}/>
             </div>
-            <div style={{ fontSize:'26px', fontWeight:'900', letterSpacing:'2px',
+            <div style={{ fontSize:'28px', fontWeight:'900', letterSpacing:'2px',
                           background:'linear-gradient(90deg,var(--cn-brand),var(--cn-ok))',
                           WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
                           marginBottom:'6px' }}>CARENOTE</div>
-            <div style={{ fontSize:'13px', color: dm ? 'rgba(148,163,184,0.9)' : 'var(--text-sub)',
-                          fontWeight:'500', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
+            <div style={{ fontSize:'14px', color: dm ? 'rgba(148,163,184,0.9)' : 'var(--text-sub)',
+                          fontWeight:'600', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
           </div>
 
           {/* 단축어 데이터 수신 알림 */}
@@ -6068,8 +6077,11 @@
                 </div>
                 {medsConfig.length === 0 && (
                   <div style={{ textAlign:'center', padding:'28px 16px', background:'var(--input-bg)', borderRadius:'12px', border:'1.5px dashed var(--card-border)' }}>
-                    <div style={{ fontSize:'32px', marginBottom:'10px' }}>💊</div>
-                    <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)', marginBottom:'6px' }}>복약 정보가 없어요</div>
+                    <div style={{ display:'inline-flex', width:'104px', height:'104px', borderRadius:'50%', overflow:'hidden', marginBottom:'8px',
+                                  background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 80%)', alignItems:'center', justifyContent:'center' }}>
+                      <img src="mascot.png" alt="" style={{ width:'96px', height:'96px', objectFit:'cover', objectPosition:'center top' }}/>
+                    </div>
+                    <div style={{ fontSize:'16px', fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>복약 정보가 없어요</div>
                     <div style={{ fontSize:'13px', color:'var(--text-sub)', marginBottom:'14px' }}>복용 중인 약을 등록하면 매일 체크할 수 있어요</div>
                     <button onClick={() => (() => {
                 // 모달 열기 전 — medsConfig가 비어있고 localStorage에 데이터 있으면 먼저 복구

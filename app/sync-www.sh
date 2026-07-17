@@ -9,5 +9,6 @@ cp ../index.html          www/index.html
 cp ../favicon.ico         www/favicon.ico
 cp ../favicon-192.png     www/favicon-192.png
 cp ../apple-touch-icon.png www/apple-touch-icon.png
+cp ../mascot.png          www/mascot.png
 
 echo "✅ www 폴더 동기화 완료"
