@@ -3391,11 +3391,14 @@
           </div>
 
           <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.7, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'14px', border:'1px solid var(--card-border)' }}>
-            <strong>사전 준비 (최초 1회)</strong><br/>
-            ① 앱스토어에서 <strong>LibreLinkUp</strong> 앱 설치 → 계정 생성<br/>
-            ② <strong>리브레(LibreLink) 앱</strong> → 공유 → 연결된 앱 → LibreLinkUp에서 위 계정 초대<br/>
-            ③ LibreLinkUp 앱에서 초대 수락<br/>
-            ④ 아래에 LibreLinkUp 계정 입력 → 연동
+            <strong>사전 준비 (최초 1회만)</strong><br/>
+            ① <strong>libreview.com</strong>에서 두 번째 계정 생성 (웹, 앱 불필요)<br/>
+            ② <strong>리브레(LibreLink) 앱</strong> → 공유 → 위 두 번째 계정 이메일 초대<br/>
+            ③ 초대 수락 (딱 한 번) — 아래 중 하나:<br/>
+            &nbsp;&nbsp;• 안드로이드 폰: Google Play에서 LibreLinkUp 설치 후 수락<br/>
+            &nbsp;&nbsp;• 아이폰만: App Store 국가를 잠깐 미국으로 바꿔 무료 LibreLinkUp 설치·수락 후 원복<br/>
+            ④ 아래에 <strong>두 번째 계정</strong> 로그인 정보 입력<br/>
+            <span style={{ color:'var(--cn-brand)', fontWeight:700 }}>→ 이후 LibreLinkUp 앱은 다시 안 켜도 자동 수집됩니다</span>
           </div>
 
           <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>LibreLinkUp 이메일</div>
@@ -5528,15 +5531,19 @@
     const syncLibreRef = useRef(null);
     syncLibreRef.current = syncLibre;
 
-    // 자동 동기화: 로그인 후 즉시 + 15분마다 + 화면 복귀 시
+    // 자동 동기화: 로그인 후 즉시 + 화면 켜져 있으면 90초마다(실시간) + 백그라운드는 폴링 중단
+    // 리브레 CGM은 1분마다 갱신되므로 포그라운드에서 촘촘히, 백그라운드에선 배터리 절약
     useEffect(() => {
       if (!userId) return;
-      const run = () => { if (document.visibilityState === 'visible') syncLibreRef.current?.({ silent: true }); };
-      run();
-      const timer = setInterval(run, 15 * 60 * 1000);
-      const onVis = () => { if (document.visibilityState === 'visible') run(); };
+      if (!localStorage.getItem('cn_llu_cred')) return; // 연동 안 했으면 폴링 안 함
+      let timer = null;
+      const tick = () => { if (document.visibilityState === 'visible') syncLibreRef.current?.({ silent: true }); };
+      const start = () => { if (timer) return; tick(); timer = setInterval(tick, 90 * 1000); };
+      const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
+      const onVis = () => { document.visibilityState === 'visible' ? start() : stop(); };
+      if (document.visibilityState === 'visible') start();
       document.addEventListener('visibilitychange', onVis);
-      return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVis); };
+      return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
     }, [userId]);
 
     /* ── 복약 설정 로드 ──────────────────────────────────────────────────────
