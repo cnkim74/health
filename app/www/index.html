@@ -274,7 +274,7 @@
   .dash-score-row { display: flex; align-items: center; gap: 6px; }
   .dash-score-bar-bg { flex: 1; height: 5px; background: var(--bg-soft); border-radius: 3px; border: 1px solid var(--card-border); overflow: hidden; }
   .dash-score-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
-  .dash-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .dash-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 18px 14px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
   .dash-metric-head { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-bottom: 2px; }
   .dash-metric-emoji { font-size: 30px; line-height: 1; }
@@ -312,7 +312,7 @@
       border-radius: 14px !important;
     }
     .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
-    .dash-metric-grid { gap: 10px !important; margin-bottom: 12px !important; }
+    .dash-metric-grid { gap: 12px !important; margin-bottom: 14px !important; }
     .dash-metric-card { padding: 14px 14px !important; border-radius: 14px !important; gap: 4px !important; }
     /* 어르신 접근성: 핵심 수치·라벨 키움 */
     .dash-metric-emoji { font-size: 24px !important; }
@@ -4415,12 +4415,12 @@
         {/* 종합 점수 */}
         {r.scoreGrade && (
           <div style={{ background:`linear-gradient(135deg, ${r.scoreGrade.color}22, ${r.scoreGrade.color}11)`,
-            border:`1.5px solid ${r.scoreGrade.color}44`, borderRadius:'14px', padding:'16px', marginBottom:'16px', textAlign:'center' }}>
-            <div style={{ fontSize:'36px', marginBottom:'4px' }}>{r.scoreGrade.emoji}</div>
-            <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>종합 건강 지수</div>
-            <div style={{ fontSize:'42px', fontWeight:'900', color:r.scoreGrade.color, lineHeight:1.1 }}>{r.totalScore}<span style={{fontSize:'18px'}}>점</span></div>
-            <div style={{ fontSize:'14px', fontWeight:'700', color:r.scoreGrade.color, marginTop:'4px' }}>{r.scoreGrade.label}</div>
-            <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'6px' }}>최근 30일 {r.last30Len}일 기준</div>
+            border:`1.5px solid ${r.scoreGrade.color}44`, borderRadius:'18px', padding:'26px 16px 22px', marginBottom:'16px', textAlign:'center' }}>
+            <img src="icons/trophy.png" alt="" style={{ width:'110px', height:'110px', objectFit:'contain', marginBottom:'6px', filter:'drop-shadow(0 6px 12px rgba(11,27,59,0.15))' }} />
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'15px', color:'var(--text-sub)', fontWeight:'700' }}>종합 건강 지수</div>
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'64px', fontWeight:'700', color:r.scoreGrade.color, lineHeight:1.05, letterSpacing:'-1px' }}>{r.totalScore}<span style={{fontSize:'24px', fontWeight:'700'}}>점</span></div>
+            <div style={{ display:'inline-block', fontSize:'16px', fontWeight:'800', color:'#fff', background:r.scoreGrade.color, borderRadius:'20px', padding:'5px 18px', marginTop:'6px' }}>{r.scoreGrade.label}</div>
+            <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'10px' }}>최근 30일 {r.last30Len}일 기준</div>
           </div>
         )}
 
