@@ -21,9 +21,17 @@ public class HealthActivityPlugin: CAPPlugin {
                       .activeEnergyBurned,
                       .basalEnergyBurned,
                       .distanceWalkingRunning,
-                      .bloodGlucose] {
+                      .bloodGlucose,
+                      .bodyMass,
+                      .bodyFatPercentage,
+                      .heartRate,
+                      .restingHeartRate,
+                      .heartRateVariabilitySDNN,
+                      .dietaryWater] {
             if let t = HKObjectType.quantityType(forIdentifier: ident) { set.insert(t) }
         }
+        if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { set.insert(sleep) }
+        if #available(iOS 14.0, *) { set.insert(HKObjectType.electrocardiogramType()) }
         return set
     }
 
@@ -124,5 +132,95 @@ public class HealthActivityPlugin: CAPPlugin {
             call.resolve(["readings": readings])
         }
         store.execute(query)
+    }
+
+    // 최신 샘플 1개 값
+    private func latest(_ ident: HKQuantityTypeIdentifier, _ unit: HKUnit, _ cb: @escaping (Double?) -> Void) {
+        guard let qt = HKQuantityType.quantityType(forIdentifier: ident) else { cb(nil); return }
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        let q = HKSampleQuery(sampleType: qt, predicate: nil, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
+            cb((samples?.first as? HKQuantitySample)?.quantity.doubleValue(for: unit))
+        }
+        store.execute(q)
+    }
+    // 오늘 합계
+    private func todaySum(_ ident: HKQuantityTypeIdentifier, _ unit: HKUnit, _ cb: @escaping (Double) -> Void) {
+        guard let qt = HKQuantityType.quantityType(forIdentifier: ident) else { cb(0); return }
+        let start = Calendar.current.startOfDay(for: Date())
+        let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let q = HKStatisticsQuery(quantityType: qt, quantitySamplePredicate: pred, options: .cumulativeSum) { _, s, _ in
+            cb(s?.sumQuantity()?.doubleValue(for: unit) ?? 0)
+        }
+        store.execute(q)
+    }
+
+    /**
+     * 바이탈: 체중·체지방·안정시심박·최근심박·HRV·물섭취(오늘 mL)·수면(어젯밤 시간)
+     */
+    @objc public func getVitals(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else { call.resolve([:]); return }
+        var r = [String: Any]()
+        let lock = NSLock(); let group = DispatchGroup()
+        func put(_ k: String, _ v: Double?) { if let v = v { lock.lock(); r[k] = v; lock.unlock() } }
+
+        group.enter(); latest(.bodyMass, .gramUnit(with: .kilo)) { put("weight", $0.map { ($0*10).rounded()/10 }); group.leave() }
+        group.enter(); latest(.bodyFatPercentage, .percent()) { put("bodyFat", $0.map { ($0*100*10).rounded()/10 }); group.leave() }
+        group.enter(); latest(.restingHeartRate, HKUnit.count().unitDivided(by: .minute())) { put("restingHR", $0.map { $0.rounded() }); group.leave() }
+        group.enter(); latest(.heartRate, HKUnit.count().unitDivided(by: .minute())) { put("hr", $0.map { $0.rounded() }); group.leave() }
+        group.enter(); latest(.heartRateVariabilitySDNN, .secondUnit(with: .milli)) { put("hrv", $0.map { $0.rounded() }); group.leave() }
+        group.enter(); todaySum(.dietaryWater, .literUnit(with: .milli)) { put("waterMl", $0.rounded()); group.leave() }
+
+        // 수면: 어젯밤(어제 18시 ~ 지금) asleep 시간 합산
+        group.enter()
+        if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
+            let cal = Calendar.current
+            let start = cal.date(byAdding: .hour, value: -18, to: cal.startOfDay(for: Date())) ?? Date()
+            let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: [])
+            let q = HKSampleQuery(sampleType: sleepType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                var asleep: TimeInterval = 0
+                for s in (samples as? [HKCategorySample]) ?? [] {
+                    // inBed(0), awake(2) 제외한 나머지를 수면으로
+                    if s.value != HKCategoryValueSleepAnalysis.inBed.rawValue &&
+                       !(s.value == 2) {
+                        asleep += s.endDate.timeIntervalSince(s.startDate)
+                    }
+                }
+                put("sleepHours", (asleep/3600*10).rounded()/10)
+                group.leave()
+            }
+            store.execute(q)
+        } else { group.leave() }
+
+        group.notify(queue: .main) { call.resolve(r) }
+    }
+
+    /**
+     * 최근 심전도(ECG) 분류·평균심박 (iOS 14+)
+     * 반환: { available, classification, avgHR, ts }
+     */
+    @objc public func getECG(_ call: CAPPluginCall) {
+        guard #available(iOS 14.0, *) else { call.resolve(["available": false]); return }
+        let ecgType = HKObjectType.electrocardiogramType()
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        let q = HKSampleQuery(sampleType: ecgType, predicate: nil, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
+            guard let ecg = samples?.first as? HKElectrocardiogram else { call.resolve(["available": false]); return }
+            let cls: String
+            switch ecg.classification {
+            case .sinusRhythm: cls = "정상 동리듬"
+            case .atrialFibrillation: cls = "심방세동 의심"
+            case .inconclusiveLowHeartRate: cls = "낮은 심박(판정불가)"
+            case .inconclusiveHighHeartRate: cls = "높은 심박(판정불가)"
+            case .inconclusivePoorReading, .inconclusiveOther: cls = "판정 불가"
+            case .notSet: cls = "미분류"
+            default: cls = "기타"
+            }
+            var avg: Double? = nil
+            if let hr = ecg.averageHeartRate { avg = hr.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
+            let iso = ISO8601DateFormatter()
+            call.resolve(["available": true, "classification": cls,
+                          "avgHR": avg.map { Int($0.rounded()) } as Any,
+                          "ts": iso.string(from: ecg.endDate)])
+        }
+        store.execute(q)
     }
 }

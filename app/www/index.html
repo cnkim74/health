@@ -428,7 +428,7 @@
   const bsColor = (v) => { const n=parseInt(v); if(!n) return 'var(--text-mute)'; if(n<70) return 'var(--cn-low)'; if(n<=140) return 'var(--cn-ok)'; if(n<=180) return 'var(--cn-warn)'; return 'var(--cn-danger)'; };
   const bsLabel = (v) => { const n=parseInt(v); if(!n) return ''; if(n<70) return '저혈당'; if(n<=140) return '정상'; if(n<=180) return '주의'; return '높음'; };
   const median  = (arr) => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
-  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, extraMeals:[], exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', bcal:'', dist:'', weight:'', bodyFat:'', note:'' });
+  const emptyDay = () => ({ meds:{}, bs:{}, bp:{sys:'',dia:''}, meals:{}, extraMeals:[], exercise:{type:'',mins:'',logs:[]}, steps:'', cal:'', bcal:'', dist:'', weight:'', bodyFat:'', water_ml:'', note:'' });
 
   // 부분 구조 데이터를 emptyDay와 안전하게 병합 (localStorage/Supabase에서 읽은 데이터 정규화용)
   const normalizeDay = (d) => {
@@ -5248,6 +5248,8 @@
     useEffect(() => { medsConfigRef.current = medsConfig; }, [medsConfig]);
     /* ── LibreLinkUp (리브레 CGM 자동 수집) ── */
     const [lluLatest, setLluLatest] = useState(null);
+    const [vitals, setVitals] = useState({}); // {weight,bodyFat,restingHR,hr,hrv,waterMl,sleepHours}
+    const [ecg, setEcg] = useState(null);
     const [showLibre, setShowLibre] = useState(false);
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
@@ -5862,6 +5864,31 @@
               await handleImportRef.current(mapped);
             }
           } catch (ge) { console.log('HealthKit glucose skip:', ge?.message || ge); }
+
+          // ── 바이탈(체중·체지방·심박·HRV·수면·물) + 심전도 ──
+          try {
+            const v = await HK.getVitals();
+            if (!cancelled && v) {
+              setVitals(prev => ({ ...prev, ...v, at: Date.now() }));
+              // 체중·체지방 오늘 값이 비어있으면 HealthKit 값으로 채움
+              const t = todayStr();
+              setData(prev => {
+                const cur = { ...emptyDay(), ...(prev[t] || {}) };
+                const patch = {};
+                if (v.weight && !cur.weight)  patch.weight  = String(v.weight);
+                if (v.bodyFat && !cur.bodyFat) patch.bodyFat = String(v.bodyFat);
+                if (v.waterMl != null) patch.water_ml = String(Math.round(v.waterMl)); // HealthKit 물섭취 반영
+                if (!Object.keys(patch).length) return prev;
+                const merged = { ...cur, ...patch };
+                try { supa.from('diabetes_data').upsert({ user_id: userId, date: t, payload: merged, updated_at: new Date().toISOString() }, { onConflict:'user_id,date' }).then(()=>{}); } catch {}
+                return { ...prev, [t]: merged };
+              });
+            }
+          } catch (ve) { console.log('HealthKit vitals skip:', ve?.message || ve); }
+          try {
+            const e2 = await HK.getECG();
+            if (!cancelled && e2?.available) setEcg({ ...e2, at: Date.now() });
+          } catch {}
         } catch (e) { console.log('HealthKit sync skip:', e?.message || e); }
       };
 
@@ -6437,6 +6464,91 @@
                       </div>
                     </div>
                   </div>
+                );
+              })()}
+
+              {/* 건강 신호 (HealthKit 바이탈: 심박·HRV·수면·심전도) */}
+              {(vitals.hr || vitals.restingHR || vitals.hrv || vitals.sleepHours || ecg) && (() => {
+                const sleepScore = vitals.sleepHours ? Math.max(0, Math.min(100, Math.round(100 - Math.abs(vitals.sleepHours - 8) * 15))) : null;
+                // 위험지수: 안정시심박 높을수록·HRV 낮을수록 위험 (0~100, 낮을수록 좋음)
+                let risk = null;
+                if (vitals.restingHR || vitals.hrv) {
+                  let r = 0, n = 0;
+                  if (vitals.restingHR) { r += Math.max(0, Math.min(100, (vitals.restingHR - 55) * 2.5)); n++; }
+                  if (vitals.hrv)       { r += Math.max(0, Math.min(100, (60 - vitals.hrv) * 1.6)); n++; }
+                  risk = n ? Math.round(r/n) : null;
+                }
+                const riskLabel = risk==null ? '' : risk < 30 ? '양호' : risk < 60 ? '주의' : '위험';
+                const riskColor = risk==null ? 'var(--text-mute)' : risk < 30 ? 'var(--cn-ok)' : risk < 60 ? 'var(--cn-warn)' : 'var(--cn-danger)';
+                const cell = (icon, label, val, unit, color) => (
+                  <div style={{ background:'var(--input-bg)', borderRadius:'14px', padding:'14px 10px', textAlign:'center', border:'1px solid var(--card-border)' }}>
+                    <div style={{ fontSize:'20px', marginBottom:'3px' }}>{icon}</div>
+                    <div style={{ fontSize:'11px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'2px' }}>{label}</div>
+                    <div style={{ fontFamily:'var(--font-title)', fontSize:'22px', fontWeight:'700', color: color||'var(--text)', lineHeight:1.1 }}>{val ?? '--'}<span style={{ fontSize:'11px', color:'var(--text-mute)', fontWeight:'600' }}>{unit}</span></div>
+                  </div>
+                );
+                return (
+                  <Card tab="record">
+                    <STitle icon="icons/blood.png" label="건강 신호" right={vitals.at ? <span style={{fontSize:'11px',color:'var(--text-mute)'}}>애플 건강 연동</span> : null} />
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+                      {cell('❤️','심박수', vitals.hr ?? vitals.restingHR, ' bpm')}
+                      {cell('💗','안정시 심박', vitals.restingHR, ' bpm')}
+                      {cell('📈','HRV', vitals.hrv, ' ms')}
+                      {cell('😴','수면점수', sleepScore, sleepScore!=null?'점':'', sleepScore!=null ? (sleepScore>=80?'var(--cn-ok)':sleepScore>=60?'var(--cn-warn)':'var(--cn-danger)') : null)}
+                    </div>
+                    {vitals.sleepHours!=null && <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'6px' }}>어젯밤 수면 <strong>{vitals.sleepHours}시간</strong></div>}
+                    {risk!=null && (
+                      <div style={{ marginTop:'6px' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'4px' }}>
+                          <span style={{ color:'var(--text-sub)', fontWeight:'700' }}>심혈관 위험지수</span>
+                          <span style={{ color:riskColor, fontWeight:'800' }}>{riskLabel} ({risk})</span>
+                        </div>
+                        <div style={{ background:'var(--card-border)', borderRadius:'5px', height:'8px', overflow:'hidden' }}>
+                          <div style={{ width:`${risk}%`, height:'100%', background:riskColor, borderRadius:'5px', transition:'width 0.5s' }}/>
+                        </div>
+                      </div>
+                    )}
+                    {ecg && (
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginTop:'12px', padding:'10px 12px', background:'var(--input-bg)', borderRadius:'12px', border:'1px solid var(--card-border)' }}>
+                        <span style={{ fontSize:'22px' }}>🫀</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:'12px', color:'var(--text-sub)', fontWeight:'700' }}>최근 심전도(ECG)</div>
+                          <div style={{ fontSize:'15px', fontWeight:'800', color: ecg.classification?.includes('정상')?'var(--cn-ok)':ecg.classification?.includes('세동')?'var(--cn-danger)':'var(--text)' }}>{ecg.classification}{ecg.avgHR?` · 평균 ${ecg.avgHR}bpm`:''}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'10px', lineHeight:1.5 }}>⚠️ 참고용 지표이며 의료 진단이 아닙니다. 이상 시 의료진과 상담하세요.</div>
+                  </Card>
+                );
+              })()}
+
+              {/* 물 섭취 (2L 목표) */}
+              {(() => {
+                const goalMl = 2000;
+                const cur = Number(day.water_ml) || 0;
+                const pct = Math.min(100, Math.round(cur/goalMl*100));
+                const addWater = (ml) => upDay({ water_ml: String(Math.max(0, cur + ml)) });
+                return (
+                  <Card tab="record">
+                    <STitle icon="icons/ic-water.png" label="물 섭취" right={<span style={{fontSize:'12px',color:'var(--text-sub)',fontWeight:'700'}}>목표 2L</span>} />
+                    <div style={{ display:'flex', alignItems:'baseline', gap:'6px', marginBottom:'10px' }}>
+                      <span style={{ fontFamily:'var(--font-title)', fontSize:'34px', fontWeight:'700', color: pct>=100?'var(--cn-ok)':'var(--cn-brand)', lineHeight:1 }}>{(cur/1000).toFixed(2)}</span>
+                      <span style={{ fontSize:'15px', color:'var(--text-sub)', fontWeight:'600' }}>/ 2 L</span>
+                      <span style={{ fontSize:'13px', color:'var(--text-mute)', marginLeft:'auto', fontWeight:'700' }}>{pct}%</span>
+                    </div>
+                    <div style={{ background:'var(--card-border)', borderRadius:'6px', height:'10px', overflow:'hidden', marginBottom:'14px' }}>
+                      <div style={{ width:`${pct}%`, height:'100%', background: pct>=100?'var(--cn-ok)':'var(--cn-brand)', borderRadius:'6px', transition:'width 0.4s' }}/>
+                    </div>
+                    <div style={{ display:'flex', gap:'8px' }}>
+                      {[{l:'+ 한 컵',v:250},{l:'+ 큰 컵',v:350},{l:'+ 병',v:500}].map(b => (
+                        <button key={b.v} onClick={() => addWater(b.v)}
+                          style={{ flex:1, padding:'12px 4px', background:'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', color:'var(--cn-brand)', borderRadius:'12px', cursor:'pointer', fontSize:'14px', fontWeight:'800' }}>
+                          💧 {b.l}<br/><span style={{fontSize:'11px',fontWeight:'600'}}>{b.v}ml</span>
+                        </button>
+                      ))}
+                    </div>
+                    {cur > 0 && <button onClick={() => upDay({ water_ml: '0' })} style={{ width:'100%', marginTop:'8px', padding:'8px', background:'none', border:'1px solid var(--card-border)', color:'var(--text-mute)', borderRadius:'10px', cursor:'pointer', fontSize:'12px', fontWeight:'700' }}>초기화</button>}
+                  </Card>
                 );
               })()}
 
@@ -7265,48 +7377,13 @@
                 })()}
 
                 {/* 건강앱 가져오기 — iOS / Android */}
-                <input ref={weightFileRef}  type="file" accept=".zip,.xml" onChange={e => e.target.files[0] && handleWeightImport(e.target.files[0])} style={{ display:'none' }} />
-                <input ref={androidFileRef} type="file" accept=".zip"      onChange={e => e.target.files[0] && handleAndroidImport(e.target.files[0])} style={{ display:'none' }} />
-
-                <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>📲 건강앱에서 가져오기</div>
-                <div style={{ display:'flex', gap:'8px', marginBottom:'4px' }}>
-                  {/* iOS */}
-                  <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                    style={{ flex:1, padding:'8px 6px', background: weightImporting?'var(--divider)':'var(--cn-brand-100)', border:`1px solid ${weightImporting?'var(--card-border)':'var(--cn-brand)'}`, color: weightImporting?'var(--text-mute)':'#1d4ed8', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
-                    🍎 iOS 건강앱<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>export.zip 또는 export.xml</span>
-                  </button>
-                  {/* Android */}
-                  <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                    style={{ flex:1, padding:'8px 6px', background: androidImporting?'var(--divider)':'var(--cn-ok-100)', border:`1px solid ${androidImporting?'var(--card-border)':'var(--cn-ok)'}`, color: androidImporting?'var(--text-mute)':'var(--cn-ok)', borderRadius:'8px', cursor: weightImporting||androidImporting?'not-allowed':'pointer', fontWeight:'700', fontSize:'12px', lineHeight:'1.4' }}>
-                    🤖 Android<br/><span style={{ fontSize:'10px', fontWeight:'500', color:'var(--text-sub)' }}>삼성 헬스 ZIP</span>
-                  </button>
-                </div>
-
-                {/* iOS 메시지 */}
-                {weightImportMsg && (
-                  <div style={{ fontSize:'13px', color: weightImportMsg.startsWith('✅')?'var(--cn-ok)': weightImportMsg.startsWith('❌')?'var(--cn-danger)':'var(--text-sub)', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
-                    🍎 {weightImportMsg}
-                  </div>
-                )}
-                {/* Android 메시지 */}
-                {androidImportMsg && (
-                  <div style={{ fontSize:'13px', color: androidImportMsg.startsWith('✅')?'var(--cn-ok)': androidImportMsg.startsWith('❌')?'var(--cn-danger)':'var(--text-sub)', textAlign:'center', padding:'3px 0', fontWeight:'600' }}>
-                    🤖 {androidImportMsg}
-                  </div>
-                )}
-
-                {/* 안내 */}
-                <div style={{ marginTop:'6px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
-                  <div style={{ fontSize:'10px', color:'var(--text-sub)', lineHeight:'1.6', background:'var(--input-bg)', borderRadius:'6px', padding:'6px 8px' }}>
-                    <strong style={{ color:'#1d4ed8' }}>🍎 iOS</strong><br/>
-                    건강 앱 → 프로필 → 건강 데이터 내보내기 → export.zip 전송
-                  </div>
-                  <div style={{ fontSize:'10px', color:'var(--text-sub)', lineHeight:'1.6', background:'var(--input-bg)', borderRadius:'6px', padding:'6px 8px' }}>
-                    <strong style={{ color:'var(--cn-ok)' }}>🤖 Android</strong><br/>
-                    삼성 헬스 → 설정(⚙️) → 개인 데이터 다운로드 → ZIP 전송
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', border:'1px solid var(--card-border)' }}>
+                  <span style={{ fontSize:'20px' }}>🍎</span>
+                  <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.6 }}>
+                    체중·체지방은 <strong style={{color:'var(--cn-brand)'}}>애플 건강앱과 자동 연동</strong>돼요. 인바디·체중계가 건강앱에 기록하면 자동 반영됩니다.
                   </div>
                 </div>
-                <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', marginTop:'6px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
+                <div style={{ fontSize:'11px', color:'var(--cn-ok)', fontWeight:'500', marginTop:'8px' }}>💡 5% 체중 감량만으로 혈당이 크게 개선될 수 있어요</div>
               </Card>
 
               {/* 운동 & 활동 */}
