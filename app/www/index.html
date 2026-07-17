@@ -3488,9 +3488,28 @@
   };
 
   /* ── 목표 설정 모달 ── */
+  /* ── 관리 질환별 미션 (개인화) ── */
+  const CONDITIONS = [
+    { key:'diabetes_insulin', label:'당뇨 · 인슐린' },
+    { key:'diabetes_oral',    label:'당뇨 · 경구약' },
+    { key:'hypertension',     label:'고혈압' },
+    { key:'lipid',            label:'콜레스테롤' },
+    { key:'weight',           label:'체중 관리' },
+    { key:'general',          label:'일반 건강' },
+  ];
+  const CONDITION_MISSIONS = {
+    diabetes_insulin: { title:'인슐린 졸업을 향해!', items:['혈당 꾸준히 기록','탄수화물 조절 (한 끼 45–60g)','식후 걷기 30분','체중 점진적 감량','주치의와 정기 상담'], warn:'인슐린은 반드시 의사 지시에 따라 조정하세요.' },
+    diabetes_oral:    { title:'혈당 안정을 향해!',   items:['혈당 꾸준히 기록','탄수화물 조절','규칙적인 복약','식후 걷기 30분','정기 검진'], warn:'약은 임의로 중단하지 마세요.' },
+    hypertension:     { title:'혈압 안정을 향해!',   items:['아침·저녁 혈압 측정','저염식 (소금 하루 5g 이하)','규칙적인 유산소 운동','금연·절주','규칙적인 복약'], warn:'혈압약은 꾸준히 복용하세요.' },
+    lipid:            { title:'콜레스테롤 관리!',     items:['포화·트랜스지방 줄이기','채소·통곡물 늘리기','주 3회 이상 운동','체중 관리','정기 지질검사'], warn:'스타틴 등은 의사 지시에 따르세요.' },
+    weight:           { title:'목표 체중을 향해!',   items:['매일 체중 기록','섭취 칼로리 관리','걸음수 목표 달성','규칙적인 운동','충분한 수면'], warn:'무리한 감량은 피하세요.' },
+    general:          { title:'건강한 하루!',         items:['혈압·혈당·체중 기록','균형 잡힌 식사','매일 걷기','충분한 수면','정기 건강검진'], warn:'꾸준함이 가장 중요합니다.' },
+  };
+
   const GoalsModal = ({ goals, onSave, onClose }) => {
     const [steps,  setSteps]  = React.useState(String(goals?.steps || 10000));
     const [weight, setWeight] = React.useState(goals?.weight || '');
+    const [condition, setCondition] = React.useState(goals?.condition || 'general');
     const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
                   fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
                   background:'var(--input-bg)', color:'var(--text)' };
@@ -3522,9 +3541,22 @@
 
           <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>⚖️ 목표 체중 <span style={{fontWeight:400, color:'var(--text-mute)'}}>(선택)</span></div>
           <input type="number" inputMode="decimal" step="0.1" value={weight}
-                 onChange={e => setWeight(e.target.value)} style={{ ...inp, marginBottom:'18px' }} placeholder="예: 68.5 (kg)" />
+                 onChange={e => setWeight(e.target.value)} style={{ ...inp, marginBottom:'16px' }} placeholder="예: 68.5 (kg)" />
 
-          <button onClick={() => onSave({ steps, weight })}
+          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>🩺 관리 질환 <span style={{fontWeight:400, color:'var(--text-mute)'}}>(맞춤 미션 제공)</span></div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'18px' }}>
+            {CONDITIONS.map(c => (
+              <button key={c.key} onClick={() => setCondition(c.key)}
+                style={{ padding:'8px 12px', borderRadius:'9px', fontSize:'13px', fontWeight:'700', cursor:'pointer',
+                  border: condition===c.key ? 'none' : '1px solid var(--card-border)',
+                  background: condition===c.key ? 'var(--cn-brand)' : 'var(--input-bg)',
+                  color: condition===c.key ? '#fff' : 'var(--text-mute)' }}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={() => onSave({ steps, weight, condition })}
             style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
                      borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800' }}>
             저장
@@ -5739,7 +5771,8 @@
     const saveGoals = (g) => {
       const cleaned = {
         steps: Math.max(1000, parseInt(g.steps) || 10000),
-        weight: g.weight !== '' && !isNaN(parseFloat(g.weight)) ? String(parseFloat(g.weight)) : ''
+        weight: g.weight !== '' && !isNaN(parseFloat(g.weight)) ? String(parseFloat(g.weight)) : '',
+        condition: g.condition || 'general'
       };
       setGoals(cleaned);
       if (userId) {
@@ -7013,18 +7046,23 @@
                   style={{ ...inpSt, resize:'vertical', lineHeight:'1.6', fontFamily:'inherit' }} />
               </Card>
 
-              {/* 목표 카드 */}
-              <Card tab="home" style={{ background:'linear-gradient(135deg,var(--cn-brand-100),var(--cn-ok-100))', border:'1px solid #bfdbfe' }}>
-                <div style={{ fontSize:'14px', fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)', marginBottom:'10px' }}>🎯 인슐린 졸업을 향해!</div>
-                <div style={{ fontSize:'14px', color:'var(--text)', lineHeight:'2' }}>
-                  ✅ 혈당 꾸준히 기록 (리브레2 연동)<br/>
-                  ✅ 탄수화물 조절 (한 끼 45–60g)<br/>
-                  ✅ 식후 걷기 30분<br/>
-                  ✅ 체중 점진적 감량<br/>
-                  ✅ 주치의와 정기 상담<br/><br/>
-                  <span style={{ color:'var(--cn-danger)', fontWeight:'600', fontSize:'11px' }}>⚠️ 인슐린은 반드시 의사 지시에 따라 조정하세요.</span>
-                </div>
-              </Card>
+              {/* 목표 카드 — 관리 질환별 맞춤 미션 */}
+              {(() => {
+                const m = CONDITION_MISSIONS[goals?.condition] || CONDITION_MISSIONS.general;
+                return (
+                  <Card tab="home" style={{ background:'linear-gradient(135deg,var(--cn-brand-100),var(--cn-ok-100))', border:'1px solid #bfdbfe' }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                      <div style={{ fontFamily:'var(--font-title)', fontSize:'17px', fontWeight:'700', color:dm?'var(--cn-brand)':'var(--cn-brand-600)' }}>🎯 {m.title}</div>
+                      <button onClick={() => setShowGoals(true)} style={{ background:'rgba(255,255,255,0.5)', border:'1px solid var(--cn-brand)', color:'var(--cn-brand)', borderRadius:'8px', padding:'5px 10px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap' }}>바꾸기</button>
+                    </div>
+                    <div style={{ fontSize:'15px', color:'var(--text)', lineHeight:'2' }}>
+                      {m.items.map((it,i) => <span key={i}>✅ {it}<br/></span>)}
+                      <br/>
+                      <span style={{ color:'var(--cn-danger)', fontWeight:'600', fontSize:'12px' }}>⚠️ {m.warn}</span>
+                    </div>
+                  </Card>
+                );
+              })()}
             </div>
           </div>
 
