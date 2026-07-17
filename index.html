@@ -4415,12 +4415,12 @@
         {/* 종합 점수 */}
         {r.scoreGrade && (
           <div style={{ background:`linear-gradient(135deg, ${r.scoreGrade.color}22, ${r.scoreGrade.color}11)`,
-            border:`1.5px solid ${r.scoreGrade.color}44`, borderRadius:'14px', padding:'16px', marginBottom:'16px', textAlign:'center' }}>
-            <div style={{ fontSize:'36px', marginBottom:'4px' }}>{r.scoreGrade.emoji}</div>
-            <div style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:'600' }}>종합 건강 지수</div>
-            <div style={{ fontSize:'42px', fontWeight:'900', color:r.scoreGrade.color, lineHeight:1.1 }}>{r.totalScore}<span style={{fontSize:'18px'}}>점</span></div>
-            <div style={{ fontSize:'14px', fontWeight:'700', color:r.scoreGrade.color, marginTop:'4px' }}>{r.scoreGrade.label}</div>
-            <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'6px' }}>최근 30일 {r.last30Len}일 기준</div>
+            border:`1.5px solid ${r.scoreGrade.color}44`, borderRadius:'18px', padding:'26px 16px 22px', marginBottom:'16px', textAlign:'center' }}>
+            <img src="icons/trophy.png" alt="" style={{ width:'110px', height:'110px', objectFit:'contain', marginBottom:'6px', filter:'drop-shadow(0 6px 12px rgba(11,27,59,0.15))' }} />
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'15px', color:'var(--text-sub)', fontWeight:'700' }}>종합 건강 지수</div>
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'64px', fontWeight:'700', color:r.scoreGrade.color, lineHeight:1.05, letterSpacing:'-1px' }}>{r.totalScore}<span style={{fontSize:'24px', fontWeight:'700'}}>점</span></div>
+            <div style={{ display:'inline-block', fontSize:'16px', fontWeight:'800', color:'#fff', background:r.scoreGrade.color, borderRadius:'20px', padding:'5px 18px', marginTop:'6px' }}>{r.scoreGrade.label}</div>
+            <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'10px' }}>최근 30일 {r.last30Len}일 기준</div>
           </div>
         )}
 
