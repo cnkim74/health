@@ -3512,6 +3512,44 @@
     general:          { title:'건강한 하루!',         items:['혈압·혈당·체중 기록','균형 잡힌 식사','매일 걷기','충분한 수면','정기 건강검진'], warn:'꾸준함이 가장 중요합니다.' },
   };
 
+  /* ── 알림 설정 모달 ── */
+  const NotifSettingsModal = ({ onClose, onChanged }) => {
+    const [medOn,   setMedOn]   = React.useState(localStorage.getItem('cn_notif_off') !== '1');
+    const [standOn, setStandOn] = React.useState(localStorage.getItem('cn_stand_on') === '1');
+    const [waterOn, setWaterOn] = React.useState(localStorage.getItem('cn_water_on') === '1');
+    const save = (k, v) => { localStorage.setItem(k, v ? '1' : '0'); onChanged && onChanged(); };
+    const Toggle = ({ on, set, storageKey, invert, icon, title, desc }) => (
+      <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 0', borderBottom:'1px solid var(--card-border)' }}>
+        <span style={{ fontSize:'26px' }}>{icon}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>{title}</div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', marginTop:'1px' }}>{desc}</div>
+        </div>
+        <button onClick={() => { const nv=!on; set(nv); save(storageKey, invert ? !nv : nv); }}
+          style={{ width:'52px', height:'30px', borderRadius:'15px', border:'none', cursor:'pointer', position:'relative',
+            background: on ? 'var(--cn-ok)' : 'var(--card-border)', transition:'background 0.2s' }}>
+          <span style={{ position:'absolute', top:'3px', left: on ? '25px' : '3px', width:'24px', height:'24px', borderRadius:'50%', background:'#fff', transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+        </button>
+      </div>
+    );
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'400px' }} onClick={e=>e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'18px', fontWeight:'700', color:'var(--text)' }}>🔔 알림 설정</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          <Toggle on={medOn} set={setMedOn} storageKey="cn_notif_off" invert icon="💊" title="복약 알림" desc="복약 설정의 시간대마다 알림" />
+          <Toggle on={standOn} set={setStandOn} storageKey="cn_stand_on" icon="🧍" title="일어서기 알림" desc="낮 시간대(9~21시) 매시간 몸 움직이기" />
+          <Toggle on={waterOn} set={setWaterOn} storageKey="cn_water_on" icon="💧" title="물 마시기 알림" desc="낮 시간대 2시간마다 수분 섭취" />
+          <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'14px', lineHeight:1.6 }}>
+            ⚠️ 알림은 앱에서 <strong>알림 허용</strong>을 해야 울립니다. 복약 알림 시간은 <strong>복약 설정</strong>에서 시간대별로 지정하세요.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const GoalsModal = ({ goals, onSave, onClose }) => {
     const [steps,  setSteps]  = React.useState(String(goals?.steps || 10000));
     const [weight, setWeight] = React.useState(goals?.weight || '');
@@ -3958,7 +3996,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4007,6 +4045,7 @@
         </div>
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
+        <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
         <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
         <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
@@ -5213,6 +5252,8 @@
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
     const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
+    const [showNotif, setShowNotif] = useState(false);
+    const [notifTick, setNotifTick] = useState(0); // 알림 설정 변경 시 리마인더 재예약 트리거
     const [bleMsg, setBleMsg]   = useState('');
     const [lastImport, setLastImport] = useState(null);
     const [loading,    setLoading]   = useState(false);
@@ -5256,42 +5297,102 @@
         .then(({ data }) => { if (data?.avatar_url) setHdrAvatar(data.avatar_url); });
     }, [userId]);
 
-    // ── 복약 알람 스케줄러 (매 분 체크) — medsConfig 선언 후 위치 ──
+    // ── 복약 알람 스케줄러 ──
+    // 네이티브 앱: LocalNotifications로 매일 반복 예약 (앱이 꺼져 있어도 울림)
+    // 웹: 브라우저 Notification + 매 분 체크 (앱 켜져 있을 때만)
     useEffect(() => {
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+
+      if (LN) {
+        (async () => {
+          try {
+            if (localStorage.getItem('cn_notif_off') === '1') { // 사용자가 알림 끔
+              const p = await LN.getPending();
+              const ids = (p.notifications||[]).filter(n => n.id>=4000 && n.id<4100).map(n => ({id:n.id}));
+              if (ids.length) await LN.cancel({ notifications: ids });
+              return;
+            }
+            await LN.requestPermissions();
+            // 기존 복약 알림(4000~4099) 취소 후 재예약
+            const p = await LN.getPending();
+            const old = (p.notifications||[]).filter(n => n.id>=4000 && n.id<4100).map(n => ({id:n.id}));
+            if (old.length) await LN.cancel({ notifications: old });
+            const notifs = [];
+            medsConfig.forEach((slot, i) => {
+              if (!slot.notifTime) return;
+              const [h, m] = slot.notifTime.split(':').map(Number);
+              if (isNaN(h) || isNaN(m)) return;
+              const items = (slot.items||[]).filter(x => x.name && x.name.trim());
+              if (!items.length) return;
+              notifs.push({
+                id: 4000 + i,
+                title: `${slot.icon||'💊'} ${slot.slot} 복약 시간이에요`,
+                body: items.map(x => `${x.name}${x.dose ? ' '+x.dose : ''}`).join(', '),
+                schedule: { on: { hour: h, minute: m }, repeats: true },
+                sound: 'default'
+              });
+            });
+            if (notifs.length) await LN.schedule({ notifications: notifs });
+          } catch (e) { console.log('복약 알림 예약 skip:', e?.message || e); }
+        })();
+        return;
+      }
+
+      // ── 웹 폴백: 매 분 체크 ──
       if (!medsConfig.length) return;
       const firedKey = new Set();
-
       const check = () => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        if (localStorage.getItem('cn_notif_off') === '1') return;
         const now = new Date();
         const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const key  = `${hhmm}_${now.toDateString()}`;
-        if (firedKey.has(key)) return;
-
         medsConfig.forEach(slot => {
           if (!slot.notifTime || slot.notifTime !== hhmm) return;
           if (firedKey.has(key + slot.key)) return;
           firedKey.add(key + slot.key);
-
-          const activeItems = (slot.items||[]).filter(m => {
-            const today = now.toISOString().slice(0,10);
-            return isMedActive(m, today);
-          });
+          const activeItems = (slot.items||[]).filter(m => isMedActive(m, now.toISOString().slice(0,10)));
           if (!activeItems.length) return;
-
-          if (typeof Notification !== 'undefined') new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
+          new Notification(`${slot.icon} ${slot.slot} 복약 시간이에요`, {
             body: activeItems.map(m => `💊 ${m.name} ${m.dose}`).join('\n'),
-            icon: '/favicon-192.png',
-            badge: '/favicon-192.png',
-            tag: slot.key,
+            icon: '/favicon-192.png', badge: '/favicon-192.png', tag: slot.key,
           });
         });
       };
-
       check();
       const timer = setInterval(check, 60000);
       return () => clearInterval(timer);
     }, [medsConfig]);
+
+    // ── 일어서기·물마시기 리마인더 (네이티브, 낮 시간대 매시간 반복) ──
+    useEffect(() => {
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+      if (!LN) return;
+      (async () => {
+        try {
+          await LN.requestPermissions();
+          const p = await LN.getPending();
+          // 일어서기 4100~4199, 물마시기 4200~4299 취소 후 재예약
+          const old = (p.notifications||[]).filter(n => n.id>=4100 && n.id<4300).map(n => ({id:n.id}));
+          if (old.length) await LN.cancel({ notifications: old });
+          const notifs = [];
+          const standOn = localStorage.getItem('cn_stand_on') === '1';
+          const waterOn = localStorage.getItem('cn_water_on') === '1';
+          const startH = 9, endH = 21; // 낮 시간대
+          if (standOn) {
+            for (let h = startH; h <= endH; h++) {
+              notifs.push({ id: 4100 + h, title: '🧍 일어설 시간이에요', body: '1분만 일어나서 몸을 움직여 볼까요?', schedule: { on:{ hour:h, minute:50 }, repeats:true }, sound:'default' });
+            }
+          }
+          if (waterOn) {
+            for (let h = startH; h <= endH; h += 2) {
+              notifs.push({ id: 4200 + h, title: '💧 물 마실 시간이에요', body: '물 한 잔으로 수분을 채워 주세요.', schedule: { on:{ hour:h, minute:0 }, repeats:true }, sound:'default' });
+            }
+          }
+          if (notifs.length) await LN.schedule({ notifications: notifs });
+        } catch (e) { console.log('리마인더 예약 skip:', e?.message || e); }
+      })();
+    }, [notifTick]);
 
     // ── 포커스 복귀 시 자동 새로고침 (단축어 → PWA 전환 대응) ──
     useEffect(() => {
@@ -7377,6 +7478,7 @@
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
               onGoals={() => setShowGoals(true)}
+              onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
             />
           </div>
@@ -7469,6 +7571,7 @@
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
+        {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
