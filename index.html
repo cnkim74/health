@@ -271,6 +271,9 @@
   .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px 16px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 5px; }
   .dash-metric-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
   .dash-metric-emoji { font-size: 26px; line-height: 1; }
+  /* 3D 아이콘 칩 — 밝은 배경이라 라이트/다크 모두 자연스럽게 */
+  .dash-ic-chip { width: 40px; height: 40px; border-radius: 11px; background: radial-gradient(circle at 50% 40%, #ffffff 0%, #eef2f8 90%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .dash-ic-chip img { width: 34px; height: 34px; object-fit: contain; }
   .dash-metric-label { font-size: 14px; font-weight: 800; color: var(--text-sub); }
   .dash-metric-val { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.5px; }
   .dash-metric-unit { font-size: 13px; color: var(--text-mute); font-weight: 600; }
@@ -439,6 +442,11 @@
       {children}
     </div>
   );
+  // 3D 아이콘 칩 (대시보드 지표용)
+  const IcChip = ({src}) => (
+    <span className="dash-ic-chip"><img src={src} alt=""/></span>
+  );
+
   const STitle = ({icon, label, right}) => (
     <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'18px', fontWeight:'800', color:'var(--text)', marginBottom:'14px' }}>
       <span style={{fontSize:'20px'}}>{icon}</span><span>{label}</span>
@@ -4547,7 +4555,7 @@
         {/* 4 메트릭 카드 */}
         <div className="dash-metric-grid">
           <div className="dash-metric-card">
-            <div className="dash-metric-head"><span className="dash-metric-emoji">💓</span><span className="dash-metric-label">혈압</span></div>
+            <div className="dash-metric-head"><IcChip src="icons/ic-bp.png"/><span className="dash-metric-label">혈압</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:bpSysVals.length?'var(--text)':'var(--text-mute)'}}>{lastBP}</span>
               <span className="dash-metric-unit">mmHg</span>
@@ -4556,7 +4564,7 @@
             <Sparkline vals={bpSysVals.slice(-10)} color="var(--cn-danger)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-head"><span className="dash-metric-emoji">🩸</span><span className="dash-metric-label">혈당 (최근)</span></div>
+            <div className="dash-metric-head"><IcChip src="icons/ic-water.png"/><span className="dash-metric-label">혈당 (최근)</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:lastBS?bsColor(lastBS):'var(--text-mute)'}}>{lastBS||'---'}</span>
               <span className="dash-metric-unit">mg/dL</span>
@@ -4565,7 +4573,7 @@
             <Sparkline vals={bsVals.slice(-10)} color="var(--cn-ok)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-head"><span className="dash-metric-emoji">⚖️</span><span className="dash-metric-label">체중</span></div>
+            <div className="dash-metric-head"><IcChip src="icons/ic-weight.png"/><span className="dash-metric-label">체중</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num">{lastW ? (isNaN(parseFloat(lastW)) ? lastW : String(Math.round(parseFloat(lastW)*100)/100)) : '---'}</span>
               <span className="dash-metric-unit">kg</span>
@@ -4582,7 +4590,7 @@
             <Sparkline vals={weightVals.slice(-10)} color="var(--cn-low)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-head"><span className="dash-metric-emoji">💊</span><span className="dash-metric-label">오늘 복약</span></div>
+            <div className="dash-metric-head"><IcChip src="icons/ic-meds.png"/><span className="dash-metric-label">오늘 복약</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:medsPct===100?'var(--cn-ok)':medsPct>0?'var(--cn-brand)':'var(--text-mute)'}}>{medsToday}</span>
               <span className="dash-metric-unit">/ {allMedIds.length}개</span>

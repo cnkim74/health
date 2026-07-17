@@ -10,5 +10,6 @@ cp ../favicon.ico         www/favicon.ico
 cp ../favicon-192.png     www/favicon-192.png
 cp ../apple-touch-icon.png www/apple-touch-icon.png
 cp ../mascot.png          www/mascot.png
+mkdir -p www/icons && cp ../icons/*.png www/icons/
 
 echo "✅ www 폴더 동기화 완료"
