@@ -236,21 +236,16 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
         }
 
         var mgdl: Int? = nil
-        var mealCtx: Int? = nil
         if concPresent {
             guard i + 3 <= b.count else { return nil }
             let sfloat = Int(b[i]) | (Int(b[i+1]) << 8); i += 2
             let value = sfloatToDouble(sfloat)
-            let typeLoc = b[i]; i += 1
-            let type = Int(typeLoc & 0x0F)
-            _ = type
-            if unitMolL {
-                mgdl = Int((value * 1000.0 * 18.0182).rounded()) // mol/L → mmol/L → mg/dL
-            } else {
-                mgdl = Int((value * 100000.0).rounded())          // kg/L → mg/dL
-            }
+            i += 1 // type/location 바이트 스킵
+            guard value.isFinite else { return nil } // NaN/무한대 방어 (Int 변환 크래시 방지)
+            let mg = unitMolL ? (value * 1000.0 * 18.0182) : (value * 100000.0)
+            guard mg.isFinite, mg > 0, mg < 2000 else { return nil }
+            mgdl = Int(mg.rounded())
         }
-        _ = mealCtx
 
         // 날짜 조합 (기기 로컬 시간 기준)
         var comp = DateComponents()
