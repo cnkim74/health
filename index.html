@@ -267,11 +267,13 @@
   .dash-score-row { display: flex; align-items: center; gap: 6px; }
   .dash-score-bar-bg { flex: 1; height: 5px; background: var(--bg-soft); border-radius: 3px; border: 1px solid var(--card-border); overflow: hidden; }
   .dash-score-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
-  .dash-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 13px 14px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 4px; }
-  .dash-metric-label { font-size: 11px; font-weight: 700; color: var(--text-sub); }
-  .dash-metric-val { font-size: 22px; font-weight: 900; line-height: 1.1; letter-spacing: -0.5px; }
-  .dash-metric-unit { font-size: 11px; color: var(--text-mute); }
+  .dash-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .dash-metric-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px 16px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 5px; }
+  .dash-metric-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .dash-metric-emoji { font-size: 26px; line-height: 1; }
+  .dash-metric-label { font-size: 14px; font-weight: 800; color: var(--text-sub); }
+  .dash-metric-val { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.5px; }
+  .dash-metric-unit { font-size: 13px; color: var(--text-mute); font-weight: 600; }
   .dash-trend { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
   .dash-trend-up { background: rgba(239,68,68,0.12); color: var(--cn-danger); }
   .dash-trend-dn { background: rgba(16,185,129,0.12); color: var(--cn-ok); }
@@ -294,11 +296,12 @@
       border-radius: 14px !important;
     }
     .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
-    .dash-metric-grid { gap: 8px !important; margin-bottom: 10px !important; }
-    .dash-metric-card { padding: 10px 12px !important; border-radius: 10px !important; gap: 3px !important; }
+    .dash-metric-grid { gap: 10px !important; margin-bottom: 12px !important; }
+    .dash-metric-card { padding: 14px 14px !important; border-radius: 14px !important; gap: 4px !important; }
     /* 어르신 접근성: 핵심 수치·라벨 키움 */
-    .dash-metric-val  { font-size: 24px !important; }
-    .dash-metric-label { font-size: 13px !important; }
+    .dash-metric-emoji { font-size: 24px !important; }
+    .dash-metric-val  { font-size: 28px !important; }
+    .dash-metric-label { font-size: 14px !important; }
     .dash-metric-unit  { font-size: 12px !important; }
     .dash-insight-card { padding: 12px 14px !important; margin-bottom: 8px !important; border-radius: 10px !important; }
     .dash-insight-text { font-size: 15px !important; line-height: 1.7 !important; }
@@ -4535,25 +4538,25 @@
         {/* 4 메트릭 카드 */}
         <div className="dash-metric-grid">
           <div className="dash-metric-card">
-            <div className="dash-metric-label">혈압</div>
+            <div className="dash-metric-head"><span className="dash-metric-emoji">💓</span><span className="dash-metric-label">혈압</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
-              <span className="dash-metric-val cn-num" style={{fontSize:18,color:bpSysVals.length?bsColor(null):'var(--text-mute)'}}>{lastBP}</span>
+              <span className="dash-metric-val cn-num" style={{color:bpSysVals.length?'var(--text)':'var(--text-mute)'}}>{lastBP}</span>
               <span className="dash-metric-unit">mmHg</span>
             </div>
             <TrendBadge vals={bpSysVals}/>
             <Sparkline vals={bpSysVals.slice(-10)} color="var(--cn-danger)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-label">혈당 (최근)</div>
+            <div className="dash-metric-head"><span className="dash-metric-emoji">🩸</span><span className="dash-metric-label">혈당 (최근)</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:lastBS?bsColor(lastBS):'var(--text-mute)'}}>{lastBS||'---'}</span>
               <span className="dash-metric-unit">mg/dL</span>
             </div>
-            {lastBS && <span style={{fontSize:11,color:bsColor(lastBS),fontWeight:700}}>{bsLabel(lastBS)}</span>}
+            {lastBS && <span style={{fontSize:13,color:bsColor(lastBS),fontWeight:800}}>{bsLabel(lastBS)}</span>}
             <Sparkline vals={bsVals.slice(-10)} color="var(--cn-ok)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-label">체중</div>
+            <div className="dash-metric-head"><span className="dash-metric-emoji">⚖️</span><span className="dash-metric-label">체중</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num">{lastW ? (isNaN(parseFloat(lastW)) ? lastW : String(Math.round(parseFloat(lastW)*100)/100)) : '---'}</span>
               <span className="dash-metric-unit">kg</span>
@@ -4561,7 +4564,7 @@
             {goals?.weight && lastW && !isNaN(parseFloat(lastW)) && (() => {
               const diff = Math.round((parseFloat(lastW) - parseFloat(goals.weight)) * 10) / 10;
               return (
-                <div style={{ fontSize:'10px', fontWeight:'700', color: diff <= 0 ? 'var(--cn-ok)' : 'var(--text-mute)', marginTop:'2px' }}>
+                <div style={{ fontSize:'12px', fontWeight:'800', color: diff <= 0 ? 'var(--cn-ok)' : 'var(--text-mute)', marginTop:'2px' }}>
                   🎯 목표 {parseFloat(goals.weight)}kg {diff <= 0 ? '달성!' : `(남은 ${diff}kg)`}
                 </div>
               );
@@ -4570,15 +4573,15 @@
             <Sparkline vals={weightVals.slice(-10)} color="var(--cn-low)" h={28}/>
           </div>
           <div className="dash-metric-card">
-            <div className="dash-metric-label">오늘 복약</div>
+            <div className="dash-metric-head"><span className="dash-metric-emoji">💊</span><span className="dash-metric-label">오늘 복약</span></div>
             <div style={{display:'flex',alignItems:'baseline',gap:4}}>
               <span className="dash-metric-val cn-num" style={{color:medsPct===100?'var(--cn-ok)':medsPct>0?'var(--cn-brand)':'var(--text-mute)'}}>{medsToday}</span>
               <span className="dash-metric-unit">/ {allMedIds.length}개</span>
             </div>
-            <div style={{marginTop:4,background:'var(--card-border)',borderRadius:4,height:5,overflow:'hidden'}}>
-              <div style={{width:medsPct+'%',height:'100%',background:medsPct===100?'var(--cn-ok)':'var(--cn-brand)',borderRadius:4,transition:'width 0.5s'}}/>
+            <div style={{marginTop:6,background:'var(--card-border)',borderRadius:5,height:7,overflow:'hidden'}}>
+              <div style={{width:medsPct+'%',height:'100%',background:medsPct===100?'var(--cn-ok)':'var(--cn-brand)',borderRadius:5,transition:'width 0.5s'}}/>
             </div>
-            <span style={{fontSize:11,color:medsPct===100?'var(--cn-ok)':'var(--text-sub)',fontWeight:600,marginTop:2}}>{medsPct===100?'✓ 완료':medsPct+'% 완료'}</span>
+            <span style={{fontSize:13,color:medsPct===100?'var(--cn-ok)':'var(--text-sub)',fontWeight:700,marginTop:2}}>{medsPct===100?'✓ 완료':medsPct+'% 완료'}</span>
           </div>
         </div>
 
