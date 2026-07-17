@@ -307,16 +307,18 @@
   /* ── 모바일 탭별 최적화 (max-width: 600px) ── */
   @media (max-width: 600px) {
 
-    /* ─ 홈 탭 ─ */
+    /* ─ 홈 탭 (카드 너비·모서리·간격을 cn-card와 통일) ─ */
     .dash-score-card {
-      padding: 12px !important;
+      padding: 18px 4vw !important;
       gap: 12px !important;
-      margin-bottom: 10px !important;
-      border-radius: 14px !important;
+      margin-bottom: 14px !important;
+      border-radius: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
     .dash-score-breakdown { gap: 4px !important; margin-top: 8px !important; }
-    .dash-metric-grid { gap: 12px !important; margin-bottom: 14px !important; }
-    .dash-metric-card { padding: 14px 14px !important; border-radius: 14px !important; gap: 4px !important; }
+    .dash-metric-grid { gap: 12px !important; margin-bottom: 14px !important; width: 100% !important; box-sizing: border-box !important; }
+    .dash-metric-card { padding: 16px 14px !important; border-radius: 16px !important; gap: 4px !important; box-sizing: border-box !important; }
     /* 어르신 접근성: 핵심 수치·라벨 키움 */
     .dash-metric-emoji { font-size: 24px !important; }
     .dash-metric-val  { font-size: 28px !important; }
@@ -4518,7 +4520,7 @@
   };
 
   /* ── 대시보드: 홈탭 ── */
-  const DashboardHome = ({ data, date, medsConfig, allMedIds, goals }) => {
+  const DashboardHome = ({ data, date, medsConfig, allMedIds, goals, height }) => {
     const stepGoal = Math.max(1000, parseInt(goals?.steps) || 10000);
     const score = useMemo(() => calcHealthScore(data), [data]);
     const insights = useMemo(() => genInsights(data), [data]);
@@ -4545,6 +4547,18 @@
         || (bsVals.length ? bsVals[bsVals.length-1] : null);
     })();
     const lastW = todayData.weight || (weightVals.length ? weightVals[weightVals.length-1] : null);
+
+    // BMI (체질량지수) — 키(cm) + 최근 체중(kg)
+    const bmi = (() => {
+      const h = parseFloat(height), w = parseFloat(lastW);
+      if (!h || !w || h < 50 || h > 250) return null;
+      return w / ((h/100) ** 2);
+    })();
+    const bmiCat = bmi == null ? null
+      : bmi < 18.5 ? { label:'저체중', color:'#3b82f6', pos: bmi/40*100 }
+      : bmi < 23   ? { label:'정상',   color:'var(--cn-ok)', pos: bmi/40*100 }
+      : bmi < 25   ? { label:'과체중', color:'var(--cn-warn)', pos: bmi/40*100 }
+      : { label:'비만', color:'var(--cn-danger)', pos: Math.min(bmi,40)/40*100 };
 
     // 복약 현황
     const medsToday = allMedIds.filter(id => todayData.meds && todayData.meds[id]).length;
@@ -4657,6 +4671,42 @@
             </div>
             <span style={{fontSize:13,color:medsPct===100?'var(--cn-ok)':'var(--text-sub)',fontWeight:700,marginTop:2}}>{medsPct===100?'✓ 완료':medsPct+'% 완료'}</span>
           </div>
+        </div>
+
+        {/* BMI 건강지수 카드 */}
+        <div className="cn-card" style={{ marginBottom:14 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: bmi!=null ? 14 : 0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:11 }}>
+              <span className="dash-ic-chip"><img src="icons/weight.png" alt=""/></span>
+              <div>
+                <div style={{ fontFamily:'var(--font-title)', fontSize:'17px', fontWeight:'700', color:'var(--text)' }}>체질량지수 (BMI)</div>
+                <div style={{ fontSize:'12px', color:'var(--text-mute)' }}>{bmi!=null ? `키 ${parseFloat(height)}cm · 체중 ${parseFloat(lastW)}kg` : '키·체중 입력 시 표시'}</div>
+              </div>
+            </div>
+            {bmi!=null && (
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontFamily:'var(--font-title)', fontSize:'34px', fontWeight:'700', color:bmiCat.color, lineHeight:1 }}>{bmi.toFixed(1)}</div>
+                <div style={{ display:'inline-block', fontSize:'12px', fontWeight:'800', color:'#fff', background:bmiCat.color, borderRadius:'20px', padding:'2px 12px', marginTop:'3px' }}>{bmiCat.label}</div>
+              </div>
+            )}
+          </div>
+          {bmi!=null && (() => {
+            // 게이지: 저체중(<18.5)·정상(18.5-23)·과체중(23-25)·비만(25+) → 40 스케일
+            const seg = [[0,18.5,'#3b82f6'],[18.5,23,'var(--cn-ok)'],[23,25,'var(--cn-warn)'],[25,40,'var(--cn-danger)']];
+            return (
+              <div>
+                <div style={{ display:'flex', height:'10px', borderRadius:'6px', overflow:'hidden' }}>
+                  {seg.map(([a,b,c],i) => <div key={i} style={{ flex: b-a, background:c }}/>)}
+                </div>
+                <div style={{ position:'relative', height:'0' }}>
+                  <div style={{ position:'absolute', left:`${Math.min(Math.max(bmi/40*100,1),99)}%`, top:'-15px', transform:'translateX(-50%)', width:'3px', height:'16px', background:'var(--text)', borderRadius:'2px', boxShadow:'0 0 0 2px var(--card-bg)' }}/>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', color:'var(--text-mute)', marginTop:'8px', fontWeight:'600' }}>
+                  <span>저체중</span><span>정상</span><span>과체중</span><span>비만</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* 혈압 추이 차트 */}
@@ -6634,36 +6684,6 @@
                       </div>
                     </div>
 
-                    {/* 건강앱 가져오기 */}
-                    <div style={{ marginBottom:'14px' }}>
-                      <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>📲 건강앱에서 혈압 가져오기</div>
-                      <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-                        {/* iOS */}
-                        <button onClick={() => weightFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'var(--cn-brand-100)':'var(--cn-brand-100)', border:'1px solid var(--cn-brand)', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-brand)', fontWeight:'700', fontSize:'13px',
-                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
-                          <span style={{ fontSize:'16px' }}></span> iOS 건강앱
-                        </button>
-                        {/* Android */}
-                        <button onClick={() => androidFileRef.current?.click()} disabled={weightImporting || androidImporting}
-                          style={{ flex:1, minWidth:'130px', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-                            background:dm?'var(--cn-ok-100)':'var(--cn-ok-100)', border:'1px solid var(--cn-ok)', borderRadius:'10px',
-                            padding:'9px 12px', cursor:'pointer', color:'var(--cn-ok)', fontWeight:'700', fontSize:'13px',
-                            opacity:(weightImporting||androidImporting)?0.6:1 }}>
-                          <span style={{ fontSize:'16px' }}>🤖</span> 삼성 헬스
-                        </button>
-                      </div>
-                      {weightImporting  && <div style={{ fontSize:'12px', color:'var(--cn-brand)', marginTop:'6px', fontWeight:'600' }}>⏳ {weightImportMsg}</div>}
-                      {androidImporting && <div style={{ fontSize:'12px', color:'var(--cn-ok)', marginTop:'6px', fontWeight:'600' }}>⏳ {androidImportMsg}</div>}
-                      {!weightImporting  && weightImportMsg  && <div style={{ fontSize:'12px', color: weightImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{weightImportMsg}</div>}
-                      {!androidImporting && androidImportMsg && <div style={{ fontSize:'12px', color: androidImportMsg.startsWith('✅')?'var(--cn-ok)':'var(--cn-danger)', marginTop:'6px', fontWeight:'600' }}>{androidImportMsg}</div>}
-                      <div style={{ fontSize:'11px', color:'var(--text-sub)', marginTop:'5px' }}>
-                        iOS: 건강앱 → 내보내기 .zip · Android: 삼성 헬스 → 설정 → 개인 데이터 다운로드 .zip
-                      </div>
-                    </div>
-
                     {/* 7일 추이 */}
                     {hasBPWeek && (() => {
                       const sysVals = bpWeek.filter(x => x.sys).map(x => x.sys);
@@ -6949,7 +6969,7 @@
               <BannerSlot slotId="sidebar_top" />
 
               {/* 대시보드 홈 */}
-              <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals}/>
+              <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals} height={height}/>
 
               {/* 체중 / 체지방 */}
               <Card tab="record">
