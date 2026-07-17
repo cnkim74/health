@@ -22,6 +22,7 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     private var deviceName: String = ""
     private var scanTimeout: TimeInterval = 20
     private var timeoutWork: DispatchWorkItem?
+    private var overallWork: DispatchWorkItem?
     private var finished = false
 
     // 표준 UUID
@@ -56,14 +57,26 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     private func startScan() {
         guard let _ = pendingCall else { return }
         central.scanForPeripherals(withServices: [glucoseService], options: nil)
+        // 스캔 단계 타임아웃: 지정 시간 내 기기를 못 찾으면 실패
         let work = DispatchWorkItem { [weak self] in
             guard let self = self, !self.finished else { return }
             if self.peripheral == nil {
-                self.fail("혈당기를 찾지 못했어요. 혈당기의 블루투스를 켜고(설정/동기화 모드) 가까이 둔 뒤 다시 시도해 주세요.")
+                self.fail("혈당기를 찾지 못했어요. 혈당기의 블루투스(설정/동기화 모드)를 켜고 가까이 둔 뒤 다시 시도해 주세요.")
             }
         }
         timeoutWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + scanTimeout, execute: work)
+        // 전체 안전 타임아웃: 페어링/읽기가 아무리 걸려도 120초 후엔 무조건 종료 (앱 멈춤 방지)
+        let overall = DispatchWorkItem { [weak self] in
+            guard let self = self, !self.finished else { return }
+            if self.readings.isEmpty {
+                self.fail("혈당기 연결이 지연됐어요. 페어링 코드를 확인하고 다시 시도해 주세요.")
+            } else {
+                self.finishSuccess() // 일부라도 받았으면 그걸로 마무리
+            }
+        }
+        overallWork = overall
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120, execute: overall)
     }
 
     // MARK: - CBCentralManagerDelegate
@@ -93,6 +106,16 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
 
     public func centralManager(_ cm: CBCentralManager, didFailToConnect p: CBPeripheral, error: Error?) {
         fail("혈당기 연결 실패: \(error?.localizedDescription ?? "알 수 없음")")
+    }
+
+    public func centralManager(_ cm: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
+        // 정상 완료(finished) 후 끊김은 무시. 그 외엔, 받은 기록이 있으면 성공 처리, 없으면 실패.
+        guard !finished else { return }
+        if !readings.isEmpty {
+            finishSuccess()
+        } else {
+            fail("혈당기 연결이 끊겼어요. 페어링 코드를 확인하고 다시 시도해 주세요.")
+        }
     }
 
     // MARK: - CBPeripheralDelegate
@@ -212,7 +235,7 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     private func finishSuccess() {
         guard !finished, let call = pendingCall else { return }
         finished = true
-        timeoutWork?.cancel()
+        timeoutWork?.cancel(); overallWork?.cancel()
         cleanup()
         call.resolve(["device": deviceName, "readings": readings])
         pendingCall = nil
@@ -221,7 +244,7 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     private func fail(_ msg: String) {
         guard !finished, let call = pendingCall else { return }
         finished = true
-        timeoutWork?.cancel()
+        timeoutWork?.cancel(); overallWork?.cancel()
         cleanup()
         call.reject(msg)
         pendingCall = nil
