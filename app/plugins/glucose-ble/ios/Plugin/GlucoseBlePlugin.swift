@@ -35,6 +35,7 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     private var racpChar: CBCharacteristic?
     private var featureChar: CBCharacteristic?
     private var paired = false
+    private var reconnectCount = 0   // 페어링 직후 재연결 시도 횟수
 
     private func ensureCentral() {
         if central == nil {
@@ -56,6 +57,7 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
         self.deviceName = ""
         self.finished = false
         self.paired = false
+        self.reconnectCount = 0
         self.measureChar = nil; self.racpChar = nil; self.featureChar = nil
         ensureCentral()
         // 블루투스가 켜져 있으면 즉시 스캔, 아니면 centralManagerDidUpdateState에서 시작
@@ -117,13 +119,20 @@ public class GlucoseBlePlugin: CAPPlugin, CBCentralManagerDelegate, CBPeripheral
     }
 
     public func centralManager(_ cm: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
-        // 정상 완료(finished) 후 끊김은 무시. 그 외엔, 받은 기록이 있으면 성공 처리, 없으면 실패.
         guard !finished else { return }
-        if !readings.isEmpty {
-            finishSuccess()
-        } else {
-            fail("혈당기 연결이 끊겼어요. 페어링 코드를 확인하고 다시 시도해 주세요.")
+        if !readings.isEmpty { finishSuccess(); return }
+        // 페어링 직후 혈당기가 연결을 끊고 재연결을 기다리는 경우가 많음 → 자동 재연결(최대 3회)
+        if reconnectCount < 3 {
+            reconnectCount += 1
+            // 재연결 시 특성 상태 초기화 후 다시 붙기 (본딩은 이미 완료돼 팝업 없이 진행됨)
+            paired = false; measureChar = nil; racpChar = nil; featureChar = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self = self, !self.finished else { return }
+                cm.connect(p, options: nil)
+            }
+            return
         }
+        fail("혈당기 연결이 끊겼어요. 혈당기·아이폰 블루투스를 껐다 켠 뒤 다시 시도해 주세요.")
     }
 
     // MARK: - CBPeripheralDelegate
