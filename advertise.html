@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CARENOTE 광고·제휴 안내</title>
+<meta name="description" content="CARENOTE 광고·제휴 안내 — 시니어 당뇨·만성질환 건강관리 앱. 건강기기·제약·건기식·보험 브랜드를 위한 타깃 광고.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+<style>
+  @font-face{ font-family:'GmarketSans'; font-weight:700; font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff'); }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  :root{ --brand:#2F6BFF; --brand6:#1F4FD9; --navy1:#0b1220; --navy2:#1e3a5f;
+         --ink:#0B1B3B; --sub:#5B6B85; --mute:#8C98AD; --line:#E5EAF2; --bg:#F4F6FB; }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Pretendard',-apple-system,'Apple SD Gothic Neo',sans-serif; color:var(--ink); background:#fff; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 22px; }
+  .ttl{ font-family:'GmarketSans','Pretendard',sans-serif; letter-spacing:-1px; }
+
+  /* Hero */
+  .hero{ background:linear-gradient(140deg,#0b1220 0%,#16294a 48%,#2F6BFF 135%); color:#fff; padding:84px 0 76px; position:relative; overflow:hidden; }
+  .hero .glow{ position:absolute; width:720px; height:720px; border-radius:50%; top:-220px; right:-180px;
+    background:radial-gradient(closest-side, rgba(91,140,255,.45), rgba(91,140,255,0) 70%); }
+  .brand{ display:flex; align-items:center; gap:12px; margin-bottom:34px; }
+  .brand img{ width:46px; height:46px; }
+  .brand b{ font-size:26px; font-weight:800; letter-spacing:-.5px; }
+  .brand b span{ color:#9dbcff; }
+  .hero h1{ font-size:clamp(34px,6vw,58px); font-weight:800; letter-spacing:-2px; line-height:1.15; margin-bottom:20px; position:relative; }
+  .hero p{ font-size:clamp(16px,2.4vw,21px); color:#c9d6f2; font-weight:500; max-width:640px; position:relative; }
+  .hero .cta{ display:inline-block; margin-top:34px; background:#fff; color:var(--brand6); font-weight:800; font-size:18px;
+    padding:16px 30px; border-radius:14px; text-decoration:none; box-shadow:0 16px 40px rgba(0,0,0,.3); position:relative; }
+  .hero .badge{ display:inline-block; margin-bottom:18px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3);
+    padding:8px 16px; border-radius:999px; font-size:14px; font-weight:700; position:relative; }
+
+  section{ padding:72px 0; }
+  .sub{ text-align:center; color:var(--sub); font-size:17px; margin-bottom:44px; max-width:640px; margin-left:auto; margin-right:auto; }
+  h2.sec{ font-size:clamp(26px,4vw,38px); font-weight:800; letter-spacing:-1px; text-align:center; margin-bottom:14px; }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:26px 24px; box-shadow:0 4px 18px rgba(11,27,59,.05); }
+  .card .ic{ font-size:34px; }
+  .card h3{ font-size:20px; font-weight:800; margin:14px 0 8px; letter-spacing:-.4px; }
+  .card p{ color:var(--sub); font-size:15px; }
+
+  .why{ background:var(--bg); }
+  .stat{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; margin-top:8px; }
+  .stat .s{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:28px 20px; text-align:center; }
+  .stat .n{ font-size:34px; font-weight:900; color:var(--brand); letter-spacing:-1px; }
+  .stat .l{ color:var(--sub); font-size:15px; font-weight:600; margin-top:6px; }
+
+  .targets{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:8px; }
+  .chip{ background:#EAF1FF; color:var(--brand6); font-weight:700; font-size:16px; padding:12px 20px; border-radius:999px; border:1px solid #d5e2ff; }
+
+  /* Form */
+  .form{ background:linear-gradient(140deg,#0b1220,#16294a); color:#fff; }
+  .fbox{ background:#fff; color:var(--ink); border-radius:22px; padding:34px; max-width:620px; margin:0 auto; box-shadow:0 30px 70px rgba(0,0,0,.35); }
+  .fbox h2{ font-size:26px; font-weight:800; letter-spacing:-.6px; margin-bottom:6px; }
+  .fbox .d{ color:var(--sub); font-size:15px; margin-bottom:22px; }
+  .fld{ margin-bottom:14px; }
+  .fld label{ display:block; font-size:14px; font-weight:700; color:var(--sub); margin-bottom:6px; }
+  .fld input, .fld textarea{ width:100%; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px; font-size:16px;
+    font-family:inherit; outline:none; background:#F7F9FC; color:var(--ink); }
+  .fld input:focus, .fld textarea:focus{ border-color:var(--brand); background:#fff; }
+  .fld textarea{ min-height:110px; resize:vertical; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .submit{ width:100%; margin-top:8px; padding:17px; border:none; border-radius:14px; background:var(--brand); color:#fff;
+    font-size:18px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .submit:disabled{ opacity:.6; }
+  .fmsg{ margin-top:14px; font-size:15px; text-align:center; font-weight:700; }
+  .direct{ text-align:center; color:#c9d6f2; margin-top:26px; font-size:15px; }
+  .direct a{ color:#fff; font-weight:700; }
+
+  footer{ background:#0b1220; color:#7f8db0; text-align:center; padding:40px 22px; font-size:14px; }
+  footer a{ color:#9dbcff; text-decoration:none; }
+  @media(max-width:560px){ .row2{ grid-template-columns:1fr; } .fbox{ padding:24px; } }
+</style>
+</head>
+<body>
+
+  <header class="hero">
+    <div class="glow"></div>
+    <div class="wrap">
+      <div class="brand"><img src="icons/logo-heart.png" alt="CARENOTE"><b>CARE<span>NOTE</span></b></div>
+      <span class="badge">📣 광고·제휴 안내</span>
+      <h1>건강에 진심인<br>시니어에게 닿습니다</h1>
+      <p>CARENOTE는 40~50대 당뇨·만성질환 관리 앱입니다. 매일 혈당·복약을 기록하는 높은 관여도의 건강 관심층에게 브랜드를 정확히 전달하세요.</p>
+      <a class="cta" href="#inquiry">광고 문의하기 →</a>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <h2 class="sec ttl">왜 CARENOTE인가</h2>
+      <p class="sub">가격 경쟁이 아닌 신뢰가 중요한 헬스케어. 매일 앱을 켜는 진성 사용자에게 맥락에 맞는 광고를 노출합니다.</p>
+      <div class="grid">
+        <div class="card"><div class="ic">🎯</div><h3>정확한 타깃</h3><p>당뇨·고혈압·만성질환 관리층. 건강기기·건기식·보험 구매 의향이 높은 40~50대.</p></div>
+        <div class="card"><div class="ic">🔁</div><h3>높은 리텐션</h3><p>혈당·복약·활동을 매일 기록하는 습관형 앱. 반복 노출로 브랜드 각인.</p></div>
+        <div class="card"><div class="ic">👨‍👩‍👧</div><h3>가족까지 확장</h3><p>부모의 건강을 챙기는 자녀 세대도 함께 사용 — 2세대 도달.</p></div>
+        <div class="card"><div class="ic">🤝</div><h3>신뢰 기반</h3><p>의료·건강 맥락의 절제된 광고로 브랜드 안전성 확보.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="why">
+    <div class="wrap">
+      <h2 class="sec ttl">매체 개요</h2>
+      <p class="sub">App Store 출시 예정 · 아래 지표는 서비스 성장에 따라 업데이트됩니다.</p>
+      <div class="stat">
+        <div class="s"><div class="n">40~50대</div><div class="l">핵심 사용자층</div></div>
+        <div class="s"><div class="n">당뇨·만성질환</div><div class="l">관리 목적</div></div>
+        <div class="s"><div class="n">데일리</div><div class="l">혈당·복약 기록 습관</div></div>
+        <div class="s"><div class="n">iOS</div><div class="l">애플워치·건강앱 연동</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="sec ttl">광고 상품</h2>
+      <p class="sub">브랜드 목표에 맞춰 상품을 조합해 드립니다.</p>
+      <div class="grid">
+        <div class="card"><div class="ic">🖼️</div><h3>앱 내 배너</h3><p>홈·기록·리포트 화면의 맥락형 배너. 노출·클릭 리포트 제공.</p></div>
+        <div class="card"><div class="ic">🛒</div><h3>추천 상품·제휴</h3><p>건강기기·건기식 등 커머스 제휴. 성과형(CPS) 집행 가능.</p></div>
+        <div class="card"><div class="ic">📊</div><h3>리포트 스폰서</h3><p>주간·월간 건강 리포트에 브랜드 로고·메시지 노출.</p></div>
+        <div class="card"><div class="ic">✉️</div><h3>맞춤 캠페인</h3><p>이벤트·설문·샘플링 등 목적별 맞춤 협업.</p></div>
+      </div>
+      <div class="targets" style="margin-top:30px">
+        <span class="chip">건강기기</span><span class="chip">제약·건기식</span>
+        <span class="chip">보험</span><span class="chip">실버·요양</span><span class="chip">식품·저당</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="form" id="inquiry">
+    <div class="wrap">
+      <div class="fbox">
+        <h2>광고·제휴 문의</h2>
+        <div class="d">아래 내용을 남겨주시면 담당자가 매체소개서와 함께 연락드립니다.</div>
+        <form id="inqForm">
+          <div class="row2">
+            <div class="fld"><label>회사명</label><input name="company" required placeholder="(주)케어노트"></div>
+            <div class="fld"><label>담당자명</label><input name="contact_name" required placeholder="홍길동"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label>이메일</label><input name="email" type="email" required placeholder="you@company.com"></div>
+            <div class="fld"><label>연락처</label><input name="phone" placeholder="010-0000-0000"></div>
+          </div>
+          <div class="fld"><label>문의 내용</label><textarea name="message" placeholder="광고 목적·희망 상품·예산·일정 등을 자유롭게 적어주세요."></textarea></div>
+          <button class="submit" type="submit">문의 보내기</button>
+          <div class="fmsg" id="fmsg"></div>
+        </form>
+        <div class="direct">또는 이메일로: <a href="mailto:cnkim@kakao.com?subject=CARENOTE 광고·제휴 문의">cnkim@kakao.com</a></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    CARENOTE · 시니어 당뇨·만성질환 건강관리 앱<br>
+    광고·제휴 문의 <a href="mailto:cnkim@kakao.com">cnkim@kakao.com</a>
+  </footer>
+
+<script>
+  var SUPA_URL = 'https://uvtrnkkzkxzujbvhhchl.supabase.co';
+  var SUPA_KEY = 'sb_publishable_Oi44BpHmjPRSWSXRZ-f7tA_zkMYhcFX';
+  var supa = (window.supabase && SUPA_URL) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+  var form = document.getElementById('inqForm');
+  var fmsg = document.getElementById('fmsg');
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var btn = form.querySelector('.submit'); btn.disabled = true; fmsg.textContent = '보내는 중…'; fmsg.style.color = '#5B6B85';
+    var fd = new FormData(form);
+    var payload = { company:fd.get('company'), contact_name:fd.get('contact_name'),
+                    email:fd.get('email'), phone:fd.get('phone'), message:fd.get('message') };
+    try {
+      if (!supa) throw new Error('no-supa');
+      var res = await supa.from('cn_ad_inquiries').insert(payload);
+      if (res.error) throw res.error;
+      form.reset(); fmsg.style.color = '#10B981'; fmsg.textContent = '✅ 문의가 접수되었습니다. 빠르게 연락드릴게요!';
+    } catch (err) {
+      // 폴백: 메일 클라이언트로
+      var body = encodeURIComponent('회사명: '+payload.company+'\n담당자: '+payload.contact_name+'\n이메일: '+payload.email+'\n연락처: '+(payload.phone||'')+'\n\n'+(payload.message||''));
+      fmsg.style.color = '#EF4444';
+      fmsg.innerHTML = '전송이 어려워요. <a href="mailto:cnkim@kakao.com?subject=CARENOTE 광고 문의&body='+body+'" style="color:#2F6BFF;font-weight:800">이메일로 보내기</a>를 눌러주세요.';
+    }
+    btn.disabled = false;
+  });
+</script>
+</body>
+</html>
