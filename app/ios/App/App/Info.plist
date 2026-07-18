@@ -21,7 +21,7 @@
 			<string>info.cnbiz.health</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>info.cnbiz.health</string>
+				<string>carenote</string>
 			</array>
 		</dict>
 	</array>

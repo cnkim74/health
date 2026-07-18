@@ -2873,7 +2873,7 @@
         const Cap     = window.Capacitor;
         const Browser = Cap.Plugins.Browser;   // @capacitor/browser (SFSafariViewController)
         const CapApp  = Cap.Plugins.App;        // @capacitor/app (딥링크 수신)
-        const redirectTo = 'info.cnbiz.health://login-callback';
+        const redirectTo = 'carenote://login-callback';
         const { data, error } = await supa.auth.signInWithOAuth({
           provider: 'google',
           options: { redirectTo, skipBrowserRedirect: true }
