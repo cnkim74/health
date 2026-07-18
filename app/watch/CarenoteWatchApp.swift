@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import WatchConnectivity
 
 // CARENOTE Apple Watch 앱 (v2) — 복약 하나씩 체크 · 물 · 걷기/뛰기
