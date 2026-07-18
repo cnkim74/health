@@ -12,11 +12,36 @@ cp ../apple-touch-icon.png www/apple-touch-icon.png
 cp ../mascot.png          www/mascot.png
 mkdir -p www/icons && cp ../icons/*.png www/icons/
 
-# 앱 아이콘 자동 반영 (Xcode 에셋 카탈로그) — iOS 프로젝트가 있을 때만
-ICON_DST="ios/App/App/Assets.xcassets/AppIcon.appiconset"
-if [ -d "$ICON_DST" ] && [ -f assets/AppIcon-512@2x.png ]; then
-  cp assets/AppIcon-512@2x.png "$ICON_DST/AppIcon-512@2x.png"
-  echo "✅ 앱 아이콘 반영 완료"
+# 사용자가 assets/icons 에 넣은 이미지도 웹(../icons)·앱(www/icons) 폴더로 반영
+if [ -d assets/icons ]; then
+  cp assets/icons/*.png www/icons/ 2>/dev/null || true
+  cp assets/icons/*.png ../icons/  2>/dev/null || true
+  echo "✅ assets/icons 이미지 반영 완료"
+fi
+
+# ── 앱 아이콘: assets/icons/chart_logo.png → 1024 정사각(불투명) 생성 ──
+LOGO_SRC="assets/icons/chart_logo.png"
+if [ -f "$LOGO_SRC" ] && command -v sips >/dev/null 2>&1; then
+  TMP="$(mktemp -d)"
+  cp "$LOGO_SRC" "$TMP/icon.png"
+  # 투명 배경 → 흰색 평탄화(JPEG 왕복) 후 1024 정사각 리사이즈 + 흰색 패딩
+  sips -s format jpeg "$TMP/icon.png" --out "$TMP/icon.jpg" >/dev/null 2>&1
+  sips -Z 1024 "$TMP/icon.jpg" >/dev/null 2>&1
+  sips -p 1024 1024 --padColor FFFFFF "$TMP/icon.jpg" >/dev/null 2>&1
+  sips -s format png "$TMP/icon.jpg" --out assets/AppIcon-512@2x.png >/dev/null 2>&1
+  rm -rf "$TMP"
+  echo "✅ 앱 아이콘 생성 (chart_logo.png → 1024)"
+fi
+
+# 생성된 아이콘을 iOS·애플워치 등 프로젝트 내 모든 AppIcon 에셋에 자동 반영
+if [ -f assets/AppIcon-512@2x.png ] && [ -d ios ]; then
+  find ios -type d -name "AppIcon.appiconset" 2>/dev/null | while read -r D; do
+    for PNG in "$D"/*.png; do
+      [ -e "$PNG" ] && cp assets/AppIcon-512@2x.png "$PNG"
+    done
+    echo "  + 앱 아이콘 반영: $D"
+  done
+  echo "✅ 앱 아이콘(폰·워치) 반영 완료"
 fi
 
 # 권한 사용 문구 자동 추가 (없을 때만) — 없으면 앱이 크래시함

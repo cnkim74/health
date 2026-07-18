@@ -152,14 +152,14 @@
           <button class="submit" type="submit">문의 보내기</button>
           <div class="fmsg" id="fmsg"></div>
         </form>
-        <div class="direct">또는 이메일로: <a href="mailto:cnkim@kakao.com?subject=CARENOTE 광고·제휴 문의">cnkim@kakao.com</a></div>
+        <div class="direct">또는 이메일로: <a href="mailto:cnkim74@me.com?subject=CARENOTE 광고·제휴 문의">cnkim74@me.com</a></div>
       </div>
     </div>
   </section>
 
   <footer>
     CARENOTE · 시니어 당뇨·만성질환 건강관리 앱<br>
-    광고·제휴 문의 <a href="mailto:cnkim@kakao.com">cnkim@kakao.com</a> ·
+    광고·제휴 문의 <a href="mailto:cnkim74@me.com">cnkim74@me.com</a> ·
     <a href="index.html">CARENOTE 홈</a>
   </footer>
 
@@ -184,7 +184,7 @@
       // 폴백: 메일 클라이언트로
       var body = encodeURIComponent('회사명: '+payload.company+'\n담당자: '+payload.contact_name+'\n이메일: '+payload.email+'\n연락처: '+(payload.phone||'')+'\n\n'+(payload.message||''));
       fmsg.style.color = '#EF4444';
-      fmsg.innerHTML = '전송이 어려워요. <a href="mailto:cnkim@kakao.com?subject=CARENOTE 광고 문의&body='+body+'" style="color:#2F6BFF;font-weight:800">이메일로 보내기</a>를 눌러주세요.';
+      fmsg.innerHTML = '전송이 어려워요. <a href="mailto:cnkim74@me.com?subject=CARENOTE 광고 문의&body='+body+'" style="color:#2F6BFF;font-weight:800">이메일로 보내기</a>를 눌러주세요.';
     }
     btn.disabled = false;
   });
