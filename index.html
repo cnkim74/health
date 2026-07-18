@@ -3974,6 +3974,96 @@
     );
   };
 
+  /* ── 홈 원터치 입력: 혈당(큰 스테퍼) ── */
+  const QuickGlucose = ({ day, onSave }) => {
+    const pickDefault = () => {
+      const now = new Date(); const h = now.getHours() + now.getMinutes() / 60;
+      const w = TIME_WINDOWS.find(t => h >= t.startH && h < t.endH);
+      return w ? w.id : 'bs_bf_am';
+    };
+    const [slot, setSlot] = React.useState(pickDefault);
+    const [val,  setVal]  = React.useState(() => { const c = day?.bs?.[slot]; return c ? parseInt(c) : 110; });
+    const [justSaved, setJustSaved] = React.useState(false);
+    React.useEffect(() => { const c = day?.bs?.[slot]; setVal(c ? parseInt(c) : 110); setJustSaved(false); }, [slot]);
+    const field = BS_FIELDS.find(f => f.id === slot);
+    const c = bsColor(String(val));
+    const bump = (d) => { setVal(v => Math.max(20, Math.min(600, v + d))); setJustSaved(false); };
+    const save = () => { onSave(slot, String(val)); setJustSaved(true); };
+    const rnd = { border:'none', borderRadius:'14px', cursor:'pointer', fontFamily:'inherit', fontWeight:'900', color:'#fff' };
+    return (
+      <div style={{ marginBottom:'20px' }}>
+        <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>🩸 혈당 빠른 기록</div>
+        <div style={{ display:'flex', gap:'6px', overflowX:'auto', paddingBottom:'6px', marginBottom:'10px' }}>
+          {BS_FIELDS.map(f => {
+            const on = f.id === slot;
+            return (
+              <button key={f.id} onClick={() => setSlot(f.id)}
+                style={{ flex:'0 0 auto', padding:'8px 12px', borderRadius:'20px', cursor:'pointer', fontFamily:'inherit',
+                         fontSize:'13px', fontWeight:'700', whiteSpace:'nowrap',
+                         border: on ? '2px solid var(--cn-brand)' : '1px solid var(--card-border)',
+                         background: on ? 'var(--cn-brand)' : 'var(--input-bg)', color: on ? '#fff' : 'var(--text-sub)' }}>
+                {f.icon} {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px' }}>
+          <button onClick={() => bump(-1)} style={{ ...rnd, width:'56px', height:'56px', fontSize:'28px', background:'var(--cn-brand)' }}>－</button>
+          <div style={{ flex:1, textAlign:'center' }}>
+            <div style={{ fontSize:'52px', fontWeight:'900', color:c, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{val}</div>
+            <div style={{ fontSize:'13px', color:'var(--text-sub)', marginTop:'2px' }}>mg/dL · {bsLabel(String(val))}</div>
+          </div>
+          <button onClick={() => bump(1)} style={{ ...rnd, width:'56px', height:'56px', fontSize:'28px', background:'var(--cn-brand)' }}>＋</button>
+        </div>
+        <div style={{ display:'flex', gap:'8px', marginTop:'10px' }}>
+          <button onClick={() => bump(-10)} style={{ ...rnd, flex:'0 0 auto', padding:'12px 14px', fontSize:'15px', background:'var(--text-mute)' }}>－10</button>
+          <button onClick={save} style={{ ...rnd, flex:1, padding:'14px', fontSize:'17px', background: justSaved ? 'var(--cn-ok)' : 'var(--cn-brand)' }}>
+            {justSaved ? '✓ 저장됨' : `${field ? field.label : ''} 저장`}
+          </button>
+          <button onClick={() => bump(10)} style={{ ...rnd, flex:'0 0 auto', padding:'12px 14px', fontSize:'15px', background:'var(--text-mute)' }}>＋10</button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 홈 원터치 입력: 복약(원탭) ── */
+  const QuickMeds = ({ day, meds, onToggle, onAllDone }) => {
+    if (!meds || !meds.length) return null;
+    const isTaken = (id) => !!(day?.meds && day.meds[id]);
+    const takenN = meds.filter(m => isTaken(m.id)).length;
+    const allDone = takenN === meds.length;
+    return (
+      <div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px' }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text-sub)' }}>💊 오늘 복약</div>
+          <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>{takenN}/{meds.length}</div>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'10px' }}>
+          {meds.map(m => {
+            const on = isTaken(m.id);
+            return (
+              <button key={m.id} onClick={() => onToggle(m.id)}
+                style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 16px', borderRadius:'14px',
+                         cursor:'pointer', fontFamily:'inherit', textAlign:'left',
+                         border: on ? '2px solid var(--cn-ok)' : '1px solid var(--card-border)',
+                         background: on ? 'var(--cn-ok-100)' : 'var(--input-bg)' }}>
+                <span style={{ width:'30px', height:'30px', borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                               background: on ? 'var(--cn-ok)' : 'var(--card-border)', color:'#fff', fontSize:'17px', fontWeight:'900' }}>{on ? '✓' : ''}</span>
+                <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>{m.name || '약'}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => onAllDone(meds.map(m => m.id))} disabled={allDone}
+          style={{ width:'100%', padding:'15px', border:'none', borderRadius:'14px', cursor: allDone ? 'default' : 'pointer',
+                   fontFamily:'inherit', fontSize:'17px', fontWeight:'800', color:'#fff',
+                   background: allDone ? 'var(--cn-ok)' : 'var(--cn-brand)', opacity: allDone ? 0.75 : 1 }}>
+          {allDone ? '✓ 오늘 복약 완료!' : '오늘 복약 다 했어요'}
+        </button>
+      </div>
+    );
+  };
+
   /* ── 글자 크기 선택 (전역 zoom) ── */
   const TextSizeControl = () => {
     const [scale, setScale] = React.useState(() => parseFloat(localStorage.getItem('cn_text_scale') || '1.12'));
@@ -7194,6 +7284,18 @@
 
               {/* 대시보드 홈 */}
               <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals} height={height}/>
+
+              {/* 홈: 원터치 빠른 기록 */}
+              <Card tab="home">
+                <STitle icon="icons/case.png" label="빠른 기록" />
+                <QuickGlucose day={day} onSave={(id, v) => updBS(id, v)} />
+                <QuickMeds
+                  day={day}
+                  meds={(medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })))}
+                  onToggle={togMed}
+                  onAllDone={(ids) => upDay({ meds: { ...day.meds, ...Object.fromEntries(ids.map(id => [id, true])) } })}
+                />
+              </Card>
 
               {/* 체중 / 체지방 */}
               <Card tab="record">
