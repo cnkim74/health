@@ -1,0 +1,10 @@
+{
+  "name": "carenote-watch-bridge",
+  "version": "1.0.0",
+  "description": "CARENOTE Apple Watch 브리지 (WatchConnectivity)",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["ios/", "index.js", "CarenoteWatchBridge.podspec"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=6.0.0" }
+}

@@ -13,7 +13,8 @@
     "@capacitor/local-notifications": "^6.1.0",
     "carenote-health": "file:plugins/health-activity",
     "carenote-glucose-ble": "file:plugins/glucose-ble",
-    "carenote-run-tracker": "file:plugins/run-tracker"
+    "carenote-run-tracker": "file:plugins/run-tracker",
+    "carenote-watch-bridge": "file:plugins/watch-bridge"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2"

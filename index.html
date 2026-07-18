@@ -6753,6 +6753,30 @@
 
     /* Stats */
     const allMedIds = useMemo(() => medsConfig.flatMap(s => (s.items||[]).filter(m => isMedActive(m, date)).map(m => m.id||'')), [medsConfig, date]);
+
+    // ── 애플워치 브리지: 워치에서 온 입력(물·복약) 처리 ──
+    const allMedIdsRef = useRef(allMedIds); allMedIdsRef.current = allMedIds;
+    useEffect(() => {
+      const WB = window.Capacitor?.Plugins?.WatchBridge;
+      if (!WB || !WB.addListener) return;
+      let handle;
+      const today = () => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
+      const p = WB.addListener('watchAction', (info) => {
+        try {
+          const action = info && info.action;
+          const d0 = today();
+          if (action === 'water') {
+            const ml = parseInt(info.ml) || 0; if (!ml) return;
+            setData(prev => { const d = prev[d0] || emptyDay(); return { ...prev, [d0]: { ...d, water_ml: (parseInt(d.water_ml)||0) + ml } }; });
+          } else if (action === 'meds_all_done') {
+            setData(prev => { const d = prev[d0] || emptyDay(); const done = Object.fromEntries((allMedIdsRef.current||[]).map(id => [id, true])); return { ...prev, [d0]: { ...d, meds: { ...(d.meds||{}), ...done } } }; });
+          }
+        } catch(e) {}
+      });
+      Promise.resolve(p).then(h => { handle = h; }).catch(()=>{});
+      return () => { try { handle && handle.remove(); } catch(e) {} };
+    }, []);
+
     const medDone = allMedIds.filter(id => day.meds[id]).length;
     const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
     const bsVals  = Object.values(day.bs).filter(v => parseInt(v) > 0);
