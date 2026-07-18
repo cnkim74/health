@@ -14,7 +14,7 @@ struct CarenoteWatchApp: App {
 
 /// 워치 → 아이폰 전송 관리자.
 /// 폰이 가까우면 즉시(sendMessage), 아니면 큐(transferUserInfo)로 전달.
-final class WatchConn: NSObject, ObservableObject, WCSessionDelegate {
+final class WatchConn: NSObject, WCSessionDelegate {
     static let shared = WatchConn()
 
     override init() {
