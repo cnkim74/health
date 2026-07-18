@@ -27,7 +27,9 @@ public class HealthActivityPlugin: CAPPlugin {
                       .heartRate,
                       .restingHeartRate,
                       .heartRateVariabilitySDNN,
-                      .dietaryWater] {
+                      .dietaryWater,
+                      .bloodPressureSystolic,
+                      .bloodPressureDiastolic] {
             if let t = HKObjectType.quantityType(forIdentifier: ident) { set.insert(t) }
         }
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { set.insert(sleep) }
@@ -186,6 +188,23 @@ public class HealthActivityPlugin: CAPPlugin {
                     }
                 }
                 put("sleepHours", (asleep/3600*10).rounded()/10)
+                group.leave()
+            }
+            store.execute(q)
+        } else { group.leave() }
+
+        // 혈압: 최근 혈압(수축기/이완기) 한 쌍 — 오므론 등 혈당·혈압기가 애플 건강에 기록한 값
+        group.enter()
+        if let bpType = HKObjectType.correlationType(forIdentifier: .bloodPressure),
+           let sysT = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic),
+           let diaT = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic) {
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let q = HKSampleQuery(sampleType: bpType, predicate: nil, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
+                let mmHg = HKUnit.millimeterOfMercury()
+                if let c = samples?.first as? HKCorrelation {
+                    if let s = c.objects(for: sysT).first as? HKQuantitySample { put("bpSys", s.quantity.doubleValue(for: mmHg).rounded()) }
+                    if let d = c.objects(for: diaT).first as? HKQuantitySample { put("bpDia", d.quantity.doubleValue(for: mmHg).rounded()) }
+                }
                 group.leave()
             }
             store.execute(q)

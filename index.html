@@ -6383,6 +6383,8 @@
                 if (v.weight && !cur.weight)  patch.weight  = String(v.weight);
                 if (v.bodyFat && !cur.bodyFat) patch.bodyFat = String(v.bodyFat);
                 if (v.waterMl != null) patch.water_ml = String(Math.round(v.waterMl)); // HealthKit 물섭취 반영
+                // 혈압(오므론 등 → 애플 건강): 오늘 혈압이 비어있으면 자동 채움
+                if (v.bpSys && v.bpDia && !(cur.bp && cur.bp.sys)) patch.bp = { sys: String(Math.round(v.bpSys)), dia: String(Math.round(v.bpDia)) };
                 if (!Object.keys(patch).length) return prev;
                 const merged = { ...cur, ...patch };
                 try { supa.from('diabetes_data').upsert({ user_id: userId, date: t, payload: merged, updated_at: new Date().toISOString() }, { onConflict:'user_id,date' }).then(()=>{}); } catch {}
