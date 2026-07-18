@@ -3974,6 +3974,94 @@
     );
   };
 
+  /* ── 가족 연결(보호 관계) 모달 ── */
+  const FamilyModal = ({ onClose }) => {
+    const [list, setList] = React.useState({ asGuardian:[], asWard:[] });
+    const [email, setEmail] = React.useState('');
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
+    const load = async () => {
+      try { const { data } = await supa.rpc('cn_guardian_list');
+        if (data) setList({ asGuardian: data.asGuardian || [], asWard: data.asWard || [] });
+      } catch(e) {}
+    };
+    React.useEffect(() => { load(); }, []);
+    const invite = async () => {
+      if (!email.trim()) { setMsg('상대의 CARENOTE 가입 이메일을 입력하세요'); return; }
+      setBusy(true); setMsg('');
+      const { data, error } = await supa.rpc('cn_guardian_invite', { p_ward_email: email.trim() });
+      setBusy(false);
+      if (error) { setMsg('오류: ' + error.message); return; }
+      if (!data?.ok) { setMsg('❌ ' + (data?.error || '초대 실패')); return; }
+      setMsg('✅ 초대를 보냈어요. 상대가 수락하면 연결됩니다.'); setEmail(''); load();
+    };
+    const respond = async (id, ok) => { await supa.rpc('cn_guardian_respond', { p_id:id, p_accept:ok }); load(); };
+    const revoke  = async (id) => { await supa.rpc('cn_guardian_revoke', { p_id:id }); load(); };
+    const STLABEL = { pending:'대기 중', active:'연결됨', rejected:'거절됨' };
+    const STCOLOR = { pending:'var(--cn-warn)', active:'var(--cn-ok)', rejected:'var(--text-mute)' };
+    const inp = { width:'100%', padding:'14px 16px', border:'1.5px solid var(--card-border)', borderRadius:'12px',
+                  fontSize:'16px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  background:'var(--input-bg)', color:'var(--text)' };
+    const personRow = (item, mode) => (
+      <div key={item.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 16px',
+             background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', marginBottom:'8px' }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'16px', fontWeight:'800', color:'var(--text)' }}>{item.name || item.email || '사용자'}</div>
+          <div style={{ fontSize:'13px', color:'var(--text-sub)', wordBreak:'break-all' }}>{item.email || ''}</div>
+        </div>
+        <span style={{ fontSize:'13px', fontWeight:'800', color:STCOLOR[item.status] }}>{STLABEL[item.status] || item.status}</span>
+        {mode === 'ward' && item.status === 'pending' ? (
+          <div style={{ display:'flex', gap:'6px' }}>
+            <button onClick={() => respond(item.id, true)} style={{ padding:'9px 12px', border:'none', borderRadius:'10px', background:'var(--cn-ok)', color:'#fff', fontWeight:'800', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>수락</button>
+            <button onClick={() => respond(item.id, false)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--text-sub)', fontWeight:'700', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>거절</button>
+          </div>
+        ) : (
+          <button onClick={() => revoke(item.id)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', fontWeight:'700', fontSize:'13px', cursor:'pointer', fontFamily:'inherit' }}>해제</button>
+        )}
+      </div>
+    );
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>👨‍👩‍👧 가족 연결</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          <div style={{ fontSize:'15px', color:'var(--text-sub)', lineHeight:1.6, marginBottom:'18px' }}>
+            가족의 <strong>복약·혈당</strong>을 원격으로 확인할 수 있어요. 상대가 <strong>수락</strong>해야 연결됩니다.
+          </div>
+
+          {/* 나를 돌보는 가족 (수락 대상) */}
+          {list.asWard.length > 0 && (
+            <div style={{ marginBottom:'20px' }}>
+              <div style={{ fontSize:'15px', fontWeight:'800', color:'var(--text)', marginBottom:'10px' }}>나를 돌보는 가족</div>
+              {list.asWard.map(it => personRow(it, 'ward'))}
+            </div>
+          )}
+
+          {/* 내가 돌보는 가족 (초대) */}
+          <div style={{ fontSize:'15px', fontWeight:'800', color:'var(--text)', marginBottom:'10px' }}>내가 돌보는 가족</div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'10px' }}>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="가족의 CARENOTE 이메일" style={inp} autoComplete="off" />
+            <button onClick={invite} disabled={busy}
+              style={{ flex:'0 0 auto', padding:'0 20px', border:'none', borderRadius:'12px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'16px', cursor:'pointer', fontFamily:'inherit', opacity: busy?0.6:1 }}>
+              초대
+            </button>
+          </div>
+          {msg && <div style={{ fontSize:'14px', color:'var(--text)', lineHeight:1.5, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'10px' }}>{msg}</div>}
+          {list.asGuardian.map(it => personRow(it, 'guardian'))}
+          {list.asGuardian.length === 0 && <div style={{ fontSize:'13px', color:'var(--text-mute)', padding:'6px 2px' }}>아직 돌보는 가족이 없어요. 위에서 이메일로 초대하세요.</div>}
+
+          <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.6 }}>
+            ℹ️ 상대의 건강 정보를 열람하려면 상대의 동의(수락)가 필요합니다. 보호자는 <strong>읽기 전용</strong>입니다.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   /* ── 홈 원터치 입력: 혈당(큰 스테퍼) ── */
   const QuickGlucose = ({ day, onSave }) => {
     const pickDefault = () => {
@@ -4095,7 +4183,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4145,6 +4233,7 @@
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
         <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
+        <Row icon="👨‍👩‍👧" label="가족 연결" sub="가족의 복약·혈당 원격 확인" onClick={onFamily} />
         <Row icon="🩸" label="리브레 혈당 연동" sub="CARENOTE 클리닉 연결 · 리브레뷰 CSV 가져오기" onClick={onLibre} />
         <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
@@ -5352,6 +5441,7 @@
     const [vitals, setVitals] = useState({}); // {weight,bodyFat,restingHR,hr,hrv,waterMl,sleepHours}
     const [ecg, setEcg] = useState(null);
     const [showLibre, setShowLibre] = useState(false);
+    const [showFamily, setShowFamily] = useState(false);
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
     const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
@@ -7670,6 +7760,7 @@
               onGoals={() => setShowGoals(true)}
               onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
+              onFamily={() => setShowFamily(true)}
             />
           </div>
         </div>
@@ -7763,6 +7854,7 @@
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
         {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onOpenCsv={() => { setShowLibre(false); setImportTab('libreview'); setShowImport(true); }} />}
+        {showFamily && <FamilyModal onClose={() => setShowFamily(false)} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
         {/* Data Recovery Modal */}
