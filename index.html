@@ -455,6 +455,15 @@
   let _dm = localStorage.getItem('cn_dark') === '1';
   if (_dm) document.body.classList.add('dark');
 
+  // ── 전역 글자 크기(어르신 가독성): 화면 전체를 zoom 으로 확대 ──
+  // 표준 1.0 / 크게 1.12 / 아주 크게 1.28 · 첫 실행 기본값 '크게'
+  window.cnApplyTextScale = (s) => {
+    const v = Math.min(1.4, Math.max(1.0, parseFloat(s) || 1.12));
+    try { localStorage.setItem('cn_text_scale', String(v)); } catch {}
+    document.documentElement.style.zoom = v;
+  };
+  window.cnApplyTextScale(localStorage.getItem('cn_text_scale') || '1.12');
+
   const Card = ({children, style, tab}) => (
     <div className="cn-card" data-tab={tab} style={style}>
       {children}
@@ -3965,6 +3974,37 @@
     );
   };
 
+  /* ── 글자 크기 선택 (전역 zoom) ── */
+  const TextSizeControl = () => {
+    const [scale, setScale] = React.useState(() => parseFloat(localStorage.getItem('cn_text_scale') || '1.12'));
+    const opts = [ { v:1.0, label:'표준' }, { v:1.12, label:'크게' }, { v:1.28, label:'아주 크게' } ];
+    const pick = (v) => { setScale(v); if (window.cnApplyTextScale) window.cnApplyTextScale(v); };
+    const sel = (v) => Math.abs(scale - v) < 0.01;
+    return (
+      <div style={{ padding:'12px 14px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'8px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'10px' }}>
+          <span style={{ fontSize:'20px' }}>🔠</span>
+          <div>
+            <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>글자 크기</div>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)' }}>화면 전체 글자·버튼 크기</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:'8px' }}>
+          {opts.map(o => (
+            <button key={o.v} onClick={() => pick(o.v)}
+              style={{ flex:1, padding:'11px 6px', borderRadius:'10px', cursor:'pointer', fontFamily:'inherit',
+                       fontSize:'14px', fontWeight:'800',
+                       border: sel(o.v) ? '2px solid var(--cn-brand)' : '1px solid var(--card-border)',
+                       background: sel(o.v) ? 'var(--cn-brand)' : 'var(--input-bg)',
+                       color: sel(o.v) ? '#fff' : 'var(--text)' }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
@@ -4019,6 +4059,7 @@
         <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
+        <TextSizeControl />
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
