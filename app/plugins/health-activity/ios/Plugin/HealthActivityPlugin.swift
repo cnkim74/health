@@ -33,6 +33,7 @@ public class HealthActivityPlugin: CAPPlugin {
             if let t = HKObjectType.quantityType(forIdentifier: ident) { set.insert(t) }
         }
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { set.insert(sleep) }
+        if let bp = HKObjectType.correlationType(forIdentifier: .bloodPressure) { set.insert(bp) }
         if #available(iOS 14.0, *) { set.insert(HKObjectType.electrocardiogramType()) }
         return set
     }
