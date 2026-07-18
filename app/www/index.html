@@ -2644,11 +2644,11 @@
       <div style={{ display:'flex', alignItems:'center', gap:'20px',
                     background:'var(--card-bg)', border:'1px solid var(--card-border)',
                     borderRadius:'20px', padding:'16px 20px', marginBottom:'16px' }}>
-        <div style={{ flex:'0 0 auto', width:'128px', height:'128px', borderRadius:'18px', overflow:'hidden',
-                      background:'var(--cn-brand-100)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ flex:'0 0 auto', width:'128px', height:'128px',
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
           <img src={`icons/${img}`} alt=""
                onError={(e)=>{ e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex'; }}
-               style={{ width:'100%', height:'100%', objectFit:'contain', padding:'8px', boxSizing:'border-box' }}/>
+               style={{ width:'100%', height:'100%', objectFit:'contain' }}/>
           <div style={{ display:'none', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', fontSize:'54px' }}>{emoji}</div>
         </div>
         <div style={{ flex:1, minWidth:0 }}>
@@ -2664,7 +2664,7 @@
         <section style={heroBg}>
           <div style={{ maxWidth:'860px', margin:'0 auto', position:'relative', zIndex:1 }}>
             {/* 마스코트 */}
-            <div style={{ display:'inline-flex', width:'160px', height:'160px', borderRadius:'50%', overflow:'hidden', marginBottom:'16px',
+            <div style={{ display:'inline-flex', width:'160px', height:'160px', borderRadius:'50%', overflow:'hidden', marginBottom:'4px',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 80%)', alignItems:'center', justifyContent:'center',
                           boxShadow:'0 12px 34px rgba(0,0,0,0.28)' }}>
               <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'280px', height:'280px', objectFit:'cover', objectPosition:'center 6%' }}/>
@@ -2967,7 +2967,7 @@
             <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center',
                           width:'150px', height:'150px', borderRadius:'50%',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 75%, #e2e9f5 100%)',
-                          marginBottom:'14px', boxShadow:'0 10px 30px rgba(15,23,42,0.35)', overflow:'hidden' }}>
+                          marginBottom:'6px', boxShadow:'0 10px 30px rgba(15,23,42,0.35)', overflow:'hidden' }}>
               <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'263px', height:'263px', objectFit:'cover', objectPosition:'center 6%' }}/>
             </div>
             <div style={{ fontSize:'28px', fontWeight:'900', letterSpacing:'2px',
