@@ -31,15 +31,19 @@ npx cap open ios
    - (있다면) **Companion iOS App: App** (메인 CARENOTE 앱) 선택
 4. Finish → "Activate scheme?" 뜨면 **Activate**
 
-## 2. 워치 소스 교체
-1. 방금 생성된 `CarenoteWatch` 그룹의 **자동 생성 파일**(예: `CarenoteWatchApp.swift`, `ContentView.swift`)을 열어,
-   `app/watch/` 폴더의 아래 3개 내용으로 **교체(또는 드래그해서 추가, target = CarenoteWatch 체크)**:
-   - `CarenoteWatchApp.swift`
-   - `ContentView.swift`
-   - `WatchConn.swift`
-2. 세 파일 모두 **Target Membership = CarenoteWatch** 인지 확인 (오른쪽 File Inspector)
+## 2. 워치 소스 교체 (파일 2개만)
+자동 생성된 두 파일의 **내용만** `app/watch/`의 코드로 교체합니다 (새 파일 추가 없음):
+1. `ContentView.swift` ← `app/watch/ContentView.swift` 내용
+2. `CarenoteWatchApp.swift` ← `app/watch/CarenoteWatchApp.swift` 내용 (통신 관리자 WatchConn 포함)
 
-> WatchConnectivity 는 별도 Capability 가 필요 없습니다. (자동 동작)
+> 어느 파일이 진짜인지 헷갈리면: 타깃 선택 → **Build Phases → Compile Sources**에서
+> `ContentView.swift` / `CarenoteWatchApp.swift` 를 **더블클릭**해 열고 내용을 교체하세요.
+> WatchConnectivity 는 별도 Capability 가 필요 없습니다.
+
+### ⚠️ 타깃이 여러 개 생겼다면
+File → New → Target 을 실수로 여러 번 하면 워치 타깃이 2~3개 생깁니다.
+프로젝트(App) 선택 → **TARGETS** 목록에서 여분 `CarenoteWatch`를 `−`로 삭제해 **1개만** 남기세요.
+(사이드바의 빈 폴더는 빌드에 영향 없음)
 
 ## 3. 번들 ID 확인
 - iOS 앱: 예 `com.carenote.app`
