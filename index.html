@@ -6770,12 +6770,34 @@
             setData(prev => { const d = prev[d0] || emptyDay(); return { ...prev, [d0]: { ...d, water_ml: (parseInt(d.water_ml)||0) + ml } }; });
           } else if (action === 'meds_all_done') {
             setData(prev => { const d = prev[d0] || emptyDay(); const done = Object.fromEntries((allMedIdsRef.current||[]).map(id => [id, true])); return { ...prev, [d0]: { ...d, meds: { ...(d.meds||{}), ...done } } }; });
+          } else if (action === 'med_taken') {
+            const id = info.id; if (!id) return;
+            setData(prev => { const d = prev[d0] || emptyDay(); return { ...prev, [d0]: { ...d, meds: { ...(d.meds||{}), [id]: true } } }; });
+          } else if (action === 'workout_end') {
+            const label = info.type === 'run' ? '달리기' : '걷기';
+            const mins = Math.max(1, Math.round((parseInt(info.seconds)||0) / 60));
+            setData(prev => {
+              const d = prev[d0] || emptyDay();
+              const ex = d.exercise || { type:'', mins:'', logs:[] };
+              const logs = [ ...(ex.logs||[]), { type: label, mins: String(mins) } ];
+              return { ...prev, [d0]: { ...d, exercise: { ...ex, type: ex.type || label, mins: String((parseInt(ex.mins)||0) + mins), logs } } };
+            });
           }
         } catch(e) {}
       });
       Promise.resolve(p).then(h => { handle = h; }).catch(()=>{});
       return () => { try { handle && handle.remove(); } catch(e) {} };
     }, []);
+
+    // 워치로 오늘 복약 목록 전송(하나씩 체크용)
+    useEffect(() => {
+      const WB = window.Capacitor?.Plugins?.WatchBridge;
+      if (!WB || !WB.updateContext) return;
+      const meds = (medsConfig||[]).flatMap(s => (s.items||[])
+        .filter(m => m.name && isMedActive(m, date))
+        .map(m => ({ id: String(m.id), name: String(m.name), taken: (day.meds && day.meds[m.id]) ? '1' : '' })));
+      try { WB.updateContext({ context: { meds } }); } catch(e) {}
+    }, [medsConfig, day, date]);
 
     const medDone = allMedIds.filter(id => day.meds[id]).length;
     const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
