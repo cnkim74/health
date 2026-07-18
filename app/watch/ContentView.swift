@@ -64,41 +64,68 @@ struct ContentView: View {
     }
 }
 
-/// 걷기/뛰기 스톱워치 — 종료 시 폰에 기록 전송.
+/// 걷기/뛰기 — 3·2·1 카운트다운 후 스톱워치. 종료 시 폰에 기록 전송.
 struct WorkoutView: View {
     let type: String
     @Environment(\.dismiss) private var dismiss
+    @State private var countdown = 3
+    @State private var started = false
     @State private var startAt = Date()
     @State private var elapsed = 0
     @State private var timer: Timer? = nil
 
     private var title: String { type == "run" ? "뛰기" : "걷기" }
+    private var color: Color { type == "run" ? .pink : .orange }
     private func fmt(_ s: Int) -> String { String(format: "%02d:%02d", s / 60, s % 60) }
 
     var body: some View {
         VStack(spacing: 14) {
             Text(title).font(.headline)
-            Text(fmt(elapsed))
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .monospacedDigit()
-            Button {
-                WatchConn.shared.send(["action": "workout_end", "type": type, "seconds": elapsed])
-                WKInterfaceDevice.current().play(.stop)
-                timer?.invalidate()
-                dismiss()
-            } label: {
-                Label("종료 & 저장", systemImage: "stop.fill").frame(maxWidth: .infinity)
-            }.tint(.red)
-        }
-        .padding()
-        .onAppear {
-            startAt = Date(); elapsed = 0
-            WatchConn.shared.send(["action": "workout_start", "type": type])
-            WKInterfaceDevice.current().play(.start)
-            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-                elapsed = Int(Date().timeIntervalSince(startAt))
+            if !started {
+                Text("\(countdown)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .foregroundColor(color)
+                Text("준비하세요").font(.footnote).foregroundColor(.secondary)
+            } else {
+                Text(fmt(elapsed))
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                Button {
+                    WatchConn.shared.send(["action": "workout_end", "type": type, "seconds": elapsed])
+                    WKInterfaceDevice.current().play(.stop)
+                    timer?.invalidate()
+                    dismiss()
+                } label: {
+                    Label("종료 & 저장", systemImage: "stop.fill").frame(maxWidth: .infinity)
+                }.tint(.red)
             }
         }
+        .padding()
+        .onAppear { runCountdown() }
         .onDisappear { timer?.invalidate() }
+    }
+
+    private func runCountdown() {
+        countdown = 3
+        WKInterfaceDevice.current().play(.click)
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { t in
+            countdown -= 1
+            if countdown > 0 {
+                WKInterfaceDevice.current().play(.click)
+            } else {
+                t.invalidate()
+                startWorkout()
+            }
+        }
+    }
+
+    private func startWorkout() {
+        started = true
+        startAt = Date(); elapsed = 0
+        WatchConn.shared.send(["action": "workout_start", "type": type])
+        WKInterfaceDevice.current().play(.start)
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            elapsed = Int(Date().timeIntervalSince(startAt))
+        }
     }
 }
