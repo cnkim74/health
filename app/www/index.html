@@ -2626,8 +2626,8 @@
     const sectionTitle = { fontSize:'24px', fontWeight:900, color:'var(--text)', marginBottom:'8px', letterSpacing:'-0.5px' };
     const sectionSub   = { fontSize:'14px', color:'var(--text-sub)', marginBottom:'28px' };
 
-    const ctaBtn = (label, primary=true) => ({
-      onClick: onStart,
+    const ctaBtn = (label, primary=true, mode='signup') => ({
+      onClick: () => onStart(mode),
       style: {
         display:'inline-flex', alignItems:'center', gap:'8px',
         padding:'14px 28px', borderRadius:'14px', fontSize:'15px', fontWeight:800,
@@ -2639,6 +2639,25 @@
       }
     });
 
+    // 이미지(왼쪽 크게) + 텍스트(오른쪽) 가로형 카드. 이미지 파일이 없으면 이모지로 대체 표시.
+    const FeatureRow = ({ img, emoji, title, desc }) => (
+      <div style={{ display:'flex', alignItems:'center', gap:'20px',
+                    background:'var(--card-bg)', border:'1px solid var(--card-border)',
+                    borderRadius:'20px', padding:'16px 20px', marginBottom:'16px' }}>
+        <div style={{ flex:'0 0 auto', width:'128px', height:'128px', borderRadius:'18px', overflow:'hidden',
+                      background:'var(--cn-brand-100)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <img src={`icons/${img}`} alt=""
+               onError={(e)=>{ e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex'; }}
+               style={{ width:'100%', height:'100%', objectFit:'contain', padding:'8px', boxSizing:'border-box' }}/>
+          <div style={{ display:'none', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', fontSize:'54px' }}>{emoji}</div>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'22px', fontWeight:900, color:'var(--text)', marginBottom:'7px', letterSpacing:'-0.4px' }}>{title}</div>
+          <div style={{ fontSize:'15px', color:'var(--text-sub)', lineHeight:1.6 }}>{desc}</div>
+        </div>
+      </div>
+    );
+
     return (
       <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
         {/* Hero */}
@@ -2648,10 +2667,10 @@
             <div style={{ display:'inline-flex', width:'160px', height:'160px', borderRadius:'50%', overflow:'hidden', marginBottom:'16px',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 80%)', alignItems:'center', justifyContent:'center',
                           boxShadow:'0 12px 34px rgba(0,0,0,0.28)' }}>
-              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'278px', height:'278px', objectFit:'cover', objectPosition:'center 14%' }}/>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'360px', height:'360px', objectFit:'cover', objectPosition:'center 20%' }}/>
             </div>
-            <div style={{ display:'block', marginBottom:'14px' }}>
-              <span style={{ display:'inline-block', background:'rgba(255,255,255,0.15)', padding:'5px 14px', borderRadius:'20px', fontSize:'12px', fontWeight:700, letterSpacing:'0.5px' }}>
+            <div style={{ display:'block', marginBottom:'16px' }}>
+              <span style={{ display:'inline-block', background:'rgba(255,255,255,0.18)', padding:'9px 22px', borderRadius:'24px', fontSize:'18px', fontWeight:800, letterSpacing:'0.3px' }}>
                 CARENOTE — 내 몸을 기록하는 노트
               </span>
             </div>
@@ -2664,8 +2683,8 @@
               하루를 적으면 한 달이 보이고, 일 년이 답이 됩니다.
             </p>
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
-              <button {...ctaBtn('지금 시작하기 →', true)}>지금 시작하기 →</button>
-              <button {...ctaBtn('이미 가입하셨나요?', false)}>이미 가입하셨나요? 로그인</button>
+              <button {...ctaBtn('지금 시작하기 →', true, 'signup')}>지금 시작하기 →</button>
+              <button {...ctaBtn('이미 가입하셨나요?', false, 'login')}>이미 가입하셨나요? 로그인</button>
             </div>
             <div style={{ marginTop:'22px', fontSize:'12px', color:'rgba(255,255,255,0.72)' }}>
               💡 회원가입 · 이용 모두 무료 — 데이터는 본인만 접근 가능
@@ -2679,21 +2698,19 @@
             <div style={sectionTitle}>이런 게 한 번에 됩니다</div>
             <div style={sectionSub}>건강 관리에 필요한 모든 기록을 하나의 흐름으로</div>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:'14px' }}>
-            {features.map(f => (
-              <div key={f.title} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'16px', padding:'22px 20px', transition:'transform 0.2s' }}>
-                <div style={{ fontSize:'30px', marginBottom:'10px' }}>{f.icon}</div>
-                <div style={{ fontSize:'16px', fontWeight:800, color:'var(--text)', marginBottom:'6px' }}>{f.title}</div>
-                <div style={{ fontSize:'13px', color:'var(--text-sub)', lineHeight:1.6 }}>{f.desc}</div>
-              </div>
-            ))}
+          <div>
+            <FeatureRow img="drug2.png"    emoji="💊" title="복약 관리"        desc="시간대별 복약 체크리스트와 알람으로 복용 누락 방지" />
+            <FeatureRow img="target2.png"  emoji="🩸" title="혈당·혈압·체중"    desc="매일의 측정값을 한곳에 기록하고 추이 그래프로 한눈에" />
+            <FeatureRow img="salad.png"    emoji="🍽️" title="AI 식단 분석"      desc="사진 한 장으로 음식·칼로리·영양소 자동 추정" />
+            <FeatureRow img="memo.png"     emoji="🏃" title="활동 자동 기록"     desc="iPhone 건강앱 HealthKit 자동 동기화" />
+            <FeatureRow img="schedule.png" emoji="📊" title="30일 리포트"       desc="AI가 자동으로 인사이트와 건강 점수 생성" />
+            <FeatureRow img="data.png"     emoji="📖" title="나만의 건강 일기"   desc="클라우드 안전 보관, 어느 기기에서나 이어보기" />
           </div>
         </section>
 
         {/* "나만의 건강 일기" 강조 */}
         <section style={{ background:'var(--cn-brand-100)', padding:'60px 20px' }}>
           <div style={{ maxWidth:'780px', margin:'0 auto', textAlign:'center' }}>
-            <div style={{ fontSize:'40px', marginBottom:'14px' }}>📖</div>
             <h2 style={{ fontSize:'26px', fontWeight:900, color:'var(--cn-brand-600)', marginBottom:'12px', letterSpacing:'-0.5px' }}>
               하루를 기록하면, 한 달이 보입니다
             </h2>
@@ -2714,36 +2731,20 @@
             <div style={sectionTitle}>매일 자동으로, 한 번 설정으로 끝</div>
             <div style={sectionSub}>스마트폰의 건강 데이터를 매일 자동으로 가져옵니다</div>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px' }}>
-            {[
-              { emoji:'🍎', name:'iPhone 건강앱', desc:'HealthKit 자동 동기화' },
-              { emoji:'⌚', name:'Apple Watch', desc:'걸음수·기초대사량 자동 합산' },
-              { emoji:'🩸', name:'리브레 CGM', desc:'실시간 혈당 자동 수집' },
-              { emoji:'📥', name:'과거 데이터', desc:'애플 건강 ZIP 백필' },
-            ].map(s => (
-              <div key={s.name} style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'18px', textAlign:'center' }}>
-                <div style={{ fontSize:'28px', marginBottom:'6px' }}>{s.emoji}</div>
-                <div style={{ fontSize:'14px', fontWeight:800, color:'var(--text)', marginBottom:'4px' }}>{s.name}</div>
-                <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.5 }}>{s.desc}</div>
-              </div>
-            ))}
+          <div>
+            <FeatureRow img="phone.png"  emoji="🍎" title="iPhone 건강앱"  desc="HealthKit 자동 동기화" />
+            <FeatureRow img="watch.png"  emoji="⌚" title="Apple Watch"    desc="걸음수·기초대사량 자동 합산" />
+            <FeatureRow img="blood2.png" emoji="🩸" title="리브레 CGM"     desc="실시간 혈당 자동 수집" />
+            <FeatureRow img="cloud.png"  emoji="📥" title="과거 데이터"     desc="애플 건강 ZIP 백필" />
           </div>
         </section>
 
         {/* 신뢰·안전 */}
         <section style={{ background:'var(--input-bg)', padding:'48px 20px' }}>
-          <div style={{ maxWidth:'780px', margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'18px', textAlign:'center' }}>
-            {[
-              { icon:'🔒', title:'안전한 보관', desc:'HTTPS 암호화 + 클라우드 자동 백업' },
-              { icon:'👤', title:'본인만 접근', desc:'사용자별 격리, 타인 열람 불가' },
-              { icon:'💾', title:'기기 변경 OK', desc:'같은 이메일로 어디서나 이어보기' },
-            ].map(t => (
-              <div key={t.title}>
-                <div style={{ fontSize:'30px', marginBottom:'8px' }}>{t.icon}</div>
-                <div style={{ fontSize:'15px', fontWeight:800, color:'var(--text)', marginBottom:'4px' }}>{t.title}</div>
-                <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.6 }}>{t.desc}</div>
-              </div>
-            ))}
+          <div style={{ maxWidth:'780px', margin:'0 auto' }}>
+            <FeatureRow img="secu.png"     emoji="🔒" title="안전한 보관"   desc="HTTPS 암호화 + 클라우드 자동 백업" />
+            <FeatureRow img="person.png"   emoji="👤" title="본인만 접근"   desc="사용자별 격리, 타인 열람 불가" />
+            <FeatureRow img="notebook.png" emoji="💾" title="기기 변경 OK"  desc="같은 이메일로 어디서나 이어보기" />
           </div>
         </section>
 
@@ -2755,7 +2756,7 @@
           <p style={{ fontSize:'14px', color:'var(--text-sub)', marginBottom:'24px' }}>
             가입은 30초. 첫 기록은 1분.
           </p>
-          <button onClick={onStart} style={{
+          <button onClick={() => onStart('signup')} style={{
             padding:'16px 36px', borderRadius:'14px', fontSize:'16px', fontWeight:800,
             background:'var(--cn-brand)', color:'#fff', border:'none', cursor:'pointer',
             boxShadow:'0 8px 24px rgba(47,107,255,0.35)'
@@ -2787,9 +2788,9 @@
   };
 
   /* ── 로그인 / 회원가입 화면 ───────────────────────────── */
-  const LoginScreen = ({ onBack }) => {
+  const LoginScreen = ({ onBack, initialMode }) => {
     const dm = _dm;
-    const [mode,         setMode]         = useState('login');
+    const [mode,         setMode]         = useState(initialMode || 'login');
     const [email,        setEmail]        = useState('');
     const [emailChecked, setEmailChecked] = useState(null); // null | 'ok' | 'dup'
     const [emailChecking,setEmailChecking]= useState(false);
@@ -2933,7 +2934,7 @@
     return (
       <div style={{ minHeight:'100vh', position:'relative', overflow:'hidden',
                     background:'linear-gradient(160deg,#060d1a 0%,#0f2244 50%,#0d3068 100%)',
-                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
+                    display:'flex', alignItems:'stretch', justifyContent:'center', padding:'20px' }}>
 
         {/* 배경 장식 원형들 */}
         <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'360px', height:'360px',
@@ -2946,7 +2947,8 @@
         {/* 카드 */}
         <div style={{ position:'relative', zIndex:1, background: dm ? 'rgba(22,27,34,0.95)' : 'rgba(255,255,255,0.97)',
                       backdropFilter:'blur(20px)', borderRadius:'28px', padding:'40px 36px',
-                      maxWidth:'420px', width:'100%',
+                      maxWidth:'440px', width:'100%',
+                      display:'flex', flexDirection:'column', justifyContent:'center',
                       boxShadow: dm ? '0 32px 80px rgba(0,0,0,0.6)' : '0 32px 80px rgba(0,0,0,0.25)',
                       border: dm ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(255,255,255,0.8)' }}>
 
@@ -2966,7 +2968,7 @@
                           width:'150px', height:'150px', borderRadius:'50%',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 75%, #e2e9f5 100%)',
                           marginBottom:'14px', boxShadow:'0 10px 30px rgba(15,23,42,0.35)', overflow:'hidden' }}>
-              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'260px', height:'260px', objectFit:'cover', objectPosition:'center 14%' }}/>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'338px', height:'338px', objectFit:'cover', objectPosition:'center 20%' }}/>
             </div>
             <div style={{ fontSize:'28px', fontWeight:'900', letterSpacing:'2px',
                           background:'linear-gradient(90deg,var(--cn-brand),var(--cn-ok))',
@@ -6922,7 +6924,7 @@
     );
 
     // 미인증 → 랜딩 페이지 (시작하기 누르면 로그인 화면)
-    if (!authUser) return showAuth ? <LoginScreen onBack={() => setShowAuth(false)} /> : <LandingPage onStart={() => setShowAuth(true)} />;
+    if (!authUser) return showAuth ? <LoginScreen initialMode={showAuth === 'signup' ? 'signup' : 'login'} onBack={() => setShowAuth(false)} /> : <LandingPage onStart={(mode) => setShowAuth(mode || 'login')} />;
 
     return (
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
