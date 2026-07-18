@@ -3974,12 +3974,118 @@
     );
   };
 
+  /* ── 관리자용: 피보호자 현황 대시보드(읽기 전용) ── */
+  const WardDashboard = ({ wardId, wardName, onClose }) => {
+    const [rows, setRows] = React.useState(null);
+    const [err, setErr]   = React.useState('');
+    React.useEffect(() => {
+      (async () => {
+        const { data, error } = await supa.from('diabetes_data').select('date,payload').eq('user_id', wardId);
+        if (error) { setErr(error.message || '불러오기 실패'); setRows([]); return; }
+        setRows(data || []);
+      })();
+    }, [wardId]);
+    const info = React.useMemo(() => {
+      if (!rows) return null;
+      const settings = (rows.find(r => r.date === '_user_settings_') || {}).payload || {};
+      const meds = (settings.medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })));
+      const byDate = {}; rows.forEach(r => { if (r.date !== '_user_settings_') byDate[r.date] = r.payload || {}; });
+      const dates = Object.keys(byDate).sort();
+      const t = new Date();
+      const todayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+      const today = byDate[todayKey] || {};
+      const lastDate = dates[dates.length-1];
+      const last = lastDate ? byDate[lastDate] : {};
+      const bsFrom = (d) => { const b=(d&&d.bs)||{}; let v=null; ['bs_bf_am','bs_af_am','bs_bf_lu','bs_af_lu','bs_bf_di','bs_af_di','bs_bed'].forEach(k=>{ if(b[k]) v=b[k]; }); return v; };
+      const medState = meds.map(m => ({ ...m, taken: !!(today.meds && today.meds[m.id]) }));
+      const medTaken = medState.filter(m => m.taken).length;
+      const medTotal = meds.length || Object.keys(today.meds || {}).length;
+      const medTakenFallback = medState.length ? medTaken : Object.values(today.meds || {}).filter(Boolean).length;
+      return {
+        meds: medState, medTaken: medTakenFallback, medTotal,
+        lastBs: bsFrom(today) || bsFrom(last),
+        steps: today.steps || last.steps || 0,
+        weight: today.weight || last.weight || '',
+        bp: (today.bp && today.bp.sys) ? today.bp : ((last.bp && last.bp.sys) ? last.bp : null),
+        hasToday: !!byDate[todayKey], lastDate,
+      };
+    }, [rows]);
+    const card = { background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px 18px', marginBottom:'12px' };
+    const lbl  = { fontSize:'14px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'6px' };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5200,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>💙 {wardName || '피보호자'} 현황</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          {!info && !err && <div style={{ padding:'30px 0', textAlign:'center', color:'var(--text-sub)' }}>불러오는 중…</div>}
+          {err && <div style={{ padding:'16px', color:'var(--cn-danger)', fontSize:'14px' }}>오류: {err}</div>}
+          {info && (
+            <div>
+              <div style={{ fontSize:'13px', color:'var(--text-mute)', marginBottom:'14px' }}>
+                {info.hasToday ? '오늘 기록 기준' : (info.lastDate ? `최근 기록: ${info.lastDate}` : '아직 기록이 없어요')}
+              </div>
+
+              <div style={card}>
+                <div style={lbl}>💊 오늘 복약</div>
+                {info.meds.length > 0 ? (
+                  <>
+                    <div style={{ fontSize:'26px', fontWeight:'900', color: info.medTaken===info.medTotal ? 'var(--cn-ok)' : 'var(--cn-warn)' }}>
+                      {info.medTaken} / {info.medTotal} 완료
+                    </div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginTop:'10px' }}>
+                      {info.meds.map(m => (
+                        <span key={m.id} style={{ fontSize:'13px', fontWeight:'700', padding:'6px 10px', borderRadius:'999px',
+                          background: m.taken ? 'var(--cn-ok-100)' : 'var(--input-bg)', color: m.taken ? 'var(--cn-ok)' : 'var(--text-sub)',
+                          border: `1px solid ${m.taken ? 'var(--cn-ok)' : 'var(--card-border)'}` }}>
+                          {m.taken ? '✓ ' : '○ '}{m.name || '약'}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{info.medTaken}건 복용</div>}
+              </div>
+
+              <div style={card}>
+                <div style={lbl}>🩸 최근 혈당</div>
+                {info.lastBs ? (
+                  <div style={{ fontSize:'30px', fontWeight:'900', color: bsColor(String(info.lastBs)) }}>
+                    {info.lastBs} <span style={{ fontSize:'14px', color:'var(--text-sub)', fontWeight:'700' }}>mg/dL · {bsLabel(String(info.lastBs))}</span>
+                  </div>
+                ) : <div style={{ color:'var(--text-mute)' }}>기록 없음</div>}
+              </div>
+
+              <div style={{ display:'flex', gap:'12px' }}>
+                <div style={{ ...card, flex:1, marginBottom:0 }}>
+                  <div style={lbl}>👟 걸음수</div>
+                  <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{Number(info.steps||0).toLocaleString()}</div>
+                </div>
+                <div style={{ ...card, flex:1, marginBottom:0 }}>
+                  <div style={lbl}>🩺 혈압</div>
+                  <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{info.bp ? `${info.bp.sys}/${info.bp.dia}` : '—'}</div>
+                </div>
+              </div>
+
+              <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.6 }}>
+                ℹ️ 읽기 전용입니다. 값은 피보호자가 기록·자동수집한 데이터예요.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /* ── 가족 연결(보호 관계) 모달 ── */
   const FamilyModal = ({ onClose }) => {
     const [list, setList] = React.useState({ asGuardian:[], asWard:[] });
     const [email, setEmail] = React.useState('');
     const [busy, setBusy] = React.useState(false);
     const [msg, setMsg] = React.useState('');
+    const [viewing, setViewing] = React.useState(null);
     const load = async () => {
       try { const { data } = await supa.rpc('cn_guardian_list');
         if (data) setList({ asGuardian: data.asGuardian || [], asWard: data.asWard || [] });
@@ -4016,7 +4122,13 @@
             <button onClick={() => respond(item.id, false)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--text-sub)', fontWeight:'700', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>거절</button>
           </div>
         ) : (
-          <button onClick={() => revoke(item.id)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', fontWeight:'700', fontSize:'13px', cursor:'pointer', fontFamily:'inherit' }}>해제</button>
+          <div style={{ display:'flex', gap:'6px' }}>
+            {mode === 'guardian' && item.status === 'active' && (
+              <button onClick={() => setViewing({ id:item.personId, name:item.name || item.email })}
+                style={{ padding:'9px 14px', border:'none', borderRadius:'10px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>현황</button>
+            )}
+            <button onClick={() => revoke(item.id)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', fontWeight:'700', fontSize:'13px', cursor:'pointer', fontFamily:'inherit' }}>해제</button>
+          </div>
         )}
       </div>
     );
@@ -4057,6 +4169,7 @@
           <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.6 }}>
             ℹ️ 상대의 건강 정보를 열람하려면 상대의 동의(수락)가 필요합니다. 보호자는 <strong>읽기 전용</strong>입니다.
           </div>
+          {viewing && <WardDashboard wardId={viewing.id} wardName={viewing.name} onClose={() => setViewing(null)} />}
         </div>
       </div>
     );
