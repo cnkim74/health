@@ -3974,6 +3974,23 @@
     );
   };
 
+  /* ── 피보호자 데이터 요약(복약/위험혈당) — 배지·알림 공용 ── */
+  const summarizeWard = (rows) => {
+    const settings = ((rows || []).find(r => r.date === '_user_settings_') || {}).payload || {};
+    const meds = (settings.medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })));
+    const byDate = {}; (rows || []).forEach(r => { if (r.date !== '_user_settings_') byDate[r.date] = r.payload || {}; });
+    const t = new Date();
+    const todayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    const today = byDate[todayKey] || {};
+    const medDone = meds.length ? meds.filter(m => today.meds && today.meds[m.id]).length
+                                : Object.values(today.meds || {}).filter(Boolean).length;
+    const medTotal = meds.length || Object.keys(today.meds || {}).length;
+    const bsVals = Object.values(today.bs || {}).map(v => parseInt(v)).filter(v => v > 0);
+    const low = bsVals.some(v => v < 70), high = bsVals.some(v => v > 250);
+    return { medDone, medTotal, medMissed: medTotal > 0 && medDone < medTotal,
+             bsRisk: low || high, low, high, hasToday: !!byDate[todayKey] };
+  };
+
   /* ── 관리자용: 피보호자 현황 대시보드(읽기 전용) ── */
   const WardDashboard = ({ wardId, wardName, onClose }) => {
     const [rows, setRows] = React.useState(null);
@@ -4086,9 +4103,17 @@
     const [busy, setBusy] = React.useState(false);
     const [msg, setMsg] = React.useState('');
     const [viewing, setViewing] = React.useState(null);
+    const [summaries, setSummaries] = React.useState({});
     const load = async () => {
       try { const { data } = await supa.rpc('cn_guardian_list');
-        if (data) setList({ asGuardian: data.asGuardian || [], asWard: data.asWard || [] });
+        const ag = (data && data.asGuardian) || [], aw = (data && data.asWard) || [];
+        setList({ asGuardian: ag, asWard: aw });
+        const sums = {};
+        await Promise.all(ag.filter(w => w.status === 'active').map(async w => {
+          const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId);
+          if (rows) sums[w.personId] = summarizeWard(rows);
+        }));
+        setSummaries(sums);
       } catch(e) {}
     };
     React.useEffect(() => { load(); }, []);
@@ -4114,6 +4139,16 @@
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:'16px', fontWeight:'800', color:'var(--text)' }}>{item.name || item.email || '사용자'}</div>
           <div style={{ fontSize:'13px', color:'var(--text-sub)', wordBreak:'break-all' }}>{item.email || ''}</div>
+          {mode === 'guardian' && item.status === 'active' && summaries[item.personId] && (() => {
+            const s = summaries[item.personId];
+            const bad = s.medMissed || s.bsRisk;
+            const parts = [];
+            parts.push(s.medTotal > 0 ? `복약 ${s.medDone}/${s.medTotal}` : '복약 기록 없음');
+            if (s.low) parts.push('저혈당⚠️'); else if (s.high) parts.push('고혈당⚠️');
+            else if (s.medTotal > 0 && !s.medMissed) parts.push('정상');
+            else if (s.medMissed) parts.push('미완료');
+            return <div style={{ fontSize:'12px', fontWeight:'800', marginTop:'4px', color: bad ? 'var(--cn-warn)' : 'var(--cn-ok)' }}>{parts.join(' · ')}</div>;
+          })()}
         </div>
         <span style={{ fontSize:'13px', fontWeight:'800', color:STCOLOR[item.status] }}>{STLABEL[item.status] || item.status}</span>
         {mode === 'ward' && item.status === 'pending' ? (
@@ -5595,6 +5630,45 @@
     }, []);
 
     const userId = authUser?.id || '';
+
+    // ── 돌봄 알림(P3): 앱 열 때 피보호자 복약 미완료·위험혈당이면 로컬 알림 (하루 1회) ──
+    useEffect(() => {
+      if (!userId) return;
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+      (async () => {
+        try {
+          const { data: gl } = await supa.rpc('cn_guardian_list');
+          const wards = ((gl && gl.asGuardian) || []).filter(w => w.status === 'active');
+          if (!wards.length) return;
+          const t = new Date();
+          const dayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+          let idx = 0;
+          for (const w of wards) {
+            const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId);
+            if (!rows) { idx++; continue; }
+            const s = summarizeWard(rows);
+            const alerts = [];
+            if (s.medMissed) alerts.push(`오늘 복약 ${s.medDone}/${s.medTotal} 미완료`);
+            if (s.low) alerts.push('저혈당 주의');
+            if (s.high) alerts.push('고혈당 주의');
+            if (!alerts.length) { idx++; continue; }
+            const dkey = `cn_care_notified_${w.personId}_${dayKey}`;
+            if (localStorage.getItem(dkey)) { idx++; continue; }
+            localStorage.setItem(dkey, '1');
+            const title = `💙 ${w.name || '가족'} 돌봄 알림`;
+            const body  = alerts.join(' · ');
+            if (LN) {
+              try { await LN.requestPermissions();
+                await LN.schedule({ notifications: [{ id: 4300 + (idx % 90), title, body, schedule: { at: new Date(Date.now() + 1500) }, sound: 'default' }] });
+              } catch(e) {}
+            } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try { new Notification(title, { body }); } catch(e) {}
+            }
+            idx++;
+          }
+        } catch(e) {}
+      })();
+    }, [userId]);
 
     // 헤더 아바타 로드 (userId 선언 후 위치 — dep 배열 정상 참조)
     useEffect(() => {
