@@ -455,6 +455,15 @@
   let _dm = localStorage.getItem('cn_dark') === '1';
   if (_dm) document.body.classList.add('dark');
 
+  // ── 전역 글자 크기(어르신 가독성): 화면 전체를 zoom 으로 확대 ──
+  // 표준 1.0 / 크게 1.12 / 아주 크게 1.28 · 첫 실행 기본값 '크게'
+  window.cnApplyTextScale = (s) => {
+    const v = Math.min(1.4, Math.max(1.0, parseFloat(s) || 1.12));
+    try { localStorage.setItem('cn_text_scale', String(v)); } catch {}
+    document.documentElement.style.zoom = v;
+  };
+  window.cnApplyTextScale(localStorage.getItem('cn_text_scale') || '1.12');
+
   const Card = ({children, style, tab}) => (
     <div className="cn-card" data-tab={tab} style={style}>
       {children}
@@ -1173,9 +1182,9 @@
   };
 
   /* ── 가져오기 모달 ─────────────────────────────────────── */
-  const ImportModal = ({ onClose, onImport }) => {
+  const ImportModal = ({ onClose, onImport, initialTab }) => {
     const dm = _dm;
-    const [tab,     setTab]     = useState('apple'); // 'apple' | 'libreview'
+    const [tab,     setTab]     = useState(initialTab || 'apple'); // 'apple' | 'libreview'
     const [status,  setStatus]  = useState('idle');
     const [preview, setPreview] = useState(null);
     const [errMsg,  setErrMsg]  = useState('');
@@ -2639,7 +2648,7 @@
             <div style={{ display:'inline-flex', width:'160px', height:'160px', borderRadius:'50%', overflow:'hidden', marginBottom:'16px',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 80%)', alignItems:'center', justifyContent:'center',
                           boxShadow:'0 12px 34px rgba(0,0,0,0.28)' }}>
-              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'150px', height:'150px', objectFit:'cover', objectPosition:'center top' }}/>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'278px', height:'278px', objectFit:'cover', objectPosition:'center 14%' }}/>
             </div>
             <div style={{ display:'block', marginBottom:'14px' }}>
               <span style={{ display:'inline-block', background:'rgba(255,255,255,0.15)', padding:'5px 14px', borderRadius:'20px', fontSize:'12px', fontWeight:700, letterSpacing:'0.5px' }}>
@@ -2809,14 +2818,11 @@
         setError('올바른 이메일 형식을 입력해 주세요.'); return;
       }
       setEmailChecking(true); setEmailChecked(null); setError('');
-      // Supabase signUp으로 중복 확인 (실제 가입 없이 오류 메시지로 판단)
-      const { error: e } = await supa.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-      // shouldCreateUser:false → 미가입이면 오류, 가입이면 OTP 발송
-      // 더 안전한 방법: cn_profiles에서 이메일 조회
-      const { data } = await supa.from('cn_profiles').select('id').eq('email', email).maybeSingle();
+      // RLS 적용 후: 프로필 직접 조회는 막히므로 SECURITY DEFINER 함수로 존재 여부만 확인
+      const { data: exists } = await supa.rpc('email_exists', { p_email: email });
       setEmailChecking(false);
-      if (data) { setEmailChecked('dup'); setError('이미 가입된 이메일이에요. 로그인해 주세요.'); }
-      else       { setEmailChecked('ok'); }
+      if (exists) { setEmailChecked('dup'); setError('이미 가입된 이메일이에요. 로그인해 주세요.'); }
+      else        { setEmailChecked('ok'); }
     };
 
     const handleSubmit = async (e) => {
@@ -2852,11 +2858,65 @@
 
     const handleGoogle = async () => {
       setBusy(true); setError('');
-      const { error } = await supa.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin + window.location.pathname }
-      });
-      if (error) { setError(error.message); setBusy(false); }
+      // 웹: 기존 리디렉션 방식
+      if (!_isNativeApp) {
+        const { error } = await supa.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + window.location.pathname }
+        });
+        if (error) { setError(error.message); setBusy(false); }
+        return;
+      }
+      // 네이티브 앱(iOS): 사파리로 이탈하지 않고 앱 안(인앱 브라우저)에서 처리
+      try {
+        const Cap     = window.Capacitor;
+        const Browser = Cap.Plugins.Browser;   // @capacitor/browser (SFSafariViewController)
+        const CapApp  = Cap.Plugins.App;        // @capacitor/app (딥링크 수신)
+        const redirectTo = 'info.cnbiz.health://login-callback';
+        const { data, error } = await supa.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo, skipBrowserRedirect: true }
+        });
+        if (error) throw error;
+
+        // 구글 로그인 완료 후 딥링크(info.cnbiz.health://login-callback)로 돌아옴 → 여기서 세션 교환
+        let done = false;
+        const sub = await CapApp.addListener('appUrlOpen', async ({ url }) => {
+          if (done || !url || url.indexOf(redirectTo) !== 0) return;
+          done = true;
+          try { if (Browser) await Browser.close(); } catch (_) {}
+          try {
+            const qs = url.split('?')[1] || '';
+            const params = new URLSearchParams(qs);
+            const code = params.get('code');
+            if (code) {
+              const { error: exErr } = await supa.auth.exchangeCodeForSession(code);
+              if (exErr) throw exErr;
+            } else {
+              // 암시적(implicit) 흐름 대비: #access_token=...
+              const hp = new URLSearchParams(url.split('#')[1] || '');
+              const at = hp.get('access_token'), rt = hp.get('refresh_token');
+              if (at && rt) {
+                const { error: setErr } = await supa.auth.setSession({ access_token: at, refresh_token: rt });
+                if (setErr) throw setErr;
+              } else {
+                throw new Error(params.get('error_description') || '인증 정보를 받지 못했어요.');
+              }
+            }
+          } catch (e) {
+            setError('구글 로그인 처리 중 오류: ' + (e.message || e));
+          } finally {
+            try { sub.remove(); } catch (_) {}
+            setBusy(false);
+          }
+        });
+
+        if (Browser) await Browser.open({ url: data.url, presentationStyle: 'popover' });
+        else window.location.href = data.url; // 브라우저 플러그인 미설치 시 폴백
+      } catch (e) {
+        setError(e.message || '구글 로그인 오류');
+        setBusy(false);
+      }
     };
 
     const borderCol = dm ? 'var(--card-border)' : 'var(--card-border)';
@@ -2906,7 +2966,7 @@
                           width:'150px', height:'150px', borderRadius:'50%',
                           background:'radial-gradient(circle at 50% 40%, #ffffff 0%, #eef3fb 75%, #e2e9f5 100%)',
                           marginBottom:'14px', boxShadow:'0 10px 30px rgba(15,23,42,0.35)', overflow:'hidden' }}>
-              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'138px', height:'138px', objectFit:'cover', objectPosition:'center top' }}/>
+              <img src="mascot.png" alt="케어노트 캐릭터" style={{ width:'260px', height:'260px', objectFit:'cover', objectPosition:'center 14%' }}/>
             </div>
             <div style={{ fontSize:'28px', fontWeight:'900', letterSpacing:'2px',
                           background:'linear-gradient(90deg,var(--cn-brand),var(--cn-ok))',
@@ -3190,7 +3250,7 @@
 
     const openDetail = async (post) => {
       setDetailPost(post); setCommentText(''); setComments([]);
-      await supa.from('cn_community').update({ view_count: (post.view_count || 0) + 1 }).eq('id', post.id);
+      supa.rpc('bump_view_count', { p_post_id: String(post.id) }); // RLS: 남의 글 조회수도 올리도록 서버 함수 사용
       loadComments(post.id);
     };
 
@@ -3411,82 +3471,54 @@
     );
   };
 
-  /* ── LibreLinkUp 연동 모달 ── */
-  const LibreLinkModal = ({ onClose, onSync }) => {
-    const saved0 = (() => { try { return JSON.parse(localStorage.getItem('cn_llu_cred') || 'null'); } catch { return null; } })();
-    const [email, setEmail] = React.useState(saved0?.email || '');
-    const [pw,    setPw]    = React.useState(saved0?.password || '');
-    const [msg,   setMsg]   = React.useState('');
-    const [busy,  setBusy]  = React.useState(false);
-    const [connected, setConnected] = React.useState(!!saved0);
-    const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
-                  fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
-                  background:'var(--input-bg)', color:'var(--text)', marginBottom:'10px' };
-
-    const testAndSave = async () => {
-      if (!email.trim() || !pw) { setMsg('⚠️ 이메일과 비밀번호를 입력해 주세요'); return; }
-      setBusy(true); setMsg('🔄 리브레 서버에 연결 중...');
-      localStorage.setItem('cn_llu_cred', JSON.stringify({ email: email.trim(), password: pw }));
-      localStorage.removeItem('cn_llu_auth');
-      try {
-        const r = await onSync();
-        if (!r) throw new Error('동기화 실패');
-        setConnected(true);
-        setMsg(`✅ 연동 성공! ${r.patient || ''} — 최근 혈당 ${r.latest?.mgdl ?? '-'} mg/dL · ${(r.readings||[]).length}건 수집됨. 이후 15분마다 자동 수집됩니다.`);
-      } catch (e) {
-        localStorage.removeItem('cn_llu_cred');
-        setConnected(false);
-        setMsg('❌ ' + (e?.message || '연동 실패'));
-      }
-      setBusy(false);
-    };
-    const disconnect = () => {
-      localStorage.removeItem('cn_llu_cred'); localStorage.removeItem('cn_llu_auth');
-      setConnected(false); setEmail(''); setPw(''); setMsg('연동이 해제되었습니다.');
-    };
-
+  /* ── 리브레 혈당 연동 안내 모달 (CARENOTE 클리닉 + CSV 방식) ── */
+  const LibreLinkModal = ({ onClose, onOpenCsv }) => {
+    const stepBox = { background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px 18px', marginBottom:'14px' };
+    const stepNo  = { fontSize:'17px', fontWeight:'800', color:'var(--cn-brand)', marginBottom:'8px' };
+    const stepTxt = { fontSize:'15.5px', color:'var(--text)', lineHeight:1.75 };
     return (
       <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
                     display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
-        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'400px', maxHeight:'86vh', overflowY:'auto' }}
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
              onClick={e => e.stopPropagation()}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🩸 리브레 실시간 연동 {connected && <span style={{fontSize:'11px', color:'var(--cn-ok)'}}>● 연동됨</span>}</div>
-            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>🩸 리브레 혈당 연동</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
           </div>
 
-          <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.7, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'14px', border:'1px solid var(--card-border)' }}>
-            <strong>사전 준비 (최초 1회만)</strong><br/>
-            ① <strong>libreview.com</strong>에서 두 번째 계정 생성 (웹, 앱 불필요)<br/>
-            ② <strong>리브레(LibreLink) 앱</strong> → 공유 → 위 두 번째 계정 이메일 초대<br/>
-            ③ 초대 수락 (딱 한 번) — 아래 중 하나:<br/>
-            &nbsp;&nbsp;• 안드로이드 폰: Google Play에서 LibreLinkUp 설치 후 수락<br/>
-            &nbsp;&nbsp;• 아이폰만: App Store 국가를 잠깐 미국으로 바꿔 무료 LibreLinkUp 설치·수락 후 원복<br/>
-            ④ 아래에 <strong>두 번째 계정</strong> 로그인 정보 입력<br/>
-            <span style={{ color:'var(--cn-brand)', fontWeight:700 }}>→ 이후 LibreLinkUp 앱은 다시 안 켜도 자동 수집됩니다</span>
+          <div style={{ fontSize:'16px', color:'var(--text)', lineHeight:1.7, marginBottom:'18px' }}>
+            리브레(FreeStyle Libre) 센서의 연속 혈당을 CARENOTE로 가져옵니다.
           </div>
 
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>LibreLinkUp 이메일</div>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} placeholder="example@email.com" autoComplete="off" />
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>비밀번호</div>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} style={inp} placeholder="LibreLinkUp 비밀번호" autoComplete="off" />
+          <div style={stepBox}>
+            <div style={stepNo}>1. 연결하기 <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:600 }}>(최초 1회)</span></div>
+            <div style={stepTxt}>
+              리브레 앱 → <strong>메뉴 → 연결된 앱 → Libre Data Share</strong> 에서<br/>
+              <strong>CARENOTE 연결코드</strong>를 입력해 공유를 켜세요.
+            </div>
+          </div>
 
-          {msg && <div style={{ fontSize:'12px', color:'var(--text)', lineHeight:1.6, background:'var(--input-bg)', borderRadius:'8px', padding:'8px 10px', marginBottom:'10px' }}>{msg}</div>}
+          <div style={stepBox}>
+            <div style={stepNo}>2. 혈당 가져오기</div>
+            <div style={stepTxt}>
+              <strong>libreview.com</strong>에서 <strong>혈당 데이터(CSV)</strong>를 내려받아,<br/>
+              아래 <strong>“리브레뷰 CSV 가져오기”</strong> 버튼으로 불러오세요.
+            </div>
+          </div>
 
-          <button onClick={testAndSave} disabled={busy}
-            style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
-                     borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800', marginBottom:'8px', opacity: busy ? 0.6 : 1 }}>
-            {busy ? '연결 중...' : (connected ? '🔄 지금 동기화' : '연동 테스트 & 저장')}
+          <button onClick={onOpenCsv}
+            style={{ width:'100%', padding:'16px', background:'var(--cn-brand)', color:'#fff', border:'none',
+                     borderRadius:'14px', cursor:'pointer', fontSize:'17px', fontWeight:'800', marginBottom:'10px' }}>
+            📥 리브레뷰 CSV 가져오기
           </button>
-          {connected && (
-            <button onClick={disconnect}
-              style={{ width:'100%', padding:'10px', background:'none', color:'var(--cn-danger)', border:'1px solid var(--card-border)',
-                       borderRadius:'10px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
-              연동 해제
-            </button>
-          )}
-          <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'10px', lineHeight:1.6 }}>
-            ⚠️ 계정 정보는 이 기기(브라우저)에만 저장됩니다. 수집된 혈당은 시간대별(아침식전 등)로 자동 분류되며, 직접 입력한 값은 덮어쓰지 않습니다.
+          <button onClick={() => window.open('https://www.libreview.com', '_blank')}
+            style={{ width:'100%', padding:'14px', background:'none', color:'var(--cn-brand)', border:'1.5px solid var(--card-border)',
+                     borderRadius:'14px', cursor:'pointer', fontSize:'15px', fontWeight:'700' }}>
+            🌐 libreview.com 열기
+          </button>
+
+          <div style={{ fontSize:'13px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.7 }}>
+            ℹ️ 한국 리브레는 실시간 자동연동(LibreLinkUp)이 지원되지 않아, 현재는 CSV로 가져옵니다. 정식 자동수집은 준비 중이에요.
           </div>
         </div>
       </div>
@@ -3996,7 +4028,479 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif }) => {
+  /* ── 쿠팡 파트너스 필수 고지문 ── */
+  const COUPANG_DISCLOSURE = '이 화면에는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받는 링크가 포함될 수 있습니다.';
+
+  /* ── 사용자용: 추천 상품 카드 (쿠팡 제휴) ── */
+  const CoupangProducts = () => {
+    const [cfg, setCfg] = React.useState(null);
+    React.useEffect(() => {
+      (async () => { try { const { data } = await supa.from('cn_ad_config').select('*').eq('id',1).maybeSingle(); setCfg(data); } catch(e){} })();
+    }, []);
+    if (!cfg || !cfg.coupang_enabled || !(cfg.links || []).length) return null;
+    return (
+      <div className="cn-card" data-tab="profile" style={{ marginTop:'12px' }}>
+        <STitle icon="🛒" label="추천 상품" />
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+          {(cfg.links || []).map((l, i) => (
+            <button key={i} onClick={() => window.open(l.url, '_blank')}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', padding:'15px 16px',
+                       border:'1px solid var(--card-border)', borderRadius:'14px', background:'var(--input-bg)', cursor:'pointer', fontFamily:'inherit' }}>
+              <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)', textAlign:'left' }}>{l.title || l.url}</span>
+              <span style={{ fontSize:'14px', color:'var(--cn-brand)', fontWeight:'800', flexShrink:0 }}>보러가기 ›</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'12px', lineHeight:1.6 }}>
+          {cfg.coupang_note || COUPANG_DISCLOSURE}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 관리자용: 쿠팡 파트너스 설정 모달 ── */
+  const CoupangAdminModal = ({ onClose }) => {
+    const [cfg, setCfg] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
+    React.useEffect(() => {
+      (async () => { try { const { data } = await supa.from('cn_ad_config').select('*').eq('id',1).maybeSingle();
+        setCfg(data || { coupang_enabled:false, coupang_id:'', links:[] }); } catch(e){ setCfg({ coupang_enabled:false, coupang_id:'', links:[] }); }
+      })();
+    }, []);
+    const upd = (patch) => setCfg(c => ({ ...c, ...patch }));
+    const setLink = (i, k, v) => setCfg(c => ({ ...c, links: (c.links||[]).map((l,idx)=> idx===i ? { ...l, [k]:v } : l) }));
+    const addLink = () => setCfg(c => ({ ...c, links: [ ...(c.links||[]), { title:'', url:'' } ] }));
+    const delLink = (i) => setCfg(c => ({ ...c, links: (c.links||[]).filter((_,idx)=>idx!==i) }));
+    const save = async () => {
+      setBusy(true); setMsg('');
+      const payload = { id:1, coupang_enabled: !!cfg.coupang_enabled, coupang_id: cfg.coupang_id || null,
+        coupang_note: cfg.coupang_note || null, links: (cfg.links||[]).filter(l => l.url && l.url.trim()),
+        updated_at: new Date().toISOString() };
+      const { error } = await supa.from('cn_ad_config').upsert(payload, { onConflict:'id' });
+      setBusy(false);
+      setMsg(error ? ('❌ 저장 실패: ' + error.message) : '✅ 저장되었습니다');
+    };
+    const inp = { width:'100%', padding:'12px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
+                  fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  background:'var(--input-bg)', color:'var(--text)' };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'460px', maxHeight:'90vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'20px', fontWeight:'800', color:'var(--text)' }}>🛒 쿠팡 파트너스 설정</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+
+          {/* 안내문 */}
+          <div style={{ fontSize:'13px', color:'var(--text-sub)', lineHeight:1.75, background:'var(--input-bg)', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px', border:'1px solid var(--card-border)' }}>
+            <div style={{ fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>📌 쿠팡 파트너스 안내</div>
+            ① <strong>partners.coupang.com</strong> 가입 후 상품/링크 생성<br/>
+            ② 생성된 <strong>제휴 링크</strong>를 아래에 붙여넣기<br/>
+            ③ 활성화하면 사용자 화면 '추천 상품'에 노출됩니다<br/>
+            ④ <strong>공정위 고지 문구는 자동으로 표시</strong>됩니다(의무)<br/>
+            ⑤ 수익은 회원님 쿠팡 파트너스 계정에 적립돼요
+          </div>
+
+          {!cfg ? <div style={{ padding:'20px', textAlign:'center', color:'var(--text-sub)' }}>불러오는 중…</div> : (
+            <div>
+              {/* 활성화 토글 */}
+              <label style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'14px', cursor:'pointer' }}>
+                <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>추천 상품 노출</span>
+                <input type="checkbox" checked={!!cfg.coupang_enabled} onChange={e => upd({ coupang_enabled: e.target.checked })} style={{ width:'22px', height:'22px' }} />
+              </label>
+
+              <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>파트너스 닉네임/ID (선택)</div>
+              <input value={cfg.coupang_id || ''} onChange={e => upd({ coupang_id: e.target.value })} placeholder="예: carenote" style={{ ...inp, marginBottom:'16px' }} />
+
+              <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>추천 상품 링크</div>
+              {(cfg.links || []).map((l, i) => (
+                <div key={i} style={{ display:'flex', gap:'6px', marginBottom:'8px', alignItems:'center' }}>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'6px' }}>
+                    <input value={l.title || ''} onChange={e => setLink(i,'title',e.target.value)} placeholder="상품 이름 (예: 리브레 소모품)" style={inp} />
+                    <input value={l.url || ''} onChange={e => setLink(i,'url',e.target.value)} placeholder="쿠팡 파트너스 링크 (https://...)" style={inp} />
+                  </div>
+                  <button onClick={() => delLink(i)} style={{ flexShrink:0, width:'40px', height:'40px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', cursor:'pointer', fontSize:'18px' }}>✕</button>
+                </div>
+              ))}
+              <button onClick={addLink} style={{ width:'100%', padding:'12px', border:'1.5px dashed var(--card-border)', borderRadius:'12px', background:'none', color:'var(--text-sub)', fontWeight:'700', fontSize:'15px', cursor:'pointer', fontFamily:'inherit', marginBottom:'14px' }}>＋ 상품 링크 추가</button>
+
+              <div style={{ fontSize:'12px', color:'var(--text-mute)', lineHeight:1.6, marginBottom:'14px' }}>
+                미리보기 고지문: “{COUPANG_DISCLOSURE}”
+              </div>
+
+              {msg && <div style={{ fontSize:'14px', color:'var(--text)', background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'10px' }}>{msg}</div>}
+              <button onClick={save} disabled={busy}
+                style={{ width:'100%', padding:'15px', border:'none', borderRadius:'14px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'17px', cursor:'pointer', fontFamily:'inherit', opacity: busy?0.6:1 }}>
+                {busy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 피보호자 데이터 요약(복약/위험혈당) — 배지·알림 공용 ── */
+  const summarizeWard = (rows) => {
+    const settings = ((rows || []).find(r => r.date === '_user_settings_') || {}).payload || {};
+    const meds = (settings.medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })));
+    const byDate = {}; (rows || []).forEach(r => { if (r.date !== '_user_settings_') byDate[r.date] = r.payload || {}; });
+    const t = new Date();
+    const todayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    const today = byDate[todayKey] || {};
+    const medDone = meds.length ? meds.filter(m => today.meds && today.meds[m.id]).length
+                                : Object.values(today.meds || {}).filter(Boolean).length;
+    const medTotal = meds.length || Object.keys(today.meds || {}).length;
+    const bsVals = Object.values(today.bs || {}).map(v => parseInt(v)).filter(v => v > 0);
+    const low = bsVals.some(v => v < 70), high = bsVals.some(v => v > 250);
+    return { medDone, medTotal, medMissed: medTotal > 0 && medDone < medTotal,
+             bsRisk: low || high, low, high, hasToday: !!byDate[todayKey] };
+  };
+
+  /* ── 관리자용: 피보호자 현황 대시보드(읽기 전용) ── */
+  const WardDashboard = ({ wardId, wardName, onClose }) => {
+    const [rows, setRows] = React.useState(null);
+    const [err, setErr]   = React.useState('');
+    React.useEffect(() => {
+      (async () => {
+        const { data, error } = await supa.from('diabetes_data').select('date,payload').eq('user_id', wardId);
+        if (error) { setErr(error.message || '불러오기 실패'); setRows([]); return; }
+        setRows(data || []);
+      })();
+    }, [wardId]);
+    const info = React.useMemo(() => {
+      if (!rows) return null;
+      const settings = (rows.find(r => r.date === '_user_settings_') || {}).payload || {};
+      const meds = (settings.medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })));
+      const byDate = {}; rows.forEach(r => { if (r.date !== '_user_settings_') byDate[r.date] = r.payload || {}; });
+      const dates = Object.keys(byDate).sort();
+      const t = new Date();
+      const todayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+      const today = byDate[todayKey] || {};
+      const lastDate = dates[dates.length-1];
+      const last = lastDate ? byDate[lastDate] : {};
+      const bsFrom = (d) => { const b=(d&&d.bs)||{}; let v=null; ['bs_bf_am','bs_af_am','bs_bf_lu','bs_af_lu','bs_bf_di','bs_af_di','bs_bed'].forEach(k=>{ if(b[k]) v=b[k]; }); return v; };
+      const medState = meds.map(m => ({ ...m, taken: !!(today.meds && today.meds[m.id]) }));
+      const medTaken = medState.filter(m => m.taken).length;
+      const medTotal = meds.length || Object.keys(today.meds || {}).length;
+      const medTakenFallback = medState.length ? medTaken : Object.values(today.meds || {}).filter(Boolean).length;
+      return {
+        meds: medState, medTaken: medTakenFallback, medTotal,
+        lastBs: bsFrom(today) || bsFrom(last),
+        steps: today.steps || last.steps || 0,
+        weight: today.weight || last.weight || '',
+        bp: (today.bp && today.bp.sys) ? today.bp : ((last.bp && last.bp.sys) ? last.bp : null),
+        hasToday: !!byDate[todayKey], lastDate,
+      };
+    }, [rows]);
+    const card = { background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px 18px', marginBottom:'12px' };
+    const lbl  = { fontSize:'14px', color:'var(--text-sub)', fontWeight:'700', marginBottom:'6px' };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5200,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>💙 {wardName || '피보호자'} 현황</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          {!info && !err && <div style={{ padding:'30px 0', textAlign:'center', color:'var(--text-sub)' }}>불러오는 중…</div>}
+          {err && <div style={{ padding:'16px', color:'var(--cn-danger)', fontSize:'14px' }}>오류: {err}</div>}
+          {info && (
+            <div>
+              <div style={{ fontSize:'13px', color:'var(--text-mute)', marginBottom:'14px' }}>
+                {info.hasToday ? '오늘 기록 기준' : (info.lastDate ? `최근 기록: ${info.lastDate}` : '아직 기록이 없어요')}
+              </div>
+
+              <div style={card}>
+                <div style={lbl}>💊 오늘 복약</div>
+                {info.meds.length > 0 ? (
+                  <>
+                    <div style={{ fontSize:'26px', fontWeight:'900', color: info.medTaken===info.medTotal ? 'var(--cn-ok)' : 'var(--cn-warn)' }}>
+                      {info.medTaken} / {info.medTotal} 완료
+                    </div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginTop:'10px' }}>
+                      {info.meds.map(m => (
+                        <span key={m.id} style={{ fontSize:'13px', fontWeight:'700', padding:'6px 10px', borderRadius:'999px',
+                          background: m.taken ? 'var(--cn-ok-100)' : 'var(--input-bg)', color: m.taken ? 'var(--cn-ok)' : 'var(--text-sub)',
+                          border: `1px solid ${m.taken ? 'var(--cn-ok)' : 'var(--card-border)'}` }}>
+                          {m.taken ? '✓ ' : '○ '}{m.name || '약'}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{info.medTaken}건 복용</div>}
+              </div>
+
+              <div style={card}>
+                <div style={lbl}>🩸 최근 혈당</div>
+                {info.lastBs ? (
+                  <div style={{ fontSize:'30px', fontWeight:'900', color: bsColor(String(info.lastBs)) }}>
+                    {info.lastBs} <span style={{ fontSize:'14px', color:'var(--text-sub)', fontWeight:'700' }}>mg/dL · {bsLabel(String(info.lastBs))}</span>
+                  </div>
+                ) : <div style={{ color:'var(--text-mute)' }}>기록 없음</div>}
+              </div>
+
+              <div style={{ display:'flex', gap:'12px' }}>
+                <div style={{ ...card, flex:1, marginBottom:0 }}>
+                  <div style={lbl}>👟 걸음수</div>
+                  <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{Number(info.steps||0).toLocaleString()}</div>
+                </div>
+                <div style={{ ...card, flex:1, marginBottom:0 }}>
+                  <div style={lbl}>🩺 혈압</div>
+                  <div style={{ fontSize:'22px', fontWeight:'900', color:'var(--text)' }}>{info.bp ? `${info.bp.sys}/${info.bp.dia}` : '—'}</div>
+                </div>
+              </div>
+
+              <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.6 }}>
+                ℹ️ 읽기 전용입니다. 값은 피보호자가 기록·자동수집한 데이터예요.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 가족 연결(보호 관계) 모달 ── */
+  const FamilyModal = ({ onClose }) => {
+    const [list, setList] = React.useState({ asGuardian:[], asWard:[] });
+    const [email, setEmail] = React.useState('');
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
+    const [viewing, setViewing] = React.useState(null);
+    const [summaries, setSummaries] = React.useState({});
+    const load = async () => {
+      try { const { data } = await supa.rpc('cn_guardian_list');
+        const ag = (data && data.asGuardian) || [], aw = (data && data.asWard) || [];
+        setList({ asGuardian: ag, asWard: aw });
+        const sums = {};
+        await Promise.all(ag.filter(w => w.status === 'active').map(async w => {
+          const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId);
+          if (rows) sums[w.personId] = summarizeWard(rows);
+        }));
+        setSummaries(sums);
+      } catch(e) {}
+    };
+    React.useEffect(() => { load(); }, []);
+    const invite = async () => {
+      if (!email.trim()) { setMsg('상대의 CARENOTE 가입 이메일을 입력하세요'); return; }
+      setBusy(true); setMsg('');
+      const { data, error } = await supa.rpc('cn_guardian_invite', { p_ward_email: email.trim() });
+      setBusy(false);
+      if (error) { setMsg('오류: ' + error.message); return; }
+      if (!data?.ok) { setMsg('❌ ' + (data?.error || '초대 실패')); return; }
+      setMsg('✅ 초대를 보냈어요. 상대가 수락하면 연결됩니다.'); setEmail(''); load();
+    };
+    const respond = async (id, ok) => { await supa.rpc('cn_guardian_respond', { p_id:id, p_accept:ok }); load(); };
+    const revoke  = async (id) => { await supa.rpc('cn_guardian_revoke', { p_id:id }); load(); };
+    const STLABEL = { pending:'대기 중', active:'연결됨', rejected:'거절됨' };
+    const STCOLOR = { pending:'var(--cn-warn)', active:'var(--cn-ok)', rejected:'var(--text-mute)' };
+    const inp = { width:'100%', padding:'14px 16px', border:'1.5px solid var(--card-border)', borderRadius:'12px',
+                  fontSize:'16px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  background:'var(--input-bg)', color:'var(--text)' };
+    const personRow = (item, mode) => (
+      <div key={item.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 16px',
+             background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', marginBottom:'8px' }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'16px', fontWeight:'800', color:'var(--text)' }}>{item.name || item.email || '사용자'}</div>
+          <div style={{ fontSize:'13px', color:'var(--text-sub)', wordBreak:'break-all' }}>{item.email || ''}</div>
+          {mode === 'guardian' && item.status === 'active' && summaries[item.personId] && (() => {
+            const s = summaries[item.personId];
+            const bad = s.medMissed || s.bsRisk;
+            const parts = [];
+            parts.push(s.medTotal > 0 ? `복약 ${s.medDone}/${s.medTotal}` : '복약 기록 없음');
+            if (s.low) parts.push('저혈당⚠️'); else if (s.high) parts.push('고혈당⚠️');
+            else if (s.medTotal > 0 && !s.medMissed) parts.push('정상');
+            else if (s.medMissed) parts.push('미완료');
+            return <div style={{ fontSize:'12px', fontWeight:'800', marginTop:'4px', color: bad ? 'var(--cn-warn)' : 'var(--cn-ok)' }}>{parts.join(' · ')}</div>;
+          })()}
+        </div>
+        <span style={{ fontSize:'13px', fontWeight:'800', color:STCOLOR[item.status] }}>{STLABEL[item.status] || item.status}</span>
+        {mode === 'ward' && item.status === 'pending' ? (
+          <div style={{ display:'flex', gap:'6px' }}>
+            <button onClick={() => respond(item.id, true)} style={{ padding:'9px 12px', border:'none', borderRadius:'10px', background:'var(--cn-ok)', color:'#fff', fontWeight:'800', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>수락</button>
+            <button onClick={() => respond(item.id, false)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--text-sub)', fontWeight:'700', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>거절</button>
+          </div>
+        ) : (
+          <div style={{ display:'flex', gap:'6px' }}>
+            {mode === 'guardian' && item.status === 'active' && (
+              <button onClick={() => setViewing({ id:item.personId, name:item.name || item.email })}
+                style={{ padding:'9px 14px', border:'none', borderRadius:'10px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' }}>현황</button>
+            )}
+            <button onClick={() => revoke(item.id)} style={{ padding:'9px 12px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', fontWeight:'700', fontSize:'13px', cursor:'pointer', fontFamily:'inherit' }}>해제</button>
+          </div>
+        )}
+      </div>
+    );
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>👨‍👩‍👧 가족 연결</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          <div style={{ fontSize:'15px', color:'var(--text-sub)', lineHeight:1.6, marginBottom:'18px' }}>
+            가족의 <strong>복약·혈당</strong>을 원격으로 확인할 수 있어요. 상대가 <strong>수락</strong>해야 연결됩니다.
+          </div>
+
+          {/* 나를 돌보는 가족 (수락 대상) */}
+          {list.asWard.length > 0 && (
+            <div style={{ marginBottom:'20px' }}>
+              <div style={{ fontSize:'15px', fontWeight:'800', color:'var(--text)', marginBottom:'10px' }}>나를 돌보는 가족</div>
+              {list.asWard.map(it => personRow(it, 'ward'))}
+            </div>
+          )}
+
+          {/* 내가 돌보는 가족 (초대) */}
+          <div style={{ fontSize:'15px', fontWeight:'800', color:'var(--text)', marginBottom:'10px' }}>내가 돌보는 가족</div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'10px' }}>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="가족의 CARENOTE 이메일" style={inp} autoComplete="off" />
+            <button onClick={invite} disabled={busy}
+              style={{ flex:'0 0 auto', padding:'0 20px', border:'none', borderRadius:'12px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'16px', cursor:'pointer', fontFamily:'inherit', opacity: busy?0.6:1 }}>
+              초대
+            </button>
+          </div>
+          {msg && <div style={{ fontSize:'14px', color:'var(--text)', lineHeight:1.5, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'10px' }}>{msg}</div>}
+          {list.asGuardian.map(it => personRow(it, 'guardian'))}
+          {list.asGuardian.length === 0 && <div style={{ fontSize:'13px', color:'var(--text-mute)', padding:'6px 2px' }}>아직 돌보는 가족이 없어요. 위에서 이메일로 초대하세요.</div>}
+
+          <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.6 }}>
+            ℹ️ 상대의 건강 정보를 열람하려면 상대의 동의(수락)가 필요합니다. 보호자는 <strong>읽기 전용</strong>입니다.
+          </div>
+          {viewing && <WardDashboard wardId={viewing.id} wardName={viewing.name} onClose={() => setViewing(null)} />}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 홈 원터치 입력: 혈당(큰 스테퍼) ── */
+  const QuickGlucose = ({ day, onSave }) => {
+    const pickDefault = () => {
+      const now = new Date(); const h = now.getHours() + now.getMinutes() / 60;
+      const w = TIME_WINDOWS.find(t => h >= t.startH && h < t.endH);
+      return w ? w.id : 'bs_bf_am';
+    };
+    const [slot, setSlot] = React.useState(pickDefault);
+    const [val,  setVal]  = React.useState(() => { const c = day?.bs?.[slot]; return c ? parseInt(c) : 110; });
+    const [justSaved, setJustSaved] = React.useState(false);
+    React.useEffect(() => { const c = day?.bs?.[slot]; setVal(c ? parseInt(c) : 110); setJustSaved(false); }, [slot]);
+    const field = BS_FIELDS.find(f => f.id === slot);
+    const c = bsColor(String(val));
+    const bump = (d) => { setVal(v => Math.max(20, Math.min(600, v + d))); setJustSaved(false); };
+    const save = () => { onSave(slot, String(val)); setJustSaved(true); };
+    const rnd = { border:'none', borderRadius:'14px', cursor:'pointer', fontFamily:'inherit', fontWeight:'900', color:'#fff' };
+    return (
+      <div style={{ marginBottom:'20px' }}>
+        <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>🩸 혈당 빠른 기록</div>
+        <div style={{ display:'flex', gap:'6px', overflowX:'auto', paddingBottom:'6px', marginBottom:'10px' }}>
+          {BS_FIELDS.map(f => {
+            const on = f.id === slot;
+            return (
+              <button key={f.id} onClick={() => setSlot(f.id)}
+                style={{ flex:'0 0 auto', padding:'8px 12px', borderRadius:'20px', cursor:'pointer', fontFamily:'inherit',
+                         fontSize:'13px', fontWeight:'700', whiteSpace:'nowrap',
+                         border: on ? '2px solid var(--cn-brand)' : '1px solid var(--card-border)',
+                         background: on ? 'var(--cn-brand)' : 'var(--input-bg)', color: on ? '#fff' : 'var(--text-sub)' }}>
+                {f.icon} {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px' }}>
+          <button onClick={() => bump(-1)} style={{ ...rnd, width:'56px', height:'56px', fontSize:'28px', background:'var(--cn-brand)' }}>－</button>
+          <div style={{ flex:1, textAlign:'center' }}>
+            <div style={{ fontSize:'52px', fontWeight:'900', color:c, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{val}</div>
+            <div style={{ fontSize:'13px', color:'var(--text-sub)', marginTop:'2px' }}>mg/dL · {bsLabel(String(val))}</div>
+          </div>
+          <button onClick={() => bump(1)} style={{ ...rnd, width:'56px', height:'56px', fontSize:'28px', background:'var(--cn-brand)' }}>＋</button>
+        </div>
+        <div style={{ display:'flex', gap:'8px', marginTop:'10px' }}>
+          <button onClick={() => bump(-10)} style={{ ...rnd, flex:'0 0 auto', padding:'12px 14px', fontSize:'15px', background:'var(--text-mute)' }}>－10</button>
+          <button onClick={save} style={{ ...rnd, flex:1, padding:'14px', fontSize:'17px', background: justSaved ? 'var(--cn-ok)' : 'var(--cn-brand)' }}>
+            {justSaved ? '✓ 저장됨' : `${field ? field.label : ''} 저장`}
+          </button>
+          <button onClick={() => bump(10)} style={{ ...rnd, flex:'0 0 auto', padding:'12px 14px', fontSize:'15px', background:'var(--text-mute)' }}>＋10</button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 홈 원터치 입력: 복약(원탭) ── */
+  const QuickMeds = ({ day, meds, onToggle, onAllDone }) => {
+    if (!meds || !meds.length) return null;
+    const isTaken = (id) => !!(day?.meds && day.meds[id]);
+    const takenN = meds.filter(m => isTaken(m.id)).length;
+    const allDone = takenN === meds.length;
+    return (
+      <div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px' }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text-sub)' }}>💊 오늘 복약</div>
+          <div style={{ fontSize:'13px', color:'var(--text-sub)' }}>{takenN}/{meds.length}</div>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'10px' }}>
+          {meds.map(m => {
+            const on = isTaken(m.id);
+            return (
+              <button key={m.id} onClick={() => onToggle(m.id)}
+                style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 16px', borderRadius:'14px',
+                         cursor:'pointer', fontFamily:'inherit', textAlign:'left',
+                         border: on ? '2px solid var(--cn-ok)' : '1px solid var(--card-border)',
+                         background: on ? 'var(--cn-ok-100)' : 'var(--input-bg)' }}>
+                <span style={{ width:'30px', height:'30px', borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                               background: on ? 'var(--cn-ok)' : 'var(--card-border)', color:'#fff', fontSize:'17px', fontWeight:'900' }}>{on ? '✓' : ''}</span>
+                <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>{m.name || '약'}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => onAllDone(meds.map(m => m.id))} disabled={allDone}
+          style={{ width:'100%', padding:'15px', border:'none', borderRadius:'14px', cursor: allDone ? 'default' : 'pointer',
+                   fontFamily:'inherit', fontSize:'17px', fontWeight:'800', color:'#fff',
+                   background: allDone ? 'var(--cn-ok)' : 'var(--cn-brand)', opacity: allDone ? 0.75 : 1 }}>
+          {allDone ? '✓ 오늘 복약 완료!' : '오늘 복약 다 했어요'}
+        </button>
+      </div>
+    );
+  };
+
+  /* ── 글자 크기 선택 (전역 zoom) ── */
+  const TextSizeControl = () => {
+    const [scale, setScale] = React.useState(() => parseFloat(localStorage.getItem('cn_text_scale') || '1.12'));
+    const opts = [ { v:1.0, label:'표준' }, { v:1.12, label:'크게' }, { v:1.28, label:'아주 크게' } ];
+    const pick = (v) => { setScale(v); if (window.cnApplyTextScale) window.cnApplyTextScale(v); };
+    const sel = (v) => Math.abs(scale - v) < 0.01;
+    return (
+      <div style={{ padding:'12px 14px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'8px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'10px' }}>
+          <span style={{ fontSize:'20px' }}>🔠</span>
+          <div>
+            <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>글자 크기</div>
+            <div style={{ fontSize:'12px', color:'var(--text-sub)' }}>화면 전체 글자·버튼 크기</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:'8px' }}>
+          {opts.map(o => (
+            <button key={o.v} onClick={() => pick(o.v)}
+              style={{ flex:1, padding:'11px 6px', borderRadius:'10px', cursor:'pointer', fontFamily:'inherit',
+                       fontSize:'14px', fontWeight:'800',
+                       border: sel(o.v) ? '2px solid var(--cn-brand)' : '1px solid var(--card-border)',
+                       background: sel(o.v) ? 'var(--cn-brand)' : 'var(--input-bg)',
+                       color: sel(o.v) ? '#fff' : 'var(--text)' }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily, isAdmin, onCoupangAdmin }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4046,17 +4550,30 @@
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
         <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
-        <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
+        <Row icon="👨‍👩‍👧" label="가족 연결" sub="가족의 복약·혈당 원격 확인" onClick={onFamily} />
+        <Row icon="🩸" label="리브레 혈당 연동" sub="CARENOTE 클리닉 연결 · 리브레뷰 CSV 가져오기" onClick={onLibre} />
         <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
+        <TextSizeControl />
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
         <Row icon="👥" label="커뮤니티 게시판" sub="건강 정보 공유 · 질문 · 후기" onClick={() => window.open('board.html','_blank')} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
+
+        {isAdmin && (
+          <>
+            <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>관리자</div>
+            <Row icon="🛒" label="쿠팡 파트너스 설정" sub="추천 상품 링크 · 노출 관리" onClick={onCoupangAdmin} />
+          </>
+        )}
+
+        <CoupangProducts />
+
         <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'14px' }}>
-          CARENOTE v2.0 · © 2025 · <a href="mailto:cnkim@kakao.com" style={{ color:'var(--text-mute)' }}>cnkim@kakao.com</a>
+          CARENOTE v2.0 · © 2025 · <a href="mailto:cnkim@kakao.com" style={{ color:'var(--text-mute)' }}>cnkim@kakao.com</a><br/>
+          <a href="advertise.html" target="_blank" rel="noopener" style={{ color:'var(--text-sub)', fontWeight:'600', textDecoration:'none' }}>📣 광고·제휴 문의</a>
         </div>
       </div>
     );
@@ -5229,6 +5746,7 @@
     const [date,       setDate]      = useState(todayStr());
     const [data,       setData]      = useState(() => { try { return normalizeData(JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{}); } catch { return {}; } });
     const [showImport, setShowImport] = useState(false);
+    const [importTab,  setImportTab]  = useState('apple'); // 가져오기 모달 초기 탭
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
     const [showChangePw,    setShowChangePw]    = useState(false);
@@ -5251,6 +5769,8 @@
     const [vitals, setVitals] = useState({}); // {weight,bodyFat,restingHR,hr,hrv,waterMl,sleepHours}
     const [ecg, setEcg] = useState(null);
     const [showLibre, setShowLibre] = useState(false);
+    const [showFamily, setShowFamily] = useState(false);
+    const [showCoupang, setShowCoupang] = useState(false);
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
     const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
@@ -5291,6 +5811,45 @@
     }, []);
 
     const userId = authUser?.id || '';
+
+    // ── 돌봄 알림(P3): 앱 열 때 피보호자 복약 미완료·위험혈당이면 로컬 알림 (하루 1회) ──
+    useEffect(() => {
+      if (!userId) return;
+      const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
+      (async () => {
+        try {
+          const { data: gl } = await supa.rpc('cn_guardian_list');
+          const wards = ((gl && gl.asGuardian) || []).filter(w => w.status === 'active');
+          if (!wards.length) return;
+          const t = new Date();
+          const dayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+          let idx = 0;
+          for (const w of wards) {
+            const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId);
+            if (!rows) { idx++; continue; }
+            const s = summarizeWard(rows);
+            const alerts = [];
+            if (s.medMissed) alerts.push(`오늘 복약 ${s.medDone}/${s.medTotal} 미완료`);
+            if (s.low) alerts.push('저혈당 주의');
+            if (s.high) alerts.push('고혈당 주의');
+            if (!alerts.length) { idx++; continue; }
+            const dkey = `cn_care_notified_${w.personId}_${dayKey}`;
+            if (localStorage.getItem(dkey)) { idx++; continue; }
+            localStorage.setItem(dkey, '1');
+            const title = `💙 ${w.name || '가족'} 돌봄 알림`;
+            const body  = alerts.join(' · ');
+            if (LN) {
+              try { await LN.requestPermissions();
+                await LN.schedule({ notifications: [{ id: 4300 + (idx % 90), title, body, schedule: { at: new Date(Date.now() + 1500) }, sound: 'default' }] });
+              } catch(e) {}
+            } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try { new Notification(title, { body }); } catch(e) {}
+            }
+            idx++;
+          }
+        } catch(e) {}
+      })();
+    }, [userId]);
 
     // 헤더 아바타 로드 (userId 선언 후 위치 — dep 배열 정상 참조)
     useEffect(() => {
@@ -5821,9 +6380,10 @@
 
       const syncHK = async () => {
         try {
-          if (!localStorage.getItem('cn_hk_perm')) {
+          // 권한 버전: readTypes가 바뀌면(예: 혈압 추가) 버전을 올려 재요청 → 새 항목 권한 노출
+          if (localStorage.getItem('cn_hk_perm') !== 'v2') {
             await HK.requestAuth();
-            localStorage.setItem('cn_hk_perm', '1');
+            localStorage.setItem('cn_hk_perm', 'v2');
           }
           const hk = await HK.getTodayActivity();
           if (cancelled || !hk) return;
@@ -5878,6 +6438,8 @@
                 if (v.weight && !cur.weight)  patch.weight  = String(v.weight);
                 if (v.bodyFat && !cur.bodyFat) patch.bodyFat = String(v.bodyFat);
                 if (v.waterMl != null) patch.water_ml = String(Math.round(v.waterMl)); // HealthKit 물섭취 반영
+                // 혈압(오므론 등 → 애플 건강): 오늘 혈압이 비어있으면 자동 채움
+                if (v.bpSys && v.bpDia && !(cur.bp && cur.bp.sys)) patch.bp = { sys: String(Math.round(v.bpSys)), dia: String(Math.round(v.bpDia)) };
                 if (!Object.keys(patch).length) return prev;
                 const merged = { ...cur, ...patch };
                 try { supa.from('diabetes_data').upsert({ user_id: userId, date: t, payload: merged, updated_at: new Date().toISOString() }, { onConflict:'user_id,date' }).then(()=>{}); } catch {}
@@ -6248,6 +6810,52 @@
 
     /* Stats */
     const allMedIds = useMemo(() => medsConfig.flatMap(s => (s.items||[]).filter(m => isMedActive(m, date)).map(m => m.id||'')), [medsConfig, date]);
+
+    // ── 애플워치 브리지: 워치에서 온 입력(물·복약) 처리 ──
+    const allMedIdsRef = useRef(allMedIds); allMedIdsRef.current = allMedIds;
+    useEffect(() => {
+      const WB = window.Capacitor?.Plugins?.WatchBridge;
+      if (!WB || !WB.addListener) return;
+      let handle;
+      const today = () => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
+      const p = WB.addListener('watchAction', (info) => {
+        try {
+          const action = info && info.action;
+          const d0 = today();
+          if (action === 'water') {
+            const ml = parseInt(info.ml) || 0; if (!ml) return;
+            setData(prev => { const d = prev[d0] || emptyDay(); return { ...prev, [d0]: { ...d, water_ml: (parseInt(d.water_ml)||0) + ml } }; });
+          } else if (action === 'meds_all_done') {
+            setData(prev => { const d = prev[d0] || emptyDay(); const done = Object.fromEntries((allMedIdsRef.current||[]).map(id => [id, true])); return { ...prev, [d0]: { ...d, meds: { ...(d.meds||{}), ...done } } }; });
+          } else if (action === 'med_taken') {
+            const id = info.id; if (!id) return;
+            setData(prev => { const d = prev[d0] || emptyDay(); return { ...prev, [d0]: { ...d, meds: { ...(d.meds||{}), [id]: true } } }; });
+          } else if (action === 'workout_end') {
+            const label = info.type === 'run' ? '달리기' : '걷기';
+            const mins = Math.max(1, Math.round((parseInt(info.seconds)||0) / 60));
+            setData(prev => {
+              const d = prev[d0] || emptyDay();
+              const ex = d.exercise || { type:'', mins:'', logs:[] };
+              const logs = [ ...(ex.logs||[]), { type: label, mins: String(mins) } ];
+              return { ...prev, [d0]: { ...d, exercise: { ...ex, type: ex.type || label, mins: String((parseInt(ex.mins)||0) + mins), logs } } };
+            });
+          }
+        } catch(e) {}
+      });
+      Promise.resolve(p).then(h => { handle = h; }).catch(()=>{});
+      return () => { try { handle && handle.remove(); } catch(e) {} };
+    }, []);
+
+    // 워치로 오늘 복약 목록 전송(하나씩 체크용)
+    useEffect(() => {
+      const WB = window.Capacitor?.Plugins?.WatchBridge;
+      if (!WB || !WB.updateContext) return;
+      const meds = (medsConfig||[]).flatMap(s => (s.items||[])
+        .filter(m => m.name && isMedActive(m, date))
+        .map(m => ({ id: String(m.id), name: String(m.name), taken: (day.meds && day.meds[m.id]) ? '1' : '' })));
+      try { WB.updateContext({ context: { meds } }); } catch(e) {}
+    }, [medsConfig, day, date]);
+
     const medDone = allMedIds.filter(id => day.meds[id]).length;
     const medPct  = allMedIds.length ? Math.round((medDone / allMedIds.length) * 100) : 0;
     const bsVals  = Object.values(day.bs).filter(v => parseInt(v) > 0);
@@ -7184,6 +7792,18 @@
               {/* 대시보드 홈 */}
               <DashboardHome data={data} date={date} medsConfig={medsConfig} allMedIds={allMedIds} goals={goals} height={height}/>
 
+              {/* 홈: 원터치 빠른 기록 */}
+              <Card tab="home">
+                <STitle icon="icons/case.png" label="빠른 기록" />
+                <QuickGlucose day={day} onSave={(id, v) => updBS(id, v)} />
+                <QuickMeds
+                  day={day}
+                  meds={(medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })))}
+                  onToggle={togMed}
+                  onAllDone={(ids) => upDay({ meds: { ...day.meds, ...Object.fromEntries(ids.map(id => [id, true])) } })}
+                />
+              </Card>
+
               {/* 체중 / 체지방 */}
               <Card tab="record">
                 <STitle icon="icons/weight.png" label="체중 · 체지방 기록" />
@@ -7557,6 +8177,9 @@
               onGoals={() => setShowGoals(true)}
               onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
+              onFamily={() => setShowFamily(true)}
+              isAdmin={isAdmin}
+              onCoupangAdmin={() => setShowCoupang(true)}
             />
           </div>
         </div>
@@ -7637,7 +8260,7 @@
         {drugInfoModal && <DrugInfoModal medName={drugInfoModal} onClose={() => setDrugInfoModal(null)} />}
 
         {/* Import Modal */}
-        {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
+        {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} initialTab={importTab} />}
 
         {/* Sync Modal */}
         {showSync && <SyncModal userId={userId} onClose={() => { setShowSync(false); setRefreshKey(k => k + 1); }} onChangeId={() => { setRefreshKey(k => k + 1); }} />}
@@ -7649,7 +8272,9 @@
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
         {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
-        {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
+        {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onOpenCsv={() => { setShowLibre(false); setImportTab('libreview'); setShowImport(true); }} />}
+        {showFamily && <FamilyModal onClose={() => setShowFamily(false)} />}
+        {showCoupang && <CoupangAdminModal onClose={() => setShowCoupang(false)} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
         {/* Data Recovery Modal */}

@@ -34,6 +34,17 @@ if [ -f "$PLIST" ]; then
   add_perm NSBluetoothAlwaysUsageDescription "혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다."
   add_perm NSBluetoothPeripheralUsageDescription "혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다."
   echo "✅ 권한 문구 확인 완료"
+
+  # 구글 로그인 딥링크용 URL 스킴 (info.cnbiz.health://login-callback) — 없을 때만 추가
+  if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string info.cnbiz.health" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string info.cnbiz.health" "$PLIST"
+    echo "  + CFBundleURLTypes (info.cnbiz.health)"
+  fi
+  echo "✅ URL 스킴 확인 완료"
 fi
 
 echo "✅ www 폴더 동기화 완료"
