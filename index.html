@@ -2809,14 +2809,11 @@
         setError('올바른 이메일 형식을 입력해 주세요.'); return;
       }
       setEmailChecking(true); setEmailChecked(null); setError('');
-      // Supabase signUp으로 중복 확인 (실제 가입 없이 오류 메시지로 판단)
-      const { error: e } = await supa.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-      // shouldCreateUser:false → 미가입이면 오류, 가입이면 OTP 발송
-      // 더 안전한 방법: cn_profiles에서 이메일 조회
-      const { data } = await supa.from('cn_profiles').select('id').eq('email', email).maybeSingle();
+      // RLS 적용 후: 프로필 직접 조회는 막히므로 SECURITY DEFINER 함수로 존재 여부만 확인
+      const { data: exists } = await supa.rpc('email_exists', { p_email: email });
       setEmailChecking(false);
-      if (data) { setEmailChecked('dup'); setError('이미 가입된 이메일이에요. 로그인해 주세요.'); }
-      else       { setEmailChecked('ok'); }
+      if (exists) { setEmailChecked('dup'); setError('이미 가입된 이메일이에요. 로그인해 주세요.'); }
+      else        { setEmailChecked('ok'); }
     };
 
     const handleSubmit = async (e) => {
@@ -3190,7 +3187,7 @@
 
     const openDetail = async (post) => {
       setDetailPost(post); setCommentText(''); setComments([]);
-      await supa.from('cn_community').update({ view_count: (post.view_count || 0) + 1 }).eq('id', post.id);
+      supa.rpc('bump_view_count', { p_post_id: String(post.id) }); // RLS: 남의 글 조회수도 올리도록 서버 함수 사용
       loadComments(post.id);
     };
 
