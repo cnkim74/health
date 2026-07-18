@@ -1173,9 +1173,9 @@
   };
 
   /* ── 가져오기 모달 ─────────────────────────────────────── */
-  const ImportModal = ({ onClose, onImport }) => {
+  const ImportModal = ({ onClose, onImport, initialTab }) => {
     const dm = _dm;
-    const [tab,     setTab]     = useState('apple'); // 'apple' | 'libreview'
+    const [tab,     setTab]     = useState(initialTab || 'apple'); // 'apple' | 'libreview'
     const [status,  setStatus]  = useState('idle');
     const [preview, setPreview] = useState(null);
     const [errMsg,  setErrMsg]  = useState('');
@@ -3408,82 +3408,54 @@
     );
   };
 
-  /* ── LibreLinkUp 연동 모달 ── */
-  const LibreLinkModal = ({ onClose, onSync }) => {
-    const saved0 = (() => { try { return JSON.parse(localStorage.getItem('cn_llu_cred') || 'null'); } catch { return null; } })();
-    const [email, setEmail] = React.useState(saved0?.email || '');
-    const [pw,    setPw]    = React.useState(saved0?.password || '');
-    const [msg,   setMsg]   = React.useState('');
-    const [busy,  setBusy]  = React.useState(false);
-    const [connected, setConnected] = React.useState(!!saved0);
-    const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
-                  fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
-                  background:'var(--input-bg)', color:'var(--text)', marginBottom:'10px' };
-
-    const testAndSave = async () => {
-      if (!email.trim() || !pw) { setMsg('⚠️ 이메일과 비밀번호를 입력해 주세요'); return; }
-      setBusy(true); setMsg('🔄 리브레 서버에 연결 중...');
-      localStorage.setItem('cn_llu_cred', JSON.stringify({ email: email.trim(), password: pw }));
-      localStorage.removeItem('cn_llu_auth');
-      try {
-        const r = await onSync();
-        if (!r) throw new Error('동기화 실패');
-        setConnected(true);
-        setMsg(`✅ 연동 성공! ${r.patient || ''} — 최근 혈당 ${r.latest?.mgdl ?? '-'} mg/dL · ${(r.readings||[]).length}건 수집됨. 이후 15분마다 자동 수집됩니다.`);
-      } catch (e) {
-        localStorage.removeItem('cn_llu_cred');
-        setConnected(false);
-        setMsg('❌ ' + (e?.message || '연동 실패'));
-      }
-      setBusy(false);
-    };
-    const disconnect = () => {
-      localStorage.removeItem('cn_llu_cred'); localStorage.removeItem('cn_llu_auth');
-      setConnected(false); setEmail(''); setPw(''); setMsg('연동이 해제되었습니다.');
-    };
-
+  /* ── 리브레 혈당 연동 안내 모달 (CARENOTE 클리닉 + CSV 방식) ── */
+  const LibreLinkModal = ({ onClose, onOpenCsv }) => {
+    const stepBox = { background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'14px', padding:'16px 18px', marginBottom:'14px' };
+    const stepNo  = { fontSize:'17px', fontWeight:'800', color:'var(--cn-brand)', marginBottom:'8px' };
+    const stepTxt = { fontSize:'15.5px', color:'var(--text)', lineHeight:1.75 };
     return (
       <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
                     display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
-        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'400px', maxHeight:'86vh', overflowY:'auto' }}
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
              onClick={e => e.stopPropagation()}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🩸 리브레 실시간 연동 {connected && <span style={{fontSize:'11px', color:'var(--cn-ok)'}}>● 연동됨</span>}</div>
-            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+            <div style={{ fontSize:'21px', fontWeight:'800', color:'var(--text)' }}>🩸 리브레 혈당 연동</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
           </div>
 
-          <div style={{ fontSize:'12px', color:'var(--text-sub)', lineHeight:1.7, background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'14px', border:'1px solid var(--card-border)' }}>
-            <strong>사전 준비 (최초 1회만)</strong><br/>
-            ① <strong>libreview.com</strong>에서 두 번째 계정 생성 (웹, 앱 불필요)<br/>
-            ② <strong>리브레(LibreLink) 앱</strong> → 공유 → 위 두 번째 계정 이메일 초대<br/>
-            ③ 초대 수락 (딱 한 번) — 아래 중 하나:<br/>
-            &nbsp;&nbsp;• 안드로이드 폰: Google Play에서 LibreLinkUp 설치 후 수락<br/>
-            &nbsp;&nbsp;• 아이폰만: App Store 국가를 잠깐 미국으로 바꿔 무료 LibreLinkUp 설치·수락 후 원복<br/>
-            ④ 아래에 <strong>두 번째 계정</strong> 로그인 정보 입력<br/>
-            <span style={{ color:'var(--cn-brand)', fontWeight:700 }}>→ 이후 LibreLinkUp 앱은 다시 안 켜도 자동 수집됩니다</span>
+          <div style={{ fontSize:'16px', color:'var(--text)', lineHeight:1.7, marginBottom:'18px' }}>
+            리브레(FreeStyle Libre) 센서의 연속 혈당을 CARENOTE로 가져옵니다.
           </div>
 
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>LibreLinkUp 이메일</div>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inp} placeholder="example@email.com" autoComplete="off" />
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>비밀번호</div>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} style={inp} placeholder="LibreLinkUp 비밀번호" autoComplete="off" />
+          <div style={stepBox}>
+            <div style={stepNo}>1. 연결하기 <span style={{ fontSize:'13px', color:'var(--text-sub)', fontWeight:600 }}>(최초 1회)</span></div>
+            <div style={stepTxt}>
+              리브레 앱 → <strong>메뉴 → 연결된 앱 → Libre Data Share</strong> 에서<br/>
+              <strong>CARENOTE 연결코드</strong>를 입력해 공유를 켜세요.
+            </div>
+          </div>
 
-          {msg && <div style={{ fontSize:'12px', color:'var(--text)', lineHeight:1.6, background:'var(--input-bg)', borderRadius:'8px', padding:'8px 10px', marginBottom:'10px' }}>{msg}</div>}
+          <div style={stepBox}>
+            <div style={stepNo}>2. 혈당 가져오기</div>
+            <div style={stepTxt}>
+              <strong>libreview.com</strong>에서 <strong>혈당 데이터(CSV)</strong>를 내려받아,<br/>
+              아래 <strong>“리브레뷰 CSV 가져오기”</strong> 버튼으로 불러오세요.
+            </div>
+          </div>
 
-          <button onClick={testAndSave} disabled={busy}
-            style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
-                     borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800', marginBottom:'8px', opacity: busy ? 0.6 : 1 }}>
-            {busy ? '연결 중...' : (connected ? '🔄 지금 동기화' : '연동 테스트 & 저장')}
+          <button onClick={onOpenCsv}
+            style={{ width:'100%', padding:'16px', background:'var(--cn-brand)', color:'#fff', border:'none',
+                     borderRadius:'14px', cursor:'pointer', fontSize:'17px', fontWeight:'800', marginBottom:'10px' }}>
+            📥 리브레뷰 CSV 가져오기
           </button>
-          {connected && (
-            <button onClick={disconnect}
-              style={{ width:'100%', padding:'10px', background:'none', color:'var(--cn-danger)', border:'1px solid var(--card-border)',
-                       borderRadius:'10px', cursor:'pointer', fontSize:'13px', fontWeight:'700' }}>
-              연동 해제
-            </button>
-          )}
-          <div style={{ fontSize:'10px', color:'var(--text-mute)', marginTop:'10px', lineHeight:1.6 }}>
-            ⚠️ 계정 정보는 이 기기(브라우저)에만 저장됩니다. 수집된 혈당은 시간대별(아침식전 등)로 자동 분류되며, 직접 입력한 값은 덮어쓰지 않습니다.
+          <button onClick={() => window.open('https://www.libreview.com', '_blank')}
+            style={{ width:'100%', padding:'14px', background:'none', color:'var(--cn-brand)', border:'1.5px solid var(--card-border)',
+                     borderRadius:'14px', cursor:'pointer', fontSize:'15px', fontWeight:'700' }}>
+            🌐 libreview.com 열기
+          </button>
+
+          <div style={{ fontSize:'13px', color:'var(--text-mute)', marginTop:'16px', lineHeight:1.7 }}>
+            ℹ️ 한국 리브레는 실시간 자동연동(LibreLinkUp)이 지원되지 않아, 현재는 CSV로 가져옵니다. 정식 자동수집은 준비 중이에요.
           </div>
         </div>
       </div>
@@ -4043,7 +4015,7 @@
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
         <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
-        <Row icon="🩸" label="리브레 실시간 연동" sub="LibreLinkUp — CGM 혈당 자동 수집" onClick={onLibre} />
+        <Row icon="🩸" label="리브레 혈당 연동" sub="CARENOTE 클리닉 연결 · 리브레뷰 CSV 가져오기" onClick={onLibre} />
         <Row icon="📥" label="과거 데이터 가져오기" sub="애플 건강 ZIP · 리브레뷰 CSV" onClick={onImport} />
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
@@ -5226,6 +5198,7 @@
     const [date,       setDate]      = useState(todayStr());
     const [data,       setData]      = useState(() => { try { return normalizeData(JSON.parse(localStorage.getItem('dm_dash_v2')||'{}').data||{}); } catch { return {}; } });
     const [showImport, setShowImport] = useState(false);
+    const [importTab,  setImportTab]  = useState('apple'); // 가져오기 모달 초기 탭
     const [showSync,   setShowSync]  = useState(false);
     const [showMedSettings, setShowMedSettings] = useState(false);
     const [showChangePw,    setShowChangePw]    = useState(false);
@@ -7634,7 +7607,7 @@
         {drugInfoModal && <DrugInfoModal medName={drugInfoModal} onClose={() => setDrugInfoModal(null)} />}
 
         {/* Import Modal */}
-        {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
+        {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} initialTab={importTab} />}
 
         {/* Sync Modal */}
         {showSync && <SyncModal userId={userId} onClose={() => { setShowSync(false); setRefreshKey(k => k + 1); }} onChangeId={() => { setRefreshKey(k => k + 1); }} />}
@@ -7646,7 +7619,7 @@
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
         {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
-        {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onSync={() => syncLibre({ silent: false })} />}
+        {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onOpenCsv={() => { setShowLibre(false); setImportTab('libreview'); setShowImport(true); }} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
         {/* Data Recovery Modal */}
