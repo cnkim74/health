@@ -3974,6 +3974,121 @@
     );
   };
 
+  /* ── 쿠팡 파트너스 필수 고지문 ── */
+  const COUPANG_DISCLOSURE = '이 화면에는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받는 링크가 포함될 수 있습니다.';
+
+  /* ── 사용자용: 추천 상품 카드 (쿠팡 제휴) ── */
+  const CoupangProducts = () => {
+    const [cfg, setCfg] = React.useState(null);
+    React.useEffect(() => {
+      (async () => { try { const { data } = await supa.from('cn_ad_config').select('*').eq('id',1).maybeSingle(); setCfg(data); } catch(e){} })();
+    }, []);
+    if (!cfg || !cfg.coupang_enabled || !(cfg.links || []).length) return null;
+    return (
+      <div className="cn-card" data-tab="profile" style={{ marginTop:'12px' }}>
+        <STitle icon="🛒" label="추천 상품" />
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+          {(cfg.links || []).map((l, i) => (
+            <button key={i} onClick={() => window.open(l.url, '_blank')}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', padding:'15px 16px',
+                       border:'1px solid var(--card-border)', borderRadius:'14px', background:'var(--input-bg)', cursor:'pointer', fontFamily:'inherit' }}>
+              <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)', textAlign:'left' }}>{l.title || l.url}</span>
+              <span style={{ fontSize:'14px', color:'var(--cn-brand)', fontWeight:'800', flexShrink:0 }}>보러가기 ›</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize:'12px', color:'var(--text-mute)', marginTop:'12px', lineHeight:1.6 }}>
+          {cfg.coupang_note || COUPANG_DISCLOSURE}
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 관리자용: 쿠팡 파트너스 설정 모달 ── */
+  const CoupangAdminModal = ({ onClose }) => {
+    const [cfg, setCfg] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState('');
+    React.useEffect(() => {
+      (async () => { try { const { data } = await supa.from('cn_ad_config').select('*').eq('id',1).maybeSingle();
+        setCfg(data || { coupang_enabled:false, coupang_id:'', links:[] }); } catch(e){ setCfg({ coupang_enabled:false, coupang_id:'', links:[] }); }
+      })();
+    }, []);
+    const upd = (patch) => setCfg(c => ({ ...c, ...patch }));
+    const setLink = (i, k, v) => setCfg(c => ({ ...c, links: (c.links||[]).map((l,idx)=> idx===i ? { ...l, [k]:v } : l) }));
+    const addLink = () => setCfg(c => ({ ...c, links: [ ...(c.links||[]), { title:'', url:'' } ] }));
+    const delLink = (i) => setCfg(c => ({ ...c, links: (c.links||[]).filter((_,idx)=>idx!==i) }));
+    const save = async () => {
+      setBusy(true); setMsg('');
+      const payload = { id:1, coupang_enabled: !!cfg.coupang_enabled, coupang_id: cfg.coupang_id || null,
+        coupang_note: cfg.coupang_note || null, links: (cfg.links||[]).filter(l => l.url && l.url.trim()),
+        updated_at: new Date().toISOString() };
+      const { error } = await supa.from('cn_ad_config').upsert(payload, { onConflict:'id' });
+      setBusy(false);
+      setMsg(error ? ('❌ 저장 실패: ' + error.message) : '✅ 저장되었습니다');
+    };
+    const inp = { width:'100%', padding:'12px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
+                  fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+                  background:'var(--input-bg)', color:'var(--text)' };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }} onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'18px', padding:'24px', width:'100%', maxWidth:'460px', maxHeight:'90vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'20px', fontWeight:'800', color:'var(--text)' }}>🛒 쿠팡 파트너스 설정</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'10px', width:'40px', height:'40px', cursor:'pointer', fontSize:'18px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+
+          {/* 안내문 */}
+          <div style={{ fontSize:'13px', color:'var(--text-sub)', lineHeight:1.75, background:'var(--input-bg)', borderRadius:'12px', padding:'14px 16px', marginBottom:'16px', border:'1px solid var(--card-border)' }}>
+            <div style={{ fontWeight:'800', color:'var(--text)', marginBottom:'6px' }}>📌 쿠팡 파트너스 안내</div>
+            ① <strong>partners.coupang.com</strong> 가입 후 상품/링크 생성<br/>
+            ② 생성된 <strong>제휴 링크</strong>를 아래에 붙여넣기<br/>
+            ③ 활성화하면 사용자 화면 '추천 상품'에 노출됩니다<br/>
+            ④ <strong>공정위 고지 문구는 자동으로 표시</strong>됩니다(의무)<br/>
+            ⑤ 수익은 회원님 쿠팡 파트너스 계정에 적립돼요
+          </div>
+
+          {!cfg ? <div style={{ padding:'20px', textAlign:'center', color:'var(--text-sub)' }}>불러오는 중…</div> : (
+            <div>
+              {/* 활성화 토글 */}
+              <label style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'14px', cursor:'pointer' }}>
+                <span style={{ fontSize:'16px', fontWeight:'700', color:'var(--text)' }}>추천 상품 노출</span>
+                <input type="checkbox" checked={!!cfg.coupang_enabled} onChange={e => upd({ coupang_enabled: e.target.checked })} style={{ width:'22px', height:'22px' }} />
+              </label>
+
+              <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>파트너스 닉네임/ID (선택)</div>
+              <input value={cfg.coupang_id || ''} onChange={e => upd({ coupang_id: e.target.value })} placeholder="예: carenote" style={{ ...inp, marginBottom:'16px' }} />
+
+              <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>추천 상품 링크</div>
+              {(cfg.links || []).map((l, i) => (
+                <div key={i} style={{ display:'flex', gap:'6px', marginBottom:'8px', alignItems:'center' }}>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'6px' }}>
+                    <input value={l.title || ''} onChange={e => setLink(i,'title',e.target.value)} placeholder="상품 이름 (예: 리브레 소모품)" style={inp} />
+                    <input value={l.url || ''} onChange={e => setLink(i,'url',e.target.value)} placeholder="쿠팡 파트너스 링크 (https://...)" style={inp} />
+                  </div>
+                  <button onClick={() => delLink(i)} style={{ flexShrink:0, width:'40px', height:'40px', border:'1px solid var(--card-border)', borderRadius:'10px', background:'none', color:'var(--cn-danger)', cursor:'pointer', fontSize:'18px' }}>✕</button>
+                </div>
+              ))}
+              <button onClick={addLink} style={{ width:'100%', padding:'12px', border:'1.5px dashed var(--card-border)', borderRadius:'12px', background:'none', color:'var(--text-sub)', fontWeight:'700', fontSize:'15px', cursor:'pointer', fontFamily:'inherit', marginBottom:'14px' }}>＋ 상품 링크 추가</button>
+
+              <div style={{ fontSize:'12px', color:'var(--text-mute)', lineHeight:1.6, marginBottom:'14px' }}>
+                미리보기 고지문: “{COUPANG_DISCLOSURE}”
+              </div>
+
+              {msg && <div style={{ fontSize:'14px', color:'var(--text)', background:'var(--input-bg)', borderRadius:'10px', padding:'10px 12px', marginBottom:'10px' }}>{msg}</div>}
+              <button onClick={save} disabled={busy}
+                style={{ width:'100%', padding:'15px', border:'none', borderRadius:'14px', background:'var(--cn-brand)', color:'#fff', fontWeight:'800', fontSize:'17px', cursor:'pointer', fontFamily:'inherit', opacity: busy?0.6:1 }}>
+                {busy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /* ── 피보호자 데이터 요약(복약/위험혈당) — 배지·알림 공용 ── */
   const summarizeWard = (rows) => {
     const settings = ((rows || []).find(r => r.date === '_user_settings_') || {}).payload || {};
@@ -4331,7 +4446,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily, isAdmin, onCoupangAdmin }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4392,6 +4507,16 @@
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
         <Row icon="👥" label="커뮤니티 게시판" sub="건강 정보 공유 · 질문 · 후기" onClick={() => window.open('board.html','_blank')} />
         <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
+
+        {isAdmin && (
+          <>
+            <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>관리자</div>
+            <Row icon="🛒" label="쿠팡 파트너스 설정" sub="추천 상품 링크 · 노출 관리" onClick={onCoupangAdmin} />
+          </>
+        )}
+
+        <CoupangProducts />
+
         <div style={{ textAlign:'center', fontSize:'11px', color:'var(--text-mute)', marginTop:'14px' }}>
           CARENOTE v2.0 · © 2025 · <a href="mailto:cnkim@kakao.com" style={{ color:'var(--text-mute)' }}>cnkim@kakao.com</a>
         </div>
@@ -5590,6 +5715,7 @@
     const [ecg, setEcg] = useState(null);
     const [showLibre, setShowLibre] = useState(false);
     const [showFamily, setShowFamily] = useState(false);
+    const [showCoupang, setShowCoupang] = useState(false);
     /* ── 아큐첵 등 블루투스 혈당기 ── */
     const [bleBusy, setBleBusy] = useState(false);
     const [showRun, setShowRun] = useState(null); // null | 'run' | 'walk'
@@ -7948,6 +8074,8 @@
               onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
               onFamily={() => setShowFamily(true)}
+              isAdmin={isAdmin}
+              onCoupangAdmin={() => setShowCoupang(true)}
             />
           </div>
         </div>
@@ -8042,6 +8170,7 @@
         {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onOpenCsv={() => { setShowLibre(false); setImportTab('libreview'); setShowImport(true); }} />}
         {showFamily && <FamilyModal onClose={() => setShowFamily(false)} />}
+        {showCoupang && <CoupangAdminModal onClose={() => setShowCoupang(false)} />}
         {showRun && <RunTracker mode={showRun} onClose={() => setShowRun(null)} onSave={saveRun} />}
 
         {/* Data Recovery Modal */}
