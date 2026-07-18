@@ -73,6 +73,7 @@ struct WorkoutView: View {
     @State private var startAt = Date()
     @State private var elapsed = 0
     @State private var timer: Timer? = nil
+    @State private var bob = false
 
     private var title: String { type == "run" ? "뛰기" : "걷기" }
     private var color: Color { type == "run" ? .pink : .orange }
@@ -87,8 +88,15 @@ struct WorkoutView: View {
                     .foregroundColor(color)
                 Text("준비하세요").font(.footnote).foregroundColor(.secondary)
             } else {
+                Image(systemName: type == "run" ? "figure.run" : "figure.walk")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundColor(color)
+                    .scaleEffect(bob ? 1.12 : 0.9)
+                    .offset(y: bob ? -5 : 5)
+                    .animation(.easeInOut(duration: type == "run" ? 0.3 : 0.55).repeatForever(autoreverses: true), value: bob)
+                    .onAppear { bob = true }
                 Text(fmt(elapsed))
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
                     .monospacedDigit()
                 Button {
                     WatchConn.shared.send(["action": "workout_end", "type": type, "seconds": elapsed])
