@@ -73,7 +73,6 @@ struct WorkoutView: View {
     @State private var startAt = Date()
     @State private var elapsed = 0
     @State private var timer: Timer? = nil
-    @State private var bob = false
 
     private var title: String { type == "run" ? "뛰기" : "걷기" }
     private var color: Color { type == "run" ? .pink : .orange }
@@ -88,13 +87,8 @@ struct WorkoutView: View {
                     .foregroundColor(color)
                 Text("준비하세요").font(.footnote).foregroundColor(.secondary)
             } else {
-                Image(systemName: type == "run" ? "figure.run" : "figure.walk")
-                    .font(.system(size: 42, weight: .semibold))
-                    .foregroundColor(color)
-                    .scaleEffect(bob ? 1.12 : 0.9)
-                    .offset(y: bob ? -5 : 5)
-                    .animation(.easeInOut(duration: type == "run" ? 0.3 : 0.55).repeatForever(autoreverses: true), value: bob)
-                    .onAppear { bob = true }
+                RunnerFigure(running: type == "run", color: color)
+                    .frame(width: 66, height: 74)
                 Text(fmt(elapsed))
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -134,6 +128,58 @@ struct WorkoutView: View {
         WKInterfaceDevice.current().play(.start)
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             elapsed = Int(Date().timeIntervalSince(startAt))
+        }
+    }
+}
+
+/// 팔다리가 흔들리는 스틱맨 (걷기: 느리게 / 뛰기: 빠르고 크게)
+struct RunnerFigure: View {
+    let running: Bool
+    let color: Color
+
+    var body: some View {
+        TimelineView(.animation) { tl in
+            Canvas { ctx, size in
+                let t = tl.date.timeIntervalSinceReferenceDate
+                let speed = running ? 7.5 : 4.2
+                let amp: Double = running ? 0.8 : 0.5
+                let s = sin(t * speed) * amp
+
+                let cx = size.width / 2
+                let headR = size.height * 0.11
+                let headY = size.height * 0.17
+                let shoulderY = size.height * 0.30
+                let hipY = size.height * 0.60
+                let legLen = size.height * 0.34
+                let armLen = size.height * 0.24
+                let shade = GraphicsContext.Shading.color(color)
+                let lw: CGFloat = running ? 5 : 4.5
+
+                // 머리
+                let hr = CGRect(x: cx - headR, y: headY - headR, width: headR * 2, height: headR * 2)
+                ctx.fill(Path(ellipseIn: hr), with: shade)
+                // 몸통
+                var torso = Path()
+                torso.move(to: CGPoint(x: cx, y: shoulderY))
+                torso.addLine(to: CGPoint(x: cx, y: hipY))
+                ctx.stroke(torso, with: shade, style: StrokeStyle(lineWidth: lw, lineCap: .round))
+                // 다리 (좌우 반대로 스윙)
+                for dir in [1.0, -1.0] {
+                    let a = s * dir
+                    var p = Path()
+                    p.move(to: CGPoint(x: cx, y: hipY))
+                    p.addLine(to: CGPoint(x: cx + sin(a) * legLen, y: hipY + cos(a) * legLen))
+                    ctx.stroke(p, with: shade, style: StrokeStyle(lineWidth: lw, lineCap: .round))
+                }
+                // 팔 (다리와 반대로 스윙)
+                for dir in [1.0, -1.0] {
+                    let a = -s * dir
+                    var p = Path()
+                    p.move(to: CGPoint(x: cx, y: shoulderY))
+                    p.addLine(to: CGPoint(x: cx + sin(a) * armLen, y: shoulderY + cos(a) * armLen * 0.8))
+                    ctx.stroke(p, with: shade, style: StrokeStyle(lineWidth: lw * 0.85, lineCap: .round))
+                }
+            }
         }
     }
 }
