@@ -58,6 +58,7 @@ if [ -f "$PLIST" ]; then
   add_perm NSHealthShareUsageDescription "걸음수, 칼로리, 거리, 혈당 데이터를 읽어 대시보드에 자동으로 기록합니다."
   add_perm NSBluetoothAlwaysUsageDescription "혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다."
   add_perm NSBluetoothPeripheralUsageDescription "혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다."
+  add_perm NSFaceIDUsageDescription "앱 잠금 해제를 위해 Face ID를 사용합니다."
   echo "✅ 권한 문구 확인 완료"
 
   # 구글 로그인 딥링크용 URL 스킴 (carenote://login-callback) — 없을 때만 추가

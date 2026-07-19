@@ -37,6 +37,8 @@
 	<string>혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>혈당기에서 측정값을 블루투스로 가져오기 위해 사용합니다.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>앱 잠금 해제를 위해 Face ID를 사용합니다.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>식사 사진을 촬영해 칼로리를 분석하기 위해 카메라를 사용합니다.</string>
 	<key>NSHealthShareUsageDescription</key>

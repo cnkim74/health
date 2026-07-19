@@ -13,6 +13,7 @@
     "@capacitor/core": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "@capacitor/local-notifications": "^6.1.0",
+    "carenote-biometric": "file:plugins/biometric",
     "carenote-health": "file:plugins/health-activity",
     "carenote-oauth": "file:plugins/oauth",
     "carenote-glucose-ble": "file:plugins/glucose-ble",

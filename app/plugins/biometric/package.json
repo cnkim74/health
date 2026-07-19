@@ -1,0 +1,10 @@
+{
+  "name": "carenote-biometric",
+  "version": "1.0.0",
+  "description": "CARENOTE Face ID / Touch ID 인증",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["ios/", "index.js", "CarenoteBiometric.podspec"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=6.0.0" }
+}

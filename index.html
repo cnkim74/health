@@ -4542,6 +4542,39 @@
     );
   };
 
+  // Face ID / Touch ID 잠금 설정 토글 (네이티브 + 생체인증 지원 기기에서만 노출)
+  const FaceIdToggle = () => {
+    const [on, setOn] = React.useState(localStorage.getItem('cn_faceid') === '1');
+    const [avail, setAvail] = React.useState(null);
+    React.useEffect(() => {
+      const Bio = window.Capacitor?.Plugins?.Biometric;
+      if (!Bio) { setAvail({ available:false }); return; }
+      Bio.isAvailable().then(r => setAvail(r || { available:false })).catch(() => setAvail({ available:false }));
+    }, []);
+    if (!avail || !avail.available) return null;
+    const kind = avail.type === 'touchID' ? 'Touch ID' : 'Face ID';
+    const toggle = async () => {
+      if (!on) {
+        try { await window.Capacitor.Plugins.Biometric.authenticate({ reason: kind + ' 잠금 켜기' }); }
+        catch { return; } // 인증 실패 시 켜지 않음
+      }
+      const nv = !on; setOn(nv);
+      try { localStorage.setItem('cn_faceid', nv ? '1' : '0'); } catch {}
+    };
+    return (
+      <div onClick={toggle} style={{ padding:'12px 14px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'8px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer' }}>
+        <span style={{ fontSize:'20px' }}>🔒</span>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text)' }}>{kind} 잠금</div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)' }}>앱 열 때 {kind}로 잠금 해제</div>
+        </div>
+        <div style={{ width:'46px', height:'28px', borderRadius:'14px', background: on ? 'var(--cn-brand)' : 'var(--divider)', position:'relative', transition:'background .2s', flexShrink:0 }}>
+          <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:'#fff', position:'absolute', top:'3px', left: on ? '21px' : '3px', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}/>
+        </div>
+      </div>
+    );
+  };
+
   const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily, isAdmin, onCoupangAdmin }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
@@ -4598,6 +4631,7 @@
         <Row icon="🛟" label="데이터 복구" sub="이전 동기화 코드로 데이터 찾기" onClick={onDataRecovery} accent="var(--cn-warn)" />
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'10px 4px 6px' }}>화면 · 기타</div>
         <TextSizeControl />
+        <FaceIdToggle />
         <Row icon={darkMode?'☀️':'🌙'} label={darkMode?'라이트 모드':'다크 모드'} sub="OLED 최적화 블랙 테마" onClick={onToggleDark} />
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
@@ -5780,9 +5814,36 @@
     );
   };
 
+  // Face ID 잠금 화면 — 앱 열 때 생체인증으로 해제
+  const LockScreen = ({ onUnlock }) => {
+    const [err, setErr] = React.useState('');
+    const run = React.useCallback(async () => {
+      setErr('');
+      const Bio = window.Capacitor?.Plugins?.Biometric;
+      if (!Bio) { onUnlock(); return; }
+      try { await Bio.authenticate({ reason: 'CARENOTE 잠금 해제' }); onUnlock(); }
+      catch { setErr('잠금 해제에 실패했어요. 다시 시도해 주세요.'); }
+    }, [onUnlock]);
+    React.useEffect(() => { run(); }, [run]);
+    return (
+      <div style={{ minHeight:'100vh', background:'linear-gradient(160deg,#060d1a 0%,#0f2244 50%,#0d3068 100%)',
+                    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', color:'#fff', padding:'20px' }}>
+        <div style={{ fontSize:'56px' }}>🔒</div>
+        <div style={{ fontSize:'22px', fontWeight:900, letterSpacing:'1px' }}>CARENOTE</div>
+        <div style={{ fontSize:'14px', color:'rgba(255,255,255,0.82)' }}>Face ID로 잠금을 해제해 주세요</div>
+        {err && <div style={{ fontSize:'13px', color:'#fca5a5' }}>{err}</div>}
+        <button onClick={run} style={{ marginTop:'6px', padding:'13px 30px', borderRadius:'12px', border:'none',
+                 background:'#fff', color:'var(--cn-brand)', fontWeight:800, fontSize:'15px', cursor:'pointer', fontFamily:'inherit' }}>
+          {err ? '다시 시도' : 'Face ID로 잠금 해제'}
+        </button>
+      </div>
+    );
+  };
+
   const App = () => {
     const [authUser,   setAuthUser]  = useState(null);
     const [authReady,  setAuthReady] = useState(false);
+    const [unlocked,   setUnlocked]  = useState(false);
     // 비로그인 사용자에게 랜딩 페이지 먼저 보여주고, "시작하기" 누르면 로그인 화면으로
     const [showAuth,   setShowAuth]  = useState(false);
     const [date,       setDate]      = useState(todayStr());
@@ -5859,6 +5920,22 @@
         setAuthReady(true);
       });
       return () => { clearTimeout(t); subscription.unsubscribe(); };
+    }, []);
+
+    // Face ID 잠금: 백그라운드로 나갔다가 15초 이상 뒤 돌아오면 다시 잠금
+    useEffect(() => {
+      if (!_isNativeApp) return;
+      let hiddenAt = 0;
+      const onVis = () => {
+        if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); }
+        else if (document.visibilityState === 'visible') {
+          if (localStorage.getItem('cn_faceid') === '1' && hiddenAt && (Date.now() - hiddenAt > 15000)) {
+            setUnlocked(false);
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', onVis);
+      return () => document.removeEventListener('visibilitychange', onVis);
     }, []);
 
     const userId = authUser?.id || '';
@@ -6984,6 +7061,10 @@
 
     // 미인증 → 랜딩 페이지 (시작하기 누르면 로그인 화면)
     if (!authUser) return showAuth ? <LoginScreen initialMode={showAuth === 'signup' ? 'signup' : 'login'} onBack={() => setShowAuth(false)} /> : <LandingPage onStart={(mode) => setShowAuth(mode || 'login')} />;
+
+    // Face ID 잠금: 설정이 켜져 있으면 생체인증 전까지 앱 내용 숨김
+    if (_isNativeApp && localStorage.getItem('cn_faceid') === '1' && !unlocked)
+      return <LockScreen onUnlock={() => setUnlocked(true)} />;
 
     return (
       <div style={{ minHeight:'100vh', background:'var(--bg)', paddingBottom:'48px' }}>
