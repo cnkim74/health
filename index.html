@@ -723,6 +723,13 @@
     }
   });
 
+  // 로그아웃: Face ID 로그인 토큰이 저장돼 있으면 local 스코프로(서버 토큰 유지 → Face ID 재로그인 가능),
+  // 아니면 기본(global) 로그아웃.
+  const cnSignOut = () => {
+    try { if (localStorage.getItem('cn_faceid_rt')) return supa.auth.signOut({ scope: 'local' }); } catch {}
+    return supa.auth.signOut();
+  };
+
   /* ── e약은요 의약품 정보 API ───────────────────────────────── */
   const DRUG_API_KEY = '12c113eddc12643698f9d49c82bc7ac526c33cc339906c4964299ef4b258ff9d';
   const fetchDrugInfo = async (name) => {
@@ -2962,6 +2969,31 @@
       }
     };
 
+    // Face ID 로그인: 저장된 세션(refresh_token)을 Face ID로 복원 → 구글 없이 재로그인
+    const [faceReady, setFaceReady] = useState(false);
+    useEffect(() => {
+      const Bio = window.Capacitor?.Plugins?.Biometric;
+      if (!Bio || localStorage.getItem('cn_faceid') !== '1' || !localStorage.getItem('cn_faceid_rt')) { setFaceReady(false); return; }
+      Bio.isAvailable().then(r => setFaceReady(!!(r && r.available))).catch(() => setFaceReady(false));
+    }, []);
+    const handleFaceLogin = async () => {
+      const Bio = window.Capacitor?.Plugins?.Biometric;
+      const rt = localStorage.getItem('cn_faceid_rt');
+      if (!Bio || !rt) return;
+      setBusy(true); setError('');
+      try {
+        await Bio.authenticate({ reason: 'CARENOTE 로그인' });
+        const { error } = await supa.auth.refreshSession({ refresh_token: rt });
+        if (error) throw error;
+        // 성공 시 onAuthStateChange 로 자동 진입
+      } catch (e) {
+        if (!(e && (e.code === 'CANCELLED' || /cancel/i.test(e.message || '')))) {
+          setError('Face ID 로그인 실패: ' + (e && (e.message || e)));
+        }
+        setBusy(false);
+      }
+    };
+
     const borderCol = dm ? 'var(--card-border)' : 'var(--card-border)';
     const inp = {
       width:'100%', padding:'12px 16px',
@@ -3166,6 +3198,18 @@
               {busy ? '처리 중...' : mode === 'login' ? '로그인하기' : '가입하기'}
             </button>
           </form>
+
+          {/* Face ID 로그인 (저장된 계정 + Face ID 잠금 켠 경우) */}
+          {faceReady && mode === 'login' && (
+            <button onClick={handleFaceLogin} disabled={busy}
+              style={{ width:'100%', padding:'13px 16px', marginTop:'4px',
+                       background:'var(--cn-brand)', color:'#fff', border:'none',
+                       borderRadius:'12px', fontSize:'15px', fontWeight:'800',
+                       cursor: busy?'default':'pointer', display:'flex', alignItems:'center',
+                       justifyContent:'center', gap:'8px', fontFamily:'inherit' }}>
+              <span style={{ fontSize:'18px' }}>🙂</span> Face ID로 로그인
+            </button>
+          )}
 
           {/* 구분선 */}
           <div style={{ display:'flex', alignItems:'center', gap:'12px', margin:'20px 0' }}>
@@ -4559,7 +4603,10 @@
         catch { return; } // 인증 실패 시 켜지 않음
       }
       const nv = !on; setOn(nv);
-      try { localStorage.setItem('cn_faceid', nv ? '1' : '0'); } catch {}
+      try {
+        localStorage.setItem('cn_faceid', nv ? '1' : '0');
+        if (!nv) localStorage.removeItem('cn_faceid_rt'); // 끄면 저장된 Face ID 로그인 토큰도 삭제
+      } catch {}
     };
     return (
       <div onClick={toggle} style={{ padding:'12px 14px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'12px', marginBottom:'8px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer' }}>
@@ -4636,7 +4683,7 @@
         <Row icon="🔑" label="비밀번호 변경" sub="새 비밀번호로 업데이트" onClick={onChangePassword} />
         <Row icon="💬" label="피드백 · 버그신고" sub="버그 리포트 또는 기능 제안" onClick={onFeedback} />
         <Row icon="👥" label="커뮤니티 게시판" sub="건강 정보 공유 · 질문 · 후기" onClick={() => window.open('board.html','_blank')} />
-        <Row icon="🚪" label="로그아웃" onClick={() => supa.auth.signOut()} accent="var(--cn-danger)" />
+        <Row icon="🚪" label="로그아웃" onClick={() => cnSignOut()} accent="var(--cn-danger)" />
 
         {isAdmin && (
           <>
@@ -5817,14 +5864,20 @@
   // Face ID 잠금 화면 — 앱 열 때 생체인증으로 해제
   const LockScreen = ({ onUnlock }) => {
     const [err, setErr] = React.useState('');
-    const run = React.useCallback(async () => {
+    const busyRef = React.useRef(false);   // 동시에 여러 번 뜨는 것 방지
+    const startedRef = React.useRef(false);
+    const run = async () => {
+      if (busyRef.current) return;
+      busyRef.current = true;
       setErr('');
       const Bio = window.Capacitor?.Plugins?.Biometric;
       if (!Bio) { onUnlock(); return; }
       try { await Bio.authenticate({ reason: 'CARENOTE 잠금 해제' }); onUnlock(); }
       catch { setErr('잠금 해제에 실패했어요. 다시 시도해 주세요.'); }
-    }, [onUnlock]);
-    React.useEffect(() => { run(); }, [run]);
+      finally { busyRef.current = false; }
+    };
+    // 마운트 시 딱 한 번만 자동 실행 (프롭 변경으로 재실행되지 않도록)
+    React.useEffect(() => { if (startedRef.current) return; startedRef.current = true; run(); }, []);
     return (
       <div style={{ minHeight:'100vh', background:'linear-gradient(160deg,#060d1a 0%,#0f2244 50%,#0d3068 100%)',
                     display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', color:'#fff', padding:'20px' }}>
@@ -5939,6 +5992,20 @@
     }, []);
 
     const userId = authUser?.id || '';
+
+    // Face ID 로그인용: 로그인 상태 + Face ID 잠금 켜짐이면 refresh_token 저장
+    // (로그아웃 후에도 Face ID로 구글 없이 재로그인 가능하게)
+    useEffect(() => {
+      if (!_isNativeApp || !authUser) return;
+      if (localStorage.getItem('cn_faceid') !== '1') return;
+      (async () => {
+        try {
+          const { data } = await supa.auth.getSession();
+          const rt = data?.session?.refresh_token;
+          if (rt) localStorage.setItem('cn_faceid_rt', rt);
+        } catch {}
+      })();
+    }, [authUser]);
 
     // ── 돌봄 알림(P3): 앱 열 때 피보호자 복약 미완료·위험혈당이면 로컬 알림 (하루 1회) ──
     // 로그인 직후 초기 로딩과 경쟁하지 않도록 4초 뒤 실행(비필수 백그라운드 작업)
@@ -7159,7 +7226,7 @@
                   style={{ background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>
                   ✏️ 내정보
                 </button>
-                <button onClick={() => supa.auth.signOut()} style={{ background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap' }}>
+                <button onClick={() => cnSignOut()} style={{ background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', borderRadius:'6px', padding:'3px 8px', cursor:'pointer', fontSize:'12px', fontWeight:'700', whiteSpace:'nowrap' }}>
                   로그아웃
                 </button>
               </div>
@@ -8367,7 +8434,7 @@
                 { label:'💬 피드백·버그신고', action:() => setShowFeedback(true) },
                 { label:'🔑 비밀번호변경', action:() => setShowChangePw(true) },
                 { label: darkMode ? '☀️ 라이트모드' : '🌙 다크모드', action:() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); } },
-                { label:'🚪 로그아웃', action:() => supa.auth.signOut() },
+                { label:'🚪 로그아웃', action:() => cnSignOut() },
               ].map(({ label, action }) => (
                 <button key={label} onClick={action}
                   style={{ background:'none', border:'1px solid var(--card-border)', borderRadius:'20px', padding:'5px 12px', cursor:'pointer', fontSize:'12px', color:'var(--text-sub)', fontFamily:'inherit', fontWeight:'600', whiteSpace:'nowrap' }}>
