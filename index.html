@@ -4582,6 +4582,46 @@ ${cm.section}
     );
   };
 
+  /* ── 홈 원터치 입력: 혈압(수축기/이완기 스테퍼) ── */
+  const QuickBP = ({ day, onSave }) => {
+    const [sys, setSys] = React.useState(() => parseInt(day?.bp?.sys) || 120);
+    const [dia, setDia] = React.useState(() => parseInt(day?.bp?.dia) || 80);
+    const [justSaved, setJustSaved] = React.useState(false);
+    React.useEffect(() => {
+      setSys(parseInt(day?.bp?.sys) || 120);
+      setDia(parseInt(day?.bp?.dia) || 80);
+      setJustSaved(false);
+    }, [day?.bp?.sys, day?.bp?.dia]);
+    const bumpS = (d) => { setSys(v => Math.max(60, Math.min(260, v + d))); setJustSaved(false); };
+    const bumpD = (d) => { setDia(v => Math.max(40, Math.min(180, v + d))); setJustSaved(false); };
+    const save  = () => { onSave(String(sys), String(dia)); setJustSaved(true); };
+    const col = (sys >= 140 || dia >= 90) ? 'var(--cn-danger)' : ((sys >= 130 || dia >= 80) ? 'var(--cn-warn)' : 'var(--cn-ok)');
+    const rnd = { border:'none', borderRadius:'12px', cursor:'pointer', fontFamily:'inherit', fontWeight:'900', color:'#fff' };
+    const Stepper = ({ label, val, bump }) => (
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:'12px', color:'var(--text-sub)', textAlign:'center', marginBottom:'4px' }}>{label}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:'6px', justifyContent:'center' }}>
+          <button onClick={() => bump(-1)} style={{ ...rnd, width:'42px', height:'46px', fontSize:'24px', background:'var(--cn-brand)' }}>－</button>
+          <div style={{ minWidth:'50px', textAlign:'center', fontSize:'34px', fontWeight:'900', color:col, fontVariantNumeric:'tabular-nums' }}>{val}</div>
+          <button onClick={() => bump(1)} style={{ ...rnd, width:'42px', height:'46px', fontSize:'24px', background:'var(--cn-brand)' }}>＋</button>
+        </div>
+      </div>
+    );
+    return (
+      <div style={{ marginBottom:'20px' }}>
+        <div style={{ fontSize:'15px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'8px' }}>🩺 혈압 빠른 기록</div>
+        <div style={{ display:'flex', gap:'6px', alignItems:'flex-end' }}>
+          <Stepper label="수축기(위)" val={sys} bump={bumpS} />
+          <div style={{ fontSize:'26px', color:'var(--text-mute)', paddingBottom:'8px' }}>/</div>
+          <Stepper label="이완기(아래)" val={dia} bump={bumpD} />
+        </div>
+        <button onClick={save} style={{ ...rnd, width:'100%', padding:'14px', fontSize:'17px', marginTop:'10px', background: justSaved ? 'var(--cn-ok)' : 'var(--cn-brand)' }}>
+          {justSaved ? '✓ 저장됨' : `${sys}/${dia} mmHg 저장`}
+        </button>
+      </div>
+    );
+  };
+
   /* ── 홈 원터치 입력: 복약(원탭) ── */
   const QuickMeds = ({ day, meds, onToggle, onAllDone }) => {
     if (!meds || !meds.length) return null;
@@ -6713,8 +6753,15 @@ ${cm.section}
                 if (v.weight && !cur.weight)  patch.weight  = String(v.weight);
                 if (v.bodyFat && !cur.bodyFat) patch.bodyFat = String(v.bodyFat);
                 if (v.waterMl != null) patch.water_ml = String(Math.round(v.waterMl)); // HealthKit 물섭취 반영
-                // 혈압(오므론 등 → 애플 건강): 오늘 혈압이 비어있으면 자동 채움
-                if (v.bpSys && v.bpDia && !(cur.bp && cur.bp.sys)) patch.bp = { sys: String(Math.round(v.bpSys)), dia: String(Math.round(v.bpDia)) };
+                // 혈압(오므론 등 → 애플 건강): 오늘 혈압이 비었거나 '자동 입력값'이면 최신 측정값으로 갱신.
+                // (수동 입력한 값은 auto 플래그가 없으므로 덮어쓰지 않음)
+                if (v.bpSys && v.bpDia) {
+                  const ns = String(Math.round(v.bpSys)), nd = String(Math.round(v.bpDia));
+                  const curEmpty = !(cur.bp && cur.bp.sys);
+                  const curAuto  = !!(cur.bp && cur.bp.auto);
+                  const changed  = !cur.bp || cur.bp.sys !== ns || cur.bp.dia !== nd;
+                  if ((curEmpty || curAuto) && changed) patch.bp = { sys: ns, dia: nd, auto: true };
+                }
                 if (!Object.keys(patch).length) return prev;
                 const merged = { ...cur, ...patch };
                 // 영구 캐시(dm_imported)에도 기록 → 클라우드 로드가 부분 데이터로 덮어도 로드 시 항상 복원
@@ -6745,7 +6792,7 @@ ${cm.section}
     const upDay = (patch) => setData(prev => ({ ...prev, [date]: { ...(prev[date] || emptyDay()), ...patch } }));
     const togMed  = (id) => upDay({ meds: { ...day.meds, [id]: !day.meds[id] } });
     const updBS   = (id, v) => upDay({ bs: { ...day.bs, [id]: v } });
-    const updBP   = (k, v) => upDay({ bp: { ...(day.bp||{sys:'',dia:''}), [k]: v } });
+    const updBP   = (k, v) => upDay({ bp: { ...(day.bp||{sys:'',dia:''}), [k]: v, auto: false } });
     const updMeal = (id, v) => upDay({ meals: { ...day.meals, [id]: v } });
     const updEx       = (k, v) => upDay({ exercise: { ...(day.exercise||{}), [k]: v } });
     const addExLog    = (type='') => { const logs = [...(day.exercise?.logs||[]), {type, mins:''}]; upDay({ exercise: {...(day.exercise||{}), logs} }); };
@@ -8096,6 +8143,7 @@ ${cm.section}
               <Card tab="home">
                 <STitle icon="icons/case.png" label="빠른 기록" />
                 <QuickGlucose day={day} onSave={(id, v) => updBS(id, v)} />
+                <QuickBP day={day} onSave={(s, d) => upDay({ bp: { sys: s, dia: d } })} />
                 <QuickMeds
                   day={day}
                   meds={(medsConfig || []).flatMap(s => (s.items || []).map(m => ({ id:m.id, name:m.name })))}
