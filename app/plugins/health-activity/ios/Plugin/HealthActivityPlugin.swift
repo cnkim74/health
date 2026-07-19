@@ -33,7 +33,8 @@ public class HealthActivityPlugin: CAPPlugin {
             if let t = HKObjectType.quantityType(forIdentifier: ident) { set.insert(t) }
         }
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { set.insert(sleep) }
-        if let bp = HKObjectType.correlationType(forIdentifier: .bloodPressure) { set.insert(bp) }
+        // 혈압은 수축기/이완기 quantity 타입으로 읽음(위 목록에 포함). correlation 타입은
+        // 읽기 권한 요청 시 iOS가 예외를 던져 앱이 크래시하므로 넣지 않는다.
         if #available(iOS 14.0, *) { set.insert(HKObjectType.electrocardiogramType()) }
         return set
     }
@@ -194,22 +195,26 @@ public class HealthActivityPlugin: CAPPlugin {
             store.execute(q)
         } else { group.leave() }
 
-        // 혈압: 최근 혈압(수축기/이완기) 한 쌍 — 오므론 등 혈당·혈압기가 애플 건강에 기록한 값
-        group.enter()
-        if let bpType = HKObjectType.correlationType(forIdentifier: .bloodPressure),
-           let sysT = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic),
-           let diaT = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic) {
-            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-            let q = HKSampleQuery(sampleType: bpType, predicate: nil, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
-                let mmHg = HKUnit.millimeterOfMercury()
-                if let c = samples?.first as? HKCorrelation {
-                    if let s = c.objects(for: sysT).first as? HKQuantitySample { put("bpSys", s.quantity.doubleValue(for: mmHg).rounded()) }
-                    if let d = c.objects(for: diaT).first as? HKQuantitySample { put("bpDia", d.quantity.doubleValue(for: mmHg).rounded()) }
-                }
+        // 혈압: 수축기·이완기를 각각(quantity 타입) 최근값으로 조회.
+        // (correlation 타입은 읽기 권한이 불가하므로 개별 조회 — 오므론 등이 애플 건강에 기록한 값)
+        let bpUnit = HKUnit.millimeterOfMercury()
+        let bpSort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        if let sysT = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic) {
+            group.enter()
+            let q = HKSampleQuery(sampleType: sysT, predicate: nil, limit: 1, sortDescriptors: [bpSort]) { _, samples, _ in
+                if let s = samples?.first as? HKQuantitySample { put("bpSys", s.quantity.doubleValue(for: bpUnit).rounded()) }
                 group.leave()
             }
             store.execute(q)
-        } else { group.leave() }
+        }
+        if let diaT = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic) {
+            group.enter()
+            let q = HKSampleQuery(sampleType: diaT, predicate: nil, limit: 1, sortDescriptors: [bpSort]) { _, samples, _ in
+                if let d = samples?.first as? HKQuantitySample { put("bpDia", d.quantity.doubleValue(for: bpUnit).rounded()) }
+                group.leave()
+            }
+            store.execute(q)
+        }
 
         group.notify(queue: .main) { call.resolve(r) }
     }
