@@ -713,7 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v12 · 07-19 (bp-perm)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
+  const APP_BUILD = 'v13 · 07-19 (bp-debug)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -6491,6 +6491,11 @@
           // ── 바이탈(체중·체지방·심박·HRV·수면·물) + 심전도 ──
           try {
             const v = await HK.getVitals();
+            // [임시 진단] 앱 실행 후 첫 동기화 때 혈압 읽기 결과를 화면에 표시
+            if (!window.__bpDbg) {
+              window.__bpDbg = true;
+              try { alert('🩺 건강앱 읽기 결과\n수축기(bpSys)=' + (v && v.bpSys) + '\n이완기(bpDia)=' + (v && v.bpDia) + '\n체중=' + (v && v.weight)); } catch (_) {}
+            }
             if (!cancelled && v) {
               setVitals(prev => ({ ...prev, ...v, at: Date.now() }));
               // 체중·체지방 오늘 값이 비어있으면 HealthKit 값으로 채움
