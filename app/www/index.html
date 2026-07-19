@@ -2880,9 +2880,13 @@
         });
         if (error) throw error;
 
-        // 구글 로그인 완료 후 딥링크(info.cnbiz.health://login-callback)로 돌아옴 → 여기서 세션 교환
-        let done = false;
-        const sub = await CapApp.addListener('appUrlOpen', async ({ url }) => {
+        // 구글 로그인 완료 후 딥링크(carenote://login-callback)로 돌아옴 → 여기서 세션 교환
+        let done = false, appSub = null, brwSub = null;
+        const cleanup = () => {
+          try { appSub && appSub.remove(); } catch (_) {}
+          try { brwSub && brwSub.remove(); } catch (_) {}
+        };
+        appSub = await CapApp.addListener('appUrlOpen', async ({ url }) => {
           if (done || !url || url.indexOf(redirectTo) !== 0) return;
           done = true;
           try { if (Browser) await Browser.close(); } catch (_) {}
@@ -2907,13 +2911,20 @@
           } catch (e) {
             setError('구글 로그인 처리 중 오류: ' + (e.message || e));
           } finally {
-            try { sub.remove(); } catch (_) {}
+            cleanup();
             setBusy(false);
           }
         });
 
-        if (Browser) await Browser.open({ url: data.url, presentationStyle: 'popover' });
-        else window.location.href = data.url; // 브라우저 플러그인 미설치 시 폴백
+        if (Browser) {
+          // 사용자가 로그인 창을 닫으면(완료 전) '처리중' 상태 해제
+          brwSub = await Browser.addListener('browserFinished', () => {
+            if (!done) { cleanup(); setBusy(false); }
+          });
+          await Browser.open({ url: data.url, presentationStyle: 'popover' });
+        } else {
+          window.location.href = data.url; // 브라우저 플러그인 미설치 시 폴백
+        }
       } catch (e) {
         setError(e.message || '구글 로그인 오류');
         setBusy(false);
