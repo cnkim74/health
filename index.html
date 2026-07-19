@@ -713,7 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v13 · 07-19 (bp-debug)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
+  const APP_BUILD = 'v14 · 07-19 (vitals-fix)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -6449,10 +6449,10 @@
             localStorage.setItem('cn_hk_perm', 'v3');
           }
           const hk = await HK.getTodayActivity();
-          if (cancelled || !hk) return;
+          if (cancelled) return;
           const t = todayStr();
           const num = v => (v !== '' && v != null && !isNaN(Number(v))) ? Number(v) : 0;
-          setData(prev => {
+          if (hk) setData(prev => {
             const cur = { ...emptyDay(), ...(prev[t] || {}) };
             const patch = {};
             if (Number(hk.steps || 0) > num(cur.steps)) patch.steps = String(Math.round(hk.steps));
@@ -6474,17 +6474,18 @@
           // ── 혈당(리브레 등 CGM이 애플 건강에 기록한 값) 자동 반영 ──
           try {
             const gRes = await HK.getRecentGlucose({ days: 3 });
-            if (cancelled || !gRes?.readings?.length) return;
-            const byDay = {};
-            gRes.readings.forEach(r => {
-              const d = new Date(r.ts);
-              if (isNaN(d.getTime()) || !(r.mgdl > 0)) return;
-              const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-              (byDay[day] = byDay[day] || []).push({ hour: d.getHours() + d.getMinutes()/60, value: Math.round(r.mgdl) });
-            });
-            if (Object.keys(byDay).length && handleImportRef.current) {
-              const mapped = buildDashboardData({ glucoseByDay: byDay });
-              await handleImportRef.current(mapped);
+            if (!cancelled && gRes?.readings?.length) {
+              const byDay = {};
+              gRes.readings.forEach(r => {
+                const d = new Date(r.ts);
+                if (isNaN(d.getTime()) || !(r.mgdl > 0)) return;
+                const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                (byDay[day] = byDay[day] || []).push({ hour: d.getHours() + d.getMinutes()/60, value: Math.round(r.mgdl) });
+              });
+              if (Object.keys(byDay).length && handleImportRef.current) {
+                const mapped = buildDashboardData({ glucoseByDay: byDay });
+                await handleImportRef.current(mapped);
+              }
             }
           } catch (ge) { console.log('HealthKit glucose skip:', ge?.message || ge); }
 
