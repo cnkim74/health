@@ -19,8 +19,10 @@ if [ -d assets/icons ]; then
   echo "✅ assets/icons 이미지 반영 완료"
 fi
 
-# ── 앱 아이콘: assets/icons/chart_logo.png → 1024 정사각(불투명) 생성 ──
-LOGO_SRC="assets/icons/chart_logo.png"
+# ── 앱 아이콘: assets/icons/applogo.png(캘린더 로고) → 1024 정사각(불투명) 생성 ──
+# (applogo.png 없으면 예전 chart_logo.png 사용)
+LOGO_SRC="assets/icons/applogo.png"
+[ -f "$LOGO_SRC" ] || LOGO_SRC="assets/icons/chart_logo.png"
 if [ -f "$LOGO_SRC" ] && command -v sips >/dev/null 2>&1; then
   TMP="$(mktemp -d)"
   cp "$LOGO_SRC" "$TMP/icon.png"
@@ -30,7 +32,7 @@ if [ -f "$LOGO_SRC" ] && command -v sips >/dev/null 2>&1; then
   sips -p 1024 1024 --padColor FFFFFF "$TMP/icon.jpg" >/dev/null 2>&1
   sips -s format png "$TMP/icon.jpg" --out assets/AppIcon-512@2x.png >/dev/null 2>&1
   rm -rf "$TMP"
-  echo "✅ 앱 아이콘 생성 (chart_logo.png → 1024)"
+  echo "✅ 앱 아이콘 생성 ($LOGO_SRC → 1024)"
 fi
 
 # 생성된 아이콘을 iOS·애플워치 등 프로젝트 내 모든 AppIcon 에셋에 자동 반영
