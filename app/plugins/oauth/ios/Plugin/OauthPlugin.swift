@@ -42,7 +42,8 @@ public class OauthPlugin: CAPPlugin, ASWebAuthenticationPresentationContextProvi
                 self.session = nil
             }
             s.presentationContextProvider = self
-            s.prefersEphemeralWebBrowserSession = false
+            // 비공개 세션: Safari 쿠키 미공유 → "…supabase.co 를 사용하여 로그인" 동의 안내를 줄임
+            s.prefersEphemeralWebBrowserSession = true
             self.session = s
             s.start()
         }
