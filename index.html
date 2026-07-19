@@ -6259,6 +6259,8 @@
                 if (!sb.cal     && lc?.cal)     loaded[d] = { ...loaded[d], cal:     lc.cal     };
                 if (!sb.bcal    && lc?.bcal)    loaded[d] = { ...loaded[d], bcal:    lc.bcal    };
                 if (!sb.dist    && lc?.dist)    loaded[d] = { ...loaded[d], dist:    lc.dist    };
+                // 혈압도 캐시에서 보완 (건강앱 동기화로 채운 값이 클라우드 로드로 지워지지 않게)
+                if (!(sb.bp && sb.bp.sys) && lc?.bp?.sys) loaded[d] = { ...loaded[d], bp: lc.bp };
               }
             });
           } catch {}
