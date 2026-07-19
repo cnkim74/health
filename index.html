@@ -5813,14 +5813,23 @@
 
     // Supabase Auth 초기화
     useEffect(() => {
-      supa.auth.getSession().then(({ data: { session } }) => {
+      let settled = false;
+      const finish = (session) => {
+        if (settled) return;
+        settled = true;
+        setAuthUser(session?.user ?? null);
+        setAuthReady(true);
+      };
+      supa.auth.getSession()
+        .then(({ data: { session } }) => finish(session))
+        .catch(() => finish(null));
+      // 세션 확인이 지연/실패해도(웹뷰 잠금·스토리지 이슈) 로딩 화면에 갇히지 않도록 최대 4초 후 진행
+      const t = setTimeout(() => finish(null), 4000);
+      const { data: { subscription } } = supa.auth.onAuthStateChange((_event, session) => {
         setAuthUser(session?.user ?? null);
         setAuthReady(true);
       });
-      const { data: { subscription } } = supa.auth.onAuthStateChange((_event, session) => {
-        setAuthUser(session?.user ?? null);
-      });
-      return () => subscription.unsubscribe();
+      return () => { clearTimeout(t); subscription.unsubscribe(); };
     }, []);
 
     const userId = authUser?.id || '';
