@@ -713,7 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v9 · 07-19 (implicit)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
+  const APP_BUILD = 'v10 · 07-19 (step-diag)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -2911,14 +2911,27 @@
           ]);
           try {
             setMessage('① 로그인 창 여는 중…');
-            console.log('[gauth] authenticate start');
             const res = await Oauth.authenticate({ url: data.url, callbackScheme: 'carenote' });
-            console.log('[gauth] callback url =', res && res.url);
-            if (!res || !res.url) throw new Error('콜백 URL을 받지 못했어요.');
-            setMessage('② 로그인 완료 — 세션 확인 중…');
-            await withTimeout(exchange(res.url), 15000, '세션 교환');
-            console.log('[gauth] session ok');
-            setMessage('');
+            const u = (res && res.url) || '';
+            console.log('[gauth] callback url =', u);
+            const hasToken = u.indexOf('access_token') >= 0;
+            const hasCode  = /[?&]code=/.test(u);
+            setMessage('② 콜백=' + (hasToken ? 'TOKEN' : hasCode ? 'CODE' : '없음') + ' · 적용 중…');
+            if (hasToken) {
+              const hp = new URLSearchParams((u.split('#')[1] || u.split('?')[1] || ''));
+              const at = hp.get('access_token'), rt = hp.get('refresh_token');
+              setMessage('③ setSession 중…');
+              const r = await withTimeout(supa.auth.setSession({ access_token: at, refresh_token: rt }), 12000, 'setSession');
+              if (r && r.error) throw r.error;
+            } else if (hasCode) {
+              const code = new URLSearchParams(u.split('?')[1] || '').get('code');
+              setMessage('③ 코드교환 중…');
+              const r = await withTimeout(supa.auth.exchangeCodeForSession(code), 12000, '코드교환');
+              if (r && r.error) throw r.error;
+            } else {
+              throw new Error('콜백에 토큰/코드 없음: ' + u.slice(0, 60));
+            }
+            setMessage('④ 완료!');
           } catch (e) {
             console.log('[gauth] error =', e && (e.message || e), '| code =', e && e.code);
             setMessage('');
