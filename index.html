@@ -8658,33 +8658,29 @@ ${cm.section}
   );
 </script>
   <script>
-    // 서비스 워커: 캐시 비우기 + 재등록
+    // 서비스 워커: 옛 캐시/워커 정리 + 최신(네트워크 전용) SW를 올바른 상대경로로 등록
+    // (기존엔 '/sw.js' 절대경로라 /health/ 하위 페이지에서 404 → 캐시버스터가 설치 안 되고
+    //  아주 옛날 캐싱 SW가 초창기 버전을 계속 서빙하던 문제 수정)
     if ('serviceWorker' in navigator) {
-      // 새 SW가 control 획득 시 즉시 리로드 (가장 중요)
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        // 대기 중인 새 SW가 있으면 즉시 활성화 요청
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed') {
-              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-      }).catch(() => {});
-
-      // 혹시 이전 캐시가 남아있으면 즉시 전부 삭제
-      if (caches && caches.keys) {
-        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-      }
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+      (async () => {
+        try {
+          // 1) 모든 캐시 삭제
+          if (window.caches && caches.keys) {
+            const ks = await caches.keys();
+            await Promise.all(ks.map(k => caches.delete(k)));
+          }
+          // 2) 옛 서비스워커 전면 해제 — 브라우저당 1회만(반복 리로드 방지)
+          if (localStorage.getItem('cn_sw_reset_v2') !== '1') {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+            try { localStorage.setItem('cn_sw_reset_v2', '1'); } catch (e) {}
+          }
+          // 3) 최신 SW 등록(상대경로) — /health/sw.js 로 정상 설치
+          const reg = await navigator.serviceWorker.register('sw.js');
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } catch (e) {}
+      })();
     }
   </script>
 </body>
