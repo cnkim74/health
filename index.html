@@ -3616,9 +3616,26 @@
   const CONDITIONS = [
     { key:'diabetes_insulin', label:'당뇨 · 인슐린' },
     { key:'diabetes_oral',    label:'당뇨 · 경구약' },
+    { key:'prediabetes',      label:'당뇨 전단계' },
+    { key:'gestational_dm',   label:'임신성 당뇨' },
     { key:'hypertension',     label:'고혈압' },
-    { key:'lipid',            label:'콜레스테롤' },
-    { key:'weight',           label:'체중 관리' },
+    { key:'lipid',            label:'이상지질혈증(콜레스테롤)' },
+    { key:'ckd',              label:'만성 콩팥병(신장)' },
+    { key:'gout',             label:'통풍 · 고요산혈증' },
+    { key:'fatty_liver',      label:'지방간' },
+    { key:'heart',            label:'심장질환 · 심부전' },
+    { key:'gerd',             label:'위식도역류(GERD)' },
+    { key:'gastritis',        label:'위염 · 위궤양' },
+    { key:'ibs',              label:'과민성 대장(IBS)' },
+    { key:'ibd',              label:'염증성 장질환(크론·궤양성)' },
+    { key:'gallstone',        label:'담석 · 담낭질환' },
+    { key:'pancreatitis',     label:'췌장염' },
+    { key:'thyroid',          label:'갑상선 질환' },
+    { key:'osteoporosis',     label:'골다공증' },
+    { key:'anemia',           label:'빈혈' },
+    { key:'celiac',           label:'글루텐 민감 · 셀리악' },
+    { key:'lactose',          label:'유당불내증' },
+    { key:'obesity',          label:'비만 · 체중 관리' },
     { key:'general',          label:'일반 건강' },
   ];
   const CONDITION_MISSIONS = {
@@ -3628,6 +3645,31 @@
     lipid:            { title:'콜레스테롤 관리!',     items:['포화·트랜스지방 줄이기','채소·통곡물 늘리기','주 3회 이상 운동','체중 관리','정기 지질검사'], warn:'스타틴 등은 의사 지시에 따르세요.' },
     weight:           { title:'목표 체중을 향해!',   items:['매일 체중 기록','섭취 칼로리 관리','걸음수 목표 달성','규칙적인 운동','충분한 수면'], warn:'무리한 감량은 피하세요.' },
     general:          { title:'건강한 하루!',         items:['혈압·혈당·체중 기록','균형 잡힌 식사','매일 걷기','충분한 수면','정기 건강검진'], warn:'꾸준함이 가장 중요합니다.' },
+  };
+
+  // 선택한 관리질환에 따른 '음식 주의 정보'를 AI(Gemini)로 생성
+  const conditionFoodCaution = async (labels) => {
+    const list = labels.join(', ');
+    const multi = labels.length > 1;
+    return await geminiRequest({
+      contents: [{ parts: [{ text:
+`당신은 임상영양 전문가입니다. 아래 질환을 가진 한국 성인 환자가 식사에서 주의할 점을 한국어로 실용적이고 간결하게 알려주세요.
+
+질환: ${list}
+
+다음 형식(이모지 그대로)으로만 답하세요. 표나 마크다운 기호(#, *, -는 목록 앞에만)는 쓰지 마세요.
+
+⚠️ 피하거나 줄일 음식
+· (질환별 핵심 위주, 한 줄씩)
+
+✅ 도움이 되는 음식
+· (한 줄씩)
+
+🍽️ 식사 팁
+· (2~4개)
+${multi ? '\n🔀 여러 질환이 겹칠 때 특히 주의할 점\n· (상충되는 식이 제한이 있으면 우선순위와 함께)\n' : ''}
+마지막 줄에 "정확한 식단은 담당 의사·영양사와 상담하세요."를 넣어 마무리하세요.` }] }]
+    });
   };
 
   /* ── 알림 설정 모달 ── */
@@ -3671,7 +3713,6 @@
   const GoalsModal = ({ goals, onSave, onClose }) => {
     const [steps,  setSteps]  = React.useState(String(goals?.steps || 10000));
     const [weight, setWeight] = React.useState(goals?.weight || '');
-    const [condition, setCondition] = React.useState(goals?.condition || 'general');
     const inp = { width:'100%', padding:'11px 14px', border:'1.5px solid var(--card-border)', borderRadius:'10px',
                   fontSize:'15px', outline:'none', fontFamily:'inherit', boxSizing:'border-box',
                   background:'var(--input-bg)', color:'var(--text)' };
@@ -3705,20 +3746,74 @@
           <input type="number" inputMode="decimal" step="0.1" value={weight}
                  onChange={e => setWeight(e.target.value)} style={{ ...inp, marginBottom:'16px' }} placeholder="예: 68.5 (kg)" />
 
-          <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text-sub)', marginBottom:'6px' }}>🩺 관리 질환 <span style={{fontWeight:400, color:'var(--text-mute)'}}>(맞춤 미션 제공)</span></div>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'18px' }}>
-            {CONDITIONS.map(c => (
-              <button key={c.key} onClick={() => setCondition(c.key)}
-                style={{ padding:'8px 12px', borderRadius:'9px', fontSize:'13px', fontWeight:'700', cursor:'pointer',
-                  border: condition===c.key ? 'none' : '1px solid var(--card-border)',
-                  background: condition===c.key ? 'var(--cn-brand)' : 'var(--input-bg)',
-                  color: condition===c.key ? '#fff' : 'var(--text-mute)' }}>
-                {c.label}
-              </button>
-            ))}
+          <button onClick={() => onSave({ steps, weight })}
+            style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
+                     borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800' }}>
+            저장
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── 관리 질환(복수 선택) + AI 음식 주의 정보 모달 ── */
+  const ConditionsModal = ({ goals, onSave, onClose }) => {
+    const init = Array.isArray(goals?.conditions) ? goals.conditions
+               : (goals?.condition && goals.condition !== 'general' ? [goals.condition] : []);
+    const [sel, setSel] = React.useState(init);
+    const [aiText, setAiText] = React.useState('');
+    const [aiLoading, setAiLoading] = React.useState(false);
+    const [aiErr, setAiErr] = React.useState('');
+    const toggle = (key) => setSel(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    const runAI = async () => {
+      const labels = CONDITIONS.filter(c => sel.includes(c.key) && c.key !== 'general').map(c => c.label);
+      if (!labels.length) { setAiErr('질환을 하나 이상 선택해 주세요.'); setAiText(''); return; }
+      setAiErr(''); setAiLoading(true); setAiText('');
+      try { setAiText(await conditionFoodCaution(labels)); }
+      catch (e) { setAiErr(e.message || 'AI 호출 오류가 발생했어요.'); }
+      setAiLoading(false);
+    };
+    return (
+      <div style={{ position:'fixed', inset:0, background:'var(--modal-scrim)', zIndex:5000,
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}
+           onClick={onClose}>
+        <div style={{ background:'var(--card-bg)', borderRadius:'16px', padding:'22px', width:'100%', maxWidth:'440px', maxHeight:'88vh', overflowY:'auto' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px' }}>
+            <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--text)' }}>🩺 관리 질환 · 음식 주의</div>
+            <button onClick={onClose} style={{ background:'var(--divider)', border:'none', borderRadius:'8px', width:'32px', height:'32px', cursor:'pointer', fontSize:'14px', color:'var(--text-sub)' }}>✕</button>
+          </div>
+          <div style={{ fontSize:'12px', color:'var(--text-sub)', marginBottom:'12px' }}>앓고 계신 질환을 <strong>모두</strong> 선택하세요 (여러 개 가능). 선택에 맞춰 AI가 음식 주의 정보를 알려드려요.</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'14px' }}>
+            {CONDITIONS.map(c => {
+              const on = sel.includes(c.key);
+              return (
+                <button key={c.key} onClick={() => toggle(c.key)}
+                  style={{ padding:'8px 12px', borderRadius:'9px', fontSize:'13px', fontWeight:'700', cursor:'pointer',
+                    border: on ? 'none' : '1px solid var(--card-border)',
+                    background: on ? 'var(--cn-brand)' : 'var(--input-bg)',
+                    color: on ? '#fff' : 'var(--text-mute)' }}>
+                  {on ? '✓ ' : ''}{c.label}
+                </button>
+              );
+            })}
           </div>
 
-          <button onClick={() => onSave({ steps, weight, condition })}
+          <button onClick={runAI} disabled={aiLoading}
+            style={{ width:'100%', padding:'12px', background: aiLoading ? 'var(--divider)' : 'var(--cn-ok)', color:'#fff', border:'none',
+                     borderRadius:'10px', cursor: aiLoading?'default':'pointer', fontSize:'14px', fontWeight:'800', marginBottom:'10px' }}>
+            {aiLoading ? '불러오는 중… ⏳' : '🍎 음식 주의 정보 보기 (AI)'}
+          </button>
+          {aiErr && <div style={{ fontSize:'13px', color:'var(--cn-danger)', marginBottom:'10px' }}>{aiErr}</div>}
+          {aiText && (
+            <div style={{ background:'var(--input-bg)', border:'1px solid var(--card-border)', borderRadius:'12px',
+                          padding:'14px', fontSize:'14px', lineHeight:1.7, color:'var(--text)', whiteSpace:'pre-wrap', marginBottom:'12px' }}>
+              {aiText}
+              <div style={{ fontSize:'11px', color:'var(--text-mute)', marginTop:'10px' }}>※ AI 참고 정보예요. 실제 식단은 의료진과 상담하세요.</div>
+            </div>
+          )}
+
+          <button onClick={() => { onSave({ conditions: sel }); onClose(); }}
             style={{ width:'100%', padding:'12px', background:'var(--cn-brand)', color:'#fff', border:'none',
                      borderRadius:'10px', cursor:'pointer', fontSize:'15px', fontWeight:'800' }}>
             저장
@@ -4622,7 +4717,7 @@
     );
   };
 
-  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onLibre, onNotif, onFamily, isAdmin, onCoupangAdmin }) => {
+  const ProfileTab = ({ authUser, userId, onSync, onChangePassword, onDataRecovery, onFeedback, onImport, darkMode, onToggleDark, onGoals, onConditions, onLibre, onNotif, onFamily, isAdmin, onCoupangAdmin }) => {
     const [showEdit, setShowEdit] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState('');
     const [profileName, setProfileName] = React.useState('');
@@ -4671,6 +4766,7 @@
         </div>
         <div style={{ fontSize:'12px', fontWeight:'700', color:'var(--text-sub)', margin:'8px 4px 6px' }}>목표 · 데이터</div>
         <Row icon="🎯" label="목표 설정" sub="하루 걸음수 · 목표 체중" onClick={onGoals} />
+        <Row icon="🩺" label="관리 질환 · 음식 주의" sub="질환 복수 선택 · AI 음식 주의 정보" onClick={onConditions} />
         <Row icon="🔔" label="알림 설정" sub="복약 · 일어서기 · 물 마시기" onClick={onNotif} />
         <Row icon="👨‍👩‍👧" label="가족 연결" sub="가족의 복약·혈당 원격 확인" onClick={onFamily} />
         <Row icon="🩸" label="리브레 혈당 연동" sub="CARENOTE 클리닉 연결 · 리브레뷰 CSV 가져오기" onClick={onLibre} />
@@ -5916,6 +6012,7 @@
     /* ── 목표 설정 (걸음수·체중) ── */
     const [goals, setGoals] = useState({ steps: 10000, weight: '' });
     const [showGoals, setShowGoals] = useState(false);
+    const [showConditions, setShowConditions] = useState(false);
     const goalsRef = useRef({ steps: 10000, weight: '' });
     useEffect(() => { goalsRef.current = goals; }, [goals]);
     const medsConfigRef = useRef([]);
@@ -6946,10 +7043,13 @@
 
     // saveGoals: 목표 저장 — medsConfig와 같은 _user_settings_ row에 병기
     const saveGoals = (g) => {
+      const merged = { ...(goals || {}), ...g };  // 목표/질환 모달이 서로 덮어쓰지 않게 병합
+      const conditions = Array.isArray(merged.conditions) ? merged.conditions.filter(Boolean) : [];
       const cleaned = {
-        steps: Math.max(1000, parseInt(g.steps) || 10000),
-        weight: g.weight !== '' && !isNaN(parseFloat(g.weight)) ? String(parseFloat(g.weight)) : '',
-        condition: g.condition || 'general'
+        steps: Math.max(1000, parseInt(merged.steps) || 10000),
+        weight: merged.weight !== '' && !isNaN(parseFloat(merged.weight)) ? String(parseFloat(merged.weight)) : '',
+        condition: (merged.condition && merged.condition !== 'general') ? merged.condition : (conditions[0] || 'general'), // 홈 미션카드 호환
+        conditions
       };
       setGoals(cleaned);
       if (userId) {
@@ -8403,6 +8503,7 @@
               darkMode={darkMode}
               onToggleDark={() => { _dm=!_dm; document.body.classList.toggle('dark',_dm); localStorage.setItem('cn_dark',_dm?'1':'0'); setDarkMode(_dm); }}
               onGoals={() => setShowGoals(true)}
+              onConditions={() => setShowConditions(true)}
               onNotif={() => setShowNotif(true)}
               onLibre={() => setShowLibre(true)}
               onFamily={() => setShowFamily(true)}
@@ -8499,6 +8600,7 @@
         {/* Change Password Modal */}
         {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
         {showGoals && <GoalsModal goals={goals} onSave={saveGoals} onClose={() => setShowGoals(false)} />}
+        {showConditions && <ConditionsModal goals={goals} onSave={saveGoals} onClose={() => setShowConditions(false)} />}
         {showNotif && <NotifSettingsModal onClose={() => setShowNotif(false)} onChanged={() => setNotifTick(t => t + 1)} />}
         {showLibre && <LibreLinkModal onClose={() => setShowLibre(false)} onOpenCsv={() => { setShowLibre(false); setImportTab('libreview'); setShowImport(true); }} />}
         {showFamily && <FamilyModal onClose={() => setShowFamily(false)} />}
