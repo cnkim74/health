@@ -5941,19 +5941,25 @@
     const userId = authUser?.id || '';
 
     // ── 돌봄 알림(P3): 앱 열 때 피보호자 복약 미완료·위험혈당이면 로컬 알림 (하루 1회) ──
+    // 로그인 직후 초기 로딩과 경쟁하지 않도록 4초 뒤 실행(비필수 백그라운드 작업)
     useEffect(() => {
       if (!userId) return;
+      let cancelled = false;
       const LN = (window.Capacitor?.isNativePlatform?.()) ? window.Capacitor.Plugins?.LocalNotifications : null;
-      (async () => {
+      const timer = setTimeout(() => { (async () => {
         try {
           const { data: gl } = await supa.rpc('cn_guardian_list');
+          if (cancelled) return;
           const wards = ((gl && gl.asGuardian) || []).filter(w => w.status === 'active');
           if (!wards.length) return;
           const t = new Date();
           const dayKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+          // 요약은 최근 데이터만 필요 → 피보호자별 조회를 최근 8일로 제한(전체 조회 방지)
+          const since = new Date(Date.now() - 8*86400000).toISOString().slice(0,10);
           let idx = 0;
           for (const w of wards) {
-            const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId);
+            if (cancelled) return;
+            const { data: rows } = await supa.from('diabetes_data').select('date,payload').eq('user_id', w.personId).gte('date', since);
             if (!rows) { idx++; continue; }
             const s = summarizeWard(rows);
             const alerts = [];
@@ -5976,7 +5982,8 @@
             idx++;
           }
         } catch(e) {}
-      })();
+      })(); }, 4000);
+      return () => { cancelled = true; clearTimeout(timer); };
     }, [userId]);
 
     // 헤더 아바타 로드 (userId 선언 후 위치 — dep 배열 정상 참조)
@@ -7007,17 +7014,28 @@
       return { label: fmtDate(d).short, avg: vals.length ? Math.round(vals.reduce((a,b)=>a+parseInt(b),0)/vals.length) : null };
     }), [data, date]);
 
+    // 차트: 최초 1회만 생성하고 이후엔 데이터만 update (매 입력마다 파괴·재생성하지 않도록 → 부드러움)
     useEffect(() => {
       if (!chartRef.current) return;
-      if (chartInst.current) { chartInst.current.destroy(); chartInst.current = null; }
+      const labels = weekData.map(d => d.label);
+      const avgs   = weekData.map(d => d.avg);
+      const pts    = weekData.map(d => bsColor(d.avg));
+      if (chartInst.current) {
+        const ds = chartInst.current.data;
+        ds.labels = labels;
+        ds.datasets[0].data = avgs;
+        ds.datasets[0].pointBackgroundColor = pts;
+        chartInst.current.update();
+        return;
+      }
       chartInst.current = new Chart(chartRef.current, {
         type: 'line',
         data: {
-          labels: weekData.map(d => d.label),
+          labels,
           datasets: [{
-            label: '평균 혈당', data: weekData.map(d => d.avg),
+            label: '평균 혈당', data: avgs,
             borderColor: 'var(--cn-brand)', backgroundColor: 'rgba(37,99,235,0.08)',
-            borderWidth: 2.5, pointBackgroundColor: weekData.map(d => bsColor(d.avg)),
+            borderWidth: 2.5, pointBackgroundColor: pts,
             pointRadius: 5, fill: true, tension: 0.35, spanGaps: true
           }]
         },
@@ -7030,8 +7048,9 @@
           }
         }
       });
-      return () => { if(chartInst.current){chartInst.current.destroy(); chartInst.current=null;} };
     }, [weekData]);
+    // 언마운트 시에만 차트 파괴
+    useEffect(() => () => { if (chartInst.current) { chartInst.current.destroy(); chartInst.current = null; } }, []);
 
     const isToday = date === todayStr();
 
