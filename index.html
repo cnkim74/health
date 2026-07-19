@@ -713,6 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const APP_BUILD = 'v8 · 07-19 (oauth-diag)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, _isNativeApp ? {
     auth: {
       lock: (_name, _timeout, fn) => fn(),
@@ -3009,6 +3010,7 @@
                           marginBottom:'6px' }}>CARENOTE</div>
             <div style={{ fontSize:'14px', color: dm ? 'rgba(148,163,184,0.9)' : 'var(--text-sub)',
                           fontWeight:'600', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
+            <div style={{ fontSize:'11px', marginTop:'6px', color:'var(--text-mute)' }}>{APP_BUILD}</div>
           </div>
 
           {/* 단축어 데이터 수신 알림 */}
@@ -6961,6 +6963,7 @@
           <CareNoteLogo size={56} />
           <div style={{ fontSize:'19px', fontWeight:'700', color:'var(--text)', marginTop:'14px' }}>CARENOTE</div>
           <div style={{ fontSize:'14px', marginTop:'6px' }}>로딩 중...</div>
+          <div style={{ fontSize:'11px', marginTop:'10px', color:'var(--text-mute)' }}>{APP_BUILD}</div>
         </div>
       </div>
     );
