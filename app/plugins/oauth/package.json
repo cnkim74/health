@@ -1,0 +1,10 @@
+{
+  "name": "carenote-oauth",
+  "version": "1.0.0",
+  "description": "CARENOTE OAuth (ASWebAuthenticationSession)",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["ios/", "index.js", "CarenoteOauth.podspec"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=6.0.0" }
+}

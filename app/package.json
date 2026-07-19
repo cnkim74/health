@@ -14,6 +14,7 @@
     "@capacitor/ios": "^6.1.2",
     "@capacitor/local-notifications": "^6.1.0",
     "carenote-health": "file:plugins/health-activity",
+    "carenote-oauth": "file:plugins/oauth",
     "carenote-glucose-ble": "file:plugins/glucose-ble",
     "carenote-run-tracker": "file:plugins/run-tracker",
     "carenote-watch-bridge": "file:plugins/watch-bridge"

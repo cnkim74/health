@@ -2868,11 +2868,12 @@
         if (error) { setError(error.message); setBusy(false); }
         return;
       }
-      // 네이티브 앱(iOS): 사파리로 이탈하지 않고 앱 안(인앱 브라우저)에서 처리
+      // 네이티브 앱(iOS): 사파리로 이탈하지 않고 앱 안에서 처리
       try {
         const Cap     = window.Capacitor;
-        const Browser = Cap.Plugins.Browser;   // @capacitor/browser (SFSafariViewController)
-        const CapApp  = Cap.Plugins.App;        // @capacitor/app (딥링크 수신)
+        const Oauth   = Cap.Plugins?.Oauth;      // ASWebAuthenticationSession (인앱 + 커스텀 스킴 콜백 자동 수신)
+        const Browser = Cap.Plugins?.Browser;    // 폴백: @capacitor/browser
+        const CapApp  = Cap.Plugins?.App;         // 폴백: 딥링크 수신
         const redirectTo = 'carenote://login-callback';
         const { data, error } = await supa.auth.signInWithOAuth({
           provider: 'google',
@@ -2880,7 +2881,42 @@
         });
         if (error) throw error;
 
-        // 구글 로그인 완료 후 딥링크(carenote://login-callback)로 돌아옴 → 여기서 세션 교환
+        // 콜백 URL(carenote://login-callback?code=...)에서 세션 교환
+        const exchange = async (url) => {
+          const params = new URLSearchParams(url.split('?')[1] || '');
+          const code = params.get('code');
+          if (code) {
+            const { error: exErr } = await supa.auth.exchangeCodeForSession(code);
+            if (exErr) throw exErr;
+            return;
+          }
+          const hp = new URLSearchParams(url.split('#')[1] || '');
+          const at = hp.get('access_token'), rt = hp.get('refresh_token');
+          if (at && rt) {
+            const { error: setErr } = await supa.auth.setSession({ access_token: at, refresh_token: rt });
+            if (setErr) throw setErr;
+            return;
+          }
+          throw new Error(params.get('error_description') || '인증 정보를 받지 못했어요.');
+        };
+
+        // ── 기본: ASWebAuthenticationSession (로그인 후 앱으로 자동 복귀) ──
+        if (Oauth && Oauth.authenticate) {
+          try {
+            const res = await Oauth.authenticate({ url: data.url, callbackScheme: 'carenote' });
+            if (res && res.url) await exchange(res.url);
+          } catch (e) {
+            // 사용자가 취소한 경우는 조용히 종료
+            if (!(e && (e.code === 'CANCELLED' || /cancel/i.test(e.message || '')))) {
+              setError('구글 로그인 오류: ' + (e.message || e));
+            }
+          } finally {
+            setBusy(false);
+          }
+          return;
+        }
+
+        // ── 폴백: 플러그인 미빌드 시 인앱 브라우저 + 딥링크 ──
         let done = false, appSub = null, brwSub = null;
         const cleanup = () => {
           try { appSub && appSub.remove(); } catch (_) {}
@@ -2890,40 +2926,17 @@
           if (done || !url || url.indexOf(redirectTo) !== 0) return;
           done = true;
           try { if (Browser) await Browser.close(); } catch (_) {}
-          try {
-            const qs = url.split('?')[1] || '';
-            const params = new URLSearchParams(qs);
-            const code = params.get('code');
-            if (code) {
-              const { error: exErr } = await supa.auth.exchangeCodeForSession(code);
-              if (exErr) throw exErr;
-            } else {
-              // 암시적(implicit) 흐름 대비: #access_token=...
-              const hp = new URLSearchParams(url.split('#')[1] || '');
-              const at = hp.get('access_token'), rt = hp.get('refresh_token');
-              if (at && rt) {
-                const { error: setErr } = await supa.auth.setSession({ access_token: at, refresh_token: rt });
-                if (setErr) throw setErr;
-              } else {
-                throw new Error(params.get('error_description') || '인증 정보를 받지 못했어요.');
-              }
-            }
-          } catch (e) {
-            setError('구글 로그인 처리 중 오류: ' + (e.message || e));
-          } finally {
-            cleanup();
-            setBusy(false);
-          }
+          try { await exchange(url); }
+          catch (e) { setError('구글 로그인 처리 중 오류: ' + (e.message || e)); }
+          finally { cleanup(); setBusy(false); }
         });
-
         if (Browser) {
-          // 사용자가 로그인 창을 닫으면(완료 전) '처리중' 상태 해제
           brwSub = await Browser.addListener('browserFinished', () => {
             if (!done) { cleanup(); setBusy(false); }
           });
-          await Browser.open({ url: data.url, presentationStyle: 'popover' });
+          await Browser.open({ url: data.url });
         } else {
-          window.location.href = data.url; // 브라우저 플러그인 미설치 시 폴백
+          window.location.href = data.url;
         }
       } catch (e) {
         setError(e.message || '구글 로그인 오류');
