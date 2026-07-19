@@ -36,11 +36,17 @@ if [ -f "$LOGO_SRC" ] && command -v sips >/dev/null 2>&1; then
 fi
 
 # 생성된 아이콘을 iOS·애플워치 등 프로젝트 내 모든 AppIcon 에셋에 자동 반영
+# Contents.json이 참조하는 파일명에 직접 복사 → png가 삭제돼 있어도 항상 다시 생성(아이콘 깨짐 방지)
 if [ -f assets/AppIcon-512@2x.png ] && [ -d ios ]; then
   find ios -type d -name "AppIcon.appiconset" 2>/dev/null | while read -r D; do
-    for PNG in "$D"/*.png; do
-      [ -e "$PNG" ] && cp assets/AppIcon-512@2x.png "$PNG"
-    done
+    FNS=$(grep -o '"filename"[[:space:]]*:[[:space:]]*"[^"]*"' "$D/Contents.json" 2>/dev/null | sed -E 's/.*"([^"]+)"$/\1/')
+    if [ -n "$FNS" ]; then
+      printf '%s\n' "$FNS" | while IFS= read -r fn; do
+        [ -n "$fn" ] && cp assets/AppIcon-512@2x.png "$D/$fn"
+      done
+    else
+      cp assets/AppIcon-512@2x.png "$D/AppIcon-512@2x.png"
+    fi
     echo "  + 앱 아이콘 반영: $D"
   done
   echo "✅ 앱 아이콘(폰·워치) 반영 완료"
