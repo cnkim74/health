@@ -167,6 +167,10 @@ public class HealthActivityPlugin: CAPPlugin {
         let lock = NSLock(); let group = DispatchGroup()
         func put(_ k: String, _ v: Double?) { if let v = v { lock.lock(); r[k] = v; lock.unlock() } }
 
+        // [진단] 읽기권한 목록에 혈압이 포함돼 있는지 + 목록 개수
+        put("rtN", Double(readTypes.count))
+        put("rtHasBP", readTypes.contains(where: { $0.identifier.contains("BloodPressure") }) ? 1.0 : 0.0)
+
         group.enter(); latest(.bodyMass, .gramUnit(with: .kilo)) { put("weight", $0.map { ($0*10).rounded()/10 }); group.leave() }
         group.enter(); latest(.bodyFatPercentage, .percent()) { put("bodyFat", $0.map { ($0*100*10).rounded()/10 }); group.leave() }
         group.enter(); latest(.restingHeartRate, HKUnit.count().unitDivided(by: .minute())) { put("restingHR", $0.map { $0.rounded() }); group.leave() }
@@ -201,12 +205,14 @@ public class HealthActivityPlugin: CAPPlugin {
         let bpSort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         if let sysT = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic) {
             group.enter()
-            let q = HKSampleQuery(sampleType: sysT, predicate: nil, limit: 1, sortDescriptors: [bpSort]) { _, samples, _ in
+            let q = HKSampleQuery(sampleType: sysT, predicate: nil, limit: 10, sortDescriptors: [bpSort]) { _, samples, err in
+                put("bpSysN", Double(samples?.count ?? 0))       // [진단] 찾은 수축기 샘플 수
+                if err != nil { put("bpSysErr", 1.0) }           // [진단] 쿼리 에러 여부
                 if let s = samples?.first as? HKQuantitySample { put("bpSys", s.quantity.doubleValue(for: bpUnit).rounded()) }
                 group.leave()
             }
             store.execute(q)
-        }
+        } else { put("bpSysTypeNil", 1.0) }
         if let diaT = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic) {
             group.enter()
             let q = HKSampleQuery(sampleType: diaT, predicate: nil, limit: 1, sortDescriptors: [bpSort]) { _, samples, _ in

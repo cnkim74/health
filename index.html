@@ -713,7 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v14 · 07-19 (vitals-fix)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
+  const APP_BUILD = 'v15 · 07-19 (bp-diag2)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -6495,7 +6495,7 @@
             // [임시 진단] 앱 실행 후 첫 동기화 때 혈압 읽기 결과를 화면에 표시
             if (!window.__bpDbg) {
               window.__bpDbg = true;
-              try { alert('🩺 건강앱 읽기 결과\n수축기(bpSys)=' + (v && v.bpSys) + '\n이완기(bpDia)=' + (v && v.bpDia) + '\n체중=' + (v && v.weight)); } catch (_) {}
+              try { alert('🩺 혈압 진단\n권한목록에 혈압(rtHasBP)=' + (v && v.rtHasBP) + '\n권한목록수(rtN)=' + (v && v.rtN) + '\n수축기 샘플수(bpSysN)=' + (v && v.bpSysN) + '\n수축기값=' + (v && v.bpSys) + '\n이완기값=' + (v && v.bpDia) + '\n체중=' + (v && v.weight)); } catch (_) {}
             }
             if (!cancelled && v) {
               setVitals(prev => ({ ...prev, ...v, at: Date.now() }));
