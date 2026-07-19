@@ -713,7 +713,6 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v15 · 07-19 (bp-diag2)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -2910,31 +2909,22 @@
             p, new Promise((_, rej) => setTimeout(() => rej(new Error('시간초과(' + label + ')')), ms))
           ]);
           try {
-            setMessage('① 로그인 창 여는 중…');
             const res = await Oauth.authenticate({ url: data.url, callbackScheme: 'carenote' });
             const u = (res && res.url) || '';
-            console.log('[gauth] callback url =', u);
-            const hasToken = u.indexOf('access_token') >= 0;
-            const hasCode  = /[?&]code=/.test(u);
-            setMessage('② 콜백=' + (hasToken ? 'TOKEN' : hasCode ? 'CODE' : '없음') + ' · 적용 중…');
-            if (hasToken) {
+            if (!u) throw new Error('콜백 URL을 받지 못했어요.');
+            if (u.indexOf('access_token') >= 0) {
               const hp = new URLSearchParams((u.split('#')[1] || u.split('?')[1] || ''));
               const at = hp.get('access_token'), rt = hp.get('refresh_token');
-              setMessage('③ setSession 중…');
               const r = await withTimeout(supa.auth.setSession({ access_token: at, refresh_token: rt }), 12000, 'setSession');
               if (r && r.error) throw r.error;
-            } else if (hasCode) {
+            } else if (/[?&]code=/.test(u)) {
               const code = new URLSearchParams(u.split('?')[1] || '').get('code');
-              setMessage('③ 코드교환 중…');
               const r = await withTimeout(supa.auth.exchangeCodeForSession(code), 12000, '코드교환');
               if (r && r.error) throw r.error;
             } else {
-              throw new Error('콜백에 토큰/코드 없음: ' + u.slice(0, 60));
+              throw new Error('인증 정보를 받지 못했어요.');
             }
-            setMessage('④ 완료!');
           } catch (e) {
-            console.log('[gauth] error =', e && (e.message || e), '| code =', e && e.code);
-            setMessage('');
             if (!(e && (e.code === 'CANCELLED' || /cancel/i.test(e.message || '')))) {
               setError('구글 로그인 오류: ' + (e && (e.message || e)));
             }
@@ -3026,7 +3016,6 @@
                           marginBottom:'6px' }}>CARENOTE</div>
             <div style={{ fontSize:'14px', color: dm ? 'rgba(148,163,184,0.9)' : 'var(--text-sub)',
                           fontWeight:'600', letterSpacing:'0.3px' }}>내 몸을 기록하는 노트</div>
-            <div style={{ fontSize:'11px', marginTop:'6px', color:'var(--text-mute)' }}>{APP_BUILD}</div>
           </div>
 
           {/* 단축어 데이터 수신 알림 */}
@@ -6492,11 +6481,6 @@
           // ── 바이탈(체중·체지방·심박·HRV·수면·물) + 심전도 ──
           try {
             const v = await HK.getVitals();
-            // [임시 진단] 앱 실행 후 첫 동기화 때 혈압 읽기 결과를 화면에 표시
-            if (!window.__bpDbg) {
-              window.__bpDbg = true;
-              try { alert('🩺 혈압 진단\n권한목록에 혈압(rtHasBP)=' + (v && v.rtHasBP) + '\n권한목록수(rtN)=' + (v && v.rtN) + '\n수축기 샘플수(bpSysN)=' + (v && v.bpSysN) + '\n수축기값=' + (v && v.bpSys) + '\n이완기값=' + (v && v.bpDia) + '\n체중=' + (v && v.weight)); } catch (_) {}
-            }
             if (!cancelled && v) {
               setVitals(prev => ({ ...prev, ...v, at: Date.now() }));
               // 체중·체지방 오늘 값이 비어있으면 HealthKit 값으로 채움
@@ -6986,7 +6970,6 @@
           <CareNoteLogo size={56} />
           <div style={{ fontSize:'19px', fontWeight:'700', color:'var(--text)', marginTop:'14px' }}>CARENOTE</div>
           <div style={{ fontSize:'14px', marginTop:'6px' }}>로딩 중...</div>
-          <div style={{ fontSize:'11px', marginTop:'10px', color:'var(--text-mute)' }}>{APP_BUILD}</div>
         </div>
       </div>
     );
