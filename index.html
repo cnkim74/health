@@ -5229,7 +5229,6 @@
               <span className="dash-metric-val cn-num" style={{color:bpSysVals.length?'var(--text)':'var(--text-mute)'}}>{lastBP}</span>
               <span className="dash-metric-unit">mmHg</span>
             </div>
-            <div style={{fontSize:'9px',color:'#e11',wordBreak:'break-all'}}>DBG today.bp={JSON.stringify(todayData.bp)} · has={bpSysVals.length}</div>
             <TrendBadge vals={bpSysVals}/>
             <Sparkline vals={bpSysVals.slice(-10)} color="var(--cn-danger)" h={28}/>
           </div>
