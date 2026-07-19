@@ -5229,6 +5229,7 @@
               <span className="dash-metric-val cn-num" style={{color:bpSysVals.length?'var(--text)':'var(--text-mute)'}}>{lastBP}</span>
               <span className="dash-metric-unit">mmHg</span>
             </div>
+            <div style={{fontSize:'9px',color:'#e11',wordBreak:'break-all'}}>DBG today.bp={JSON.stringify(todayData.bp)} · has={bpSysVals.length}</div>
             <TrendBadge vals={bpSysVals}/>
             <Sparkline vals={bpSysVals.slice(-10)} color="var(--cn-danger)" h={28}/>
           </div>
@@ -6497,6 +6498,12 @@
                 if (v.bpSys && v.bpDia && !(cur.bp && cur.bp.sys)) patch.bp = { sys: String(Math.round(v.bpSys)), dia: String(Math.round(v.bpDia)) };
                 if (!Object.keys(patch).length) return prev;
                 const merged = { ...cur, ...patch };
+                // 영구 캐시(dm_imported)에도 기록 → 클라우드 로드가 부분 데이터로 덮어도 로드 시 항상 복원
+                try {
+                  const imp = JSON.parse(localStorage.getItem('dm_imported') || '{}');
+                  imp[t] = { ...(imp[t] || {}), ...patch };
+                  localStorage.setItem('dm_imported', JSON.stringify(imp));
+                } catch {}
                 try { supa.from('diabetes_data').upsert({ user_id: userId, date: t, payload: merged, updated_at: new Date().toISOString() }, { onConflict:'user_id,date' }).then(()=>{}); } catch {}
                 return { ...prev, [t]: merged };
               });
