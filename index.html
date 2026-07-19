@@ -2902,13 +2902,24 @@
 
         // ── 기본: ASWebAuthenticationSession (로그인 후 앱으로 자동 복귀) ──
         if (Oauth && Oauth.authenticate) {
+          const withTimeout = (p, ms, label) => Promise.race([
+            p, new Promise((_, rej) => setTimeout(() => rej(new Error('시간초과(' + label + ')')), ms))
+          ]);
           try {
+            setMessage('① 로그인 창 여는 중…');
+            console.log('[gauth] authenticate start');
             const res = await Oauth.authenticate({ url: data.url, callbackScheme: 'carenote' });
-            if (res && res.url) await exchange(res.url);
+            console.log('[gauth] callback url =', res && res.url);
+            if (!res || !res.url) throw new Error('콜백 URL을 받지 못했어요.');
+            setMessage('② 로그인 완료 — 세션 확인 중…');
+            await withTimeout(exchange(res.url), 15000, '세션 교환');
+            console.log('[gauth] session ok');
+            setMessage('');
           } catch (e) {
-            // 사용자가 취소한 경우는 조용히 종료
+            console.log('[gauth] error =', e && (e.message || e), '| code =', e && e.code);
+            setMessage('');
             if (!(e && (e.code === 'CANCELLED' || /cancel/i.test(e.message || '')))) {
-              setError('구글 로그인 오류: ' + (e.message || e));
+              setError('구글 로그인 오류: ' + (e && (e.message || e)));
             }
           } finally {
             setBusy(false);
