@@ -713,7 +713,7 @@
   // iOS 네이티브 앱(Capacitor)에서는 WKWebView의 Web Locks API가 멈추는 문제가 있어
   // 잠금을 통과(pass-through)시키고, OAuth URL 세션 감지도 비활성화 (앱은 리디렉션 미사용)
   const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const APP_BUILD = 'v11 · 07-19 (bp-crash-fix)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
+  const APP_BUILD = 'v12 · 07-19 (bp-perm)'; // 빌드 확인용 표식 — 화면에 이 문구가 보이면 최신 코드
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
     auth: {
       // WKWebView 의 navigator.locks 가 멈추는 문제 → 잠금을 항상 통과시킴
@@ -6443,9 +6443,10 @@
       const syncHK = async () => {
         try {
           // 권한 버전: readTypes가 바뀌면(예: 혈압 추가) 버전을 올려 재요청 → 새 항목 권한 노출
-          if (localStorage.getItem('cn_hk_perm') !== 'v2') {
+          // v3: 혈압 correlation 크래시 수정 후 혈압(수축기/이완기) 권한을 다시 요청
+          if (localStorage.getItem('cn_hk_perm') !== 'v3') {
             await HK.requestAuth();
-            localStorage.setItem('cn_hk_perm', 'v2');
+            localStorage.setItem('cn_hk_perm', 'v3');
           }
           const hk = await HK.getTodayActivity();
           if (cancelled || !hk) return;
