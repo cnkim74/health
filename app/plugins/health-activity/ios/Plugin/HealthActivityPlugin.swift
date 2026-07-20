@@ -138,6 +138,44 @@ public class HealthActivityPlugin: CAPPlugin {
         store.execute(query)
     }
 
+    /**
+     * 최근 N일(기본 14일)간 혈압 측정값을 날짜와 함께 반환(하루 단위 반영용).
+     * 수축기·이완기를 각각 조회해 같은 측정시각(startDate)으로 짝지음.
+     * 반환: { readings: [ { ts: ISO8601, sys: Int, dia: Int } ] }
+     */
+    @objc public func getRecentBP(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let sysT = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic),
+              let diaT = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic) else {
+            call.resolve(["readings": []]); return
+        }
+        let days = call.getInt("days") ?? 14
+        let now = Date()
+        let start = Calendar.current.date(byAdding: .day, value: -max(1, days), to: now) ?? now
+        let pred = HKQuery.predicateForSamples(withStart: start, end: now, options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        let mmHg = HKUnit.millimeterOfMercury()
+        let iso = ISO8601DateFormatter()
+        let group = DispatchGroup()
+        var sysMap = [String: Int]()
+        var diaMap = [String: Int]()
+        group.enter()
+        store.execute(HKSampleQuery(sampleType: sysT, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, _ in
+            for s in (samples as? [HKQuantitySample]) ?? [] { sysMap[iso.string(from: s.startDate)] = Int(s.quantity.doubleValue(for: mmHg).rounded()) }
+            group.leave()
+        })
+        group.enter()
+        store.execute(HKSampleQuery(sampleType: diaT, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, _ in
+            for s in (samples as? [HKQuantitySample]) ?? [] { diaMap[iso.string(from: s.startDate)] = Int(s.quantity.doubleValue(for: mmHg).rounded()) }
+            group.leave()
+        })
+        group.notify(queue: .main) {
+            var readings: [[String: Any]] = []
+            for (ts, sys) in sysMap { if let dia = diaMap[ts] { readings.append(["ts": ts, "sys": sys, "dia": dia]) } }
+            call.resolve(["readings": readings])
+        }
+    }
+
     // 최신 샘플 1개 값
     private func latest(_ ident: HKQuantityTypeIdentifier, _ unit: HKUnit, _ cb: @escaping (Double?) -> Void) {
         guard let qt = HKQuantityType.quantityType(forIdentifier: ident) else { cb(nil); return }
