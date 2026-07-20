@@ -6753,9 +6753,9 @@ ${cm.section}
                 if (v.weight && !cur.weight)  patch.weight  = String(v.weight);
                 if (v.bodyFat && !cur.bodyFat) patch.bodyFat = String(v.bodyFat);
                 if (v.waterMl != null) patch.water_ml = String(Math.round(v.waterMl)); // HealthKit 물섭취 반영
-                // 혈압(오므론 등 → 애플 건강): 오늘 혈압이 비었거나 '자동 입력값'이면 최신 측정값으로 갱신.
+                // 혈압 폴백: 날짜별 조회(getRecentBP)를 지원하지 않는 옛 빌드에서만 '오늘'에 최신값 반영.
                 // (수동 입력한 값은 auto 플래그가 없으므로 덮어쓰지 않음)
-                if (v.bpSys && v.bpDia) {
+                if (!HK.getRecentBP && v.bpSys && v.bpDia) {
                   const ns = String(Math.round(v.bpSys)), nd = String(Math.round(v.bpDia));
                   const curEmpty = !(cur.bp && cur.bp.sys);
                   const curAuto  = !!(cur.bp && cur.bp.auto);
@@ -6775,6 +6775,44 @@ ${cm.section}
               });
             }
           } catch (ve) { console.log('HealthKit vitals skip:', ve?.message || ve); }
+
+          // ── 혈압: 최근 측정값을 '날짜별(하루 단위)'로 반영 ──
+          try {
+            if (HK.getRecentBP) {
+              const bpRes = await HK.getRecentBP({ days: 14 });
+              if (!cancelled && bpRes?.readings?.length) {
+                const byDay = {};
+                bpRes.readings.forEach(r => {
+                  const d = new Date(r.ts);
+                  if (isNaN(d.getTime()) || !(r.sys > 0) || !(r.dia > 0)) return;
+                  const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                  const hr = d.getHours() + d.getMinutes()/60;
+                  // 그날 가장 늦은 시각의 측정값 사용
+                  if (!byDay[day] || hr >= byDay[day].hr) byDay[day] = { hr, sys: String(r.sys), dia: String(r.dia) };
+                });
+                setData(prev => {
+                  let changed = false;
+                  const next = { ...prev };
+                  const imp = (() => { try { return JSON.parse(localStorage.getItem('dm_imported') || '{}'); } catch { return {}; } })();
+                  Object.entries(byDay).forEach(([day, bp]) => {
+                    const cur = { ...emptyDay(), ...(next[day] || {}) };
+                    const curEmpty = !(cur.bp && cur.bp.sys);
+                    const curAuto  = !!(cur.bp && cur.bp.auto);
+                    const diff = !cur.bp || cur.bp.sys !== bp.sys || cur.bp.dia !== bp.dia;
+                    if ((curEmpty || curAuto) && diff) {
+                      const merged = { ...cur, bp: { sys: bp.sys, dia: bp.dia, auto: true } };
+                      next[day] = merged; changed = true;
+                      imp[day] = { ...(imp[day] || {}), bp: merged.bp };
+                      try { supa.from('diabetes_data').upsert({ user_id: userId, date: day, payload: merged, updated_at: new Date().toISOString() }, { onConflict:'user_id,date' }).then(()=>{}); } catch {}
+                    }
+                  });
+                  if (changed) { try { localStorage.setItem('dm_imported', JSON.stringify(imp)); } catch {} }
+                  return changed ? next : prev;
+                });
+              }
+            }
+          } catch (be) { console.log('HealthKit BP skip:', be?.message || be); }
+
           try {
             const e2 = await HK.getECG();
             if (!cancelled && e2?.available) setEcg({ ...e2, at: Date.now() });
