@@ -5904,6 +5904,16 @@ ${cm.section}
       onClose();
     };
 
+    // 뒤로가기(나가기): 운동 중이면 확인 후 취소, 아니면 바로 닫기
+    const cancelExit = () => {
+      if ((state === 'running' || state === 'paused') &&
+          !window.confirm('운동을 취소하고 나갈까요?\n기록은 저장되지 않아요.')) return;
+      if (timerRef.current) clearInterval(timerRef.current);
+      detachListener();
+      try { if (RT) RT.stop(); } catch {}
+      onClose();
+    };
+
     const bigStat = (val, label, unit) => (
       <div style={{ textAlign:'center', flex:1 }}>
         <div style={{ fontFamily:'var(--font-title)', fontSize:'34px', fontWeight:'700', color:'#fff', lineHeight:1.05 }}>{val}<span style={{fontSize:'15px', fontWeight:'600', opacity:0.8}}> {unit}</span></div>
@@ -5916,10 +5926,10 @@ ${cm.section}
         {/* 지도 */}
         <div style={{ position:'relative', flex:1, minHeight:0 }}>
           <div id="run-map" style={{ position:'absolute', inset:0 }}></div>
-          <button onClick={state==='running'||state==='paused' ? null : onClose} disabled={state==='running'||state==='paused'}
+          <button onClick={cancelExit}
             style={{ position:'absolute', top:'calc(12px + env(safe-area-inset-top,0px))', left:'14px', zIndex:10,
               background:'rgba(11,27,59,0.85)', color:'#fff', border:'none', borderRadius:'50%', width:'40px', height:'40px',
-              fontSize:'18px', cursor: state==='idle'||state==='done'?'pointer':'default', opacity: state==='running'||state==='paused'?0.4:1 }}>✕</button>
+              fontSize:'18px', cursor:'pointer' }} aria-label="나가기">✕</button>
           {msg && <div style={{ position:'absolute', top:'calc(14px + env(safe-area-inset-top,0px))', left:'50%', transform:'translateX(-50%)', zIndex:10, background:'rgba(11,27,59,0.9)', color:'#fff', padding:'8px 16px', borderRadius:'20px', fontSize:'13px', fontWeight:'600' }}>{msg}</div>}
         </div>
 
