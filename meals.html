@@ -1,0 +1,1765 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>오늘의 식단 — 어르신용 건강 식단 추천</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin:0; padding:0; background:#EBE2D2; min-height:100vh;
+      font-family: 'Noto Sans KR', -apple-system, system-ui, sans-serif; }
+    body { display:flex; align-items:center; justify-content:center; padding:80px 32px 100px; box-sizing:border-box; }
+    #root { width:100%; max-width:520px; }
+    .phone-scroll::-webkit-scrollbar { width: 0; height: 0; }
+    .phone-scroll { scrollbar-width: none; }
+    .tappable { transition: transform 80ms ease, filter 80ms ease; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select:none; }
+    .tappable:active { transform: scale(0.97); filter: brightness(0.96); }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.85); opacity: 0.55; }
+      80% { transform: scale(1.4); opacity: 0; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes pop { 0% { opacity: 0; transform: scale(0.85); } 100% { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <script type="text/babel" data-presets="react">
+  // ─────────────────────────────────────────────────────────────
+  // iOS 26 (Liquid Glass) device frame — minimal subset used here
+  // ─────────────────────────────────────────────────────────────
+  function IOSStatusBar({ dark = false, time = '9:41' }) {
+    const c = dark ? '#fff' : '#000';
+    return (
+      <div style={{
+        display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+        padding: '21px 24px 19px', boxSizing: 'border-box',
+        position: 'relative', zIndex: 20, width: '100%',
+      }}>
+        <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+          <span style={{
+            fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+            fontSize: 17, lineHeight: '22px', color: c,
+          }}>{time}</span>
+        </div>
+        <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+          <svg width="19" height="12" viewBox="0 0 19 12">
+            <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+            <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+            <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+            <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+          </svg>
+          <svg width="17" height="12" viewBox="0 0 17 12">
+            <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+            <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+            <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+          </svg>
+          <svg width="27" height="13" viewBox="0 0 27 13">
+            <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+            <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
+            <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  function IOSDevice({ children, width = 402, height = 874, dark = false }) {
+    return (
+      <div style={{
+        width, height, borderRadius: 48, overflow: 'hidden',
+        position: 'relative', background: dark ? '#000' : '#F2F2F7',
+        boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+        fontFamily: '-apple-system, system-ui, sans-serif',
+        WebkitFontSmoothing: 'antialiased',
+      }}>
+        <div style={{
+          position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+          width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+        }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+          <IOSStatusBar dark={dark} />
+        </div>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        </div>
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
+          height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          paddingBottom: 8, pointerEvents: 'none',
+        }}>
+          <div style={{
+            width: 139, height: 5, borderRadius: 100,
+            background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
+          }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Tweaks panel — hidden by default, opens with Cmd/Ctrl+`
+  // ─────────────────────────────────────────────────────────────
+  const __TWEAKS_STYLE = `
+    .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+      max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+      background:rgba(250,249,247,.78);color:#29261b;
+      -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+      border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+      box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+      font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+    .twk-hd{display:flex;align-items:center;justify-content:space-between;
+      padding:10px 8px 10px 14px;user-select:none}
+    .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+    .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+      width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1}
+    .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+    .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+      overflow-y:auto;overflow-x:hidden;min-height:0}
+    .twk-row{display:flex;flex-direction:column;gap:5px}
+    .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;color:rgba(41,38,27,.72)}
+    .twk-lbl>span:first-child{font-weight:500}
+    .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+      color:rgba(41,38,27,.45);padding:10px 0 0}
+    .twk-sect:first-child{padding-top:0}
+    .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+      background:rgba(0,0,0,.06);user-select:none}
+    .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+      background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+      transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+    .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+      background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+      border-radius:6px;cursor:pointer;padding:4px 6px;line-height:1.2}
+    .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+      background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:pointer}
+    .twk-btn:hover{background:rgba(0,0,0,.88)}
+    .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+    .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+  `;
+
+  function useTweaks(defaults) {
+    const [values, setValues] = React.useState(defaults);
+    const setTweak = React.useCallback((keyOrEdits, val) => {
+      const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+        ? keyOrEdits : { [keyOrEdits]: val };
+      setValues((prev) => ({ ...prev, ...edits }));
+    }, []);
+    return [values, setTweak];
+  }
+
+  function TweaksPanel({ title = 'Tweaks', children }) {
+    const [open, setOpen] = React.useState(false);
+    React.useEffect(() => {
+      const onKey = (e) => {
+        if (e.key === '`' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setOpen(o => !o); }
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, []);
+    if (!open) return null;
+    return (
+      <>
+        <style>{__TWEAKS_STYLE}</style>
+        <div className="twk-panel">
+          <div className="twk-hd">
+            <b>{title}</b>
+            <button className="twk-x" aria-label="닫기" onClick={() => setOpen(false)}>✕</button>
+          </div>
+          <div className="twk-body">{children}</div>
+        </div>
+      </>
+    );
+  }
+
+  function TweakSection({ label }) { return <div className="twk-sect">{label}</div>; }
+
+  function TweakRadio({ label, value, options, onChange }) {
+    const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+    const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+    const n = opts.length;
+    return (
+      <div className="twk-row">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <div role="radiogroup" className="twk-seg">
+          <div className="twk-seg-thumb"
+               style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                        width: `calc((100% - 4px) / ${n})` }} />
+          {opts.map((o) => (
+            <button key={o.value} type="button" role="radio" aria-checked={o.value === value}
+                    onClick={() => onChange(o.value)}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function TweakButton({ label, onClick, secondary = false }) {
+    return (
+      <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+              onClick={onClick}>{label}</button>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 색상 팔레트 + 글씨 크기 스케일
+  // ─────────────────────────────────────────────────────────────
+  const PALETTES = {
+    beige: {
+      label: '베이지 + 주황',
+      bg: '#F2E7D0', card: '#FFFFFF', cardSoft: '#FBF3E1',
+      accent: '#D9722E', accentDeep: '#B0531B', accentSoft: '#F6C896',
+      ink: '#3A2A1A', inkSoft: '#7A6A55', line: '#E5D6B8',
+    },
+    cream: {
+      label: '연한 크림',
+      bg: '#F7EDDA', card: '#FFFBF1', cardSoft: '#FBF1DC',
+      accent: '#E08B5A', accentDeep: '#B86036', accentSoft: '#F4C9A6',
+      ink: '#3F2E1E', inkSoft: '#806E55', line: '#EAD8B8',
+    },
+    apricot: {
+      label: '따뜻한 살구',
+      bg: '#F8DCC0', card: '#FFF6E8', cardSoft: '#FCE7CC',
+      accent: '#CC5E2E', accentDeep: '#963F18', accentSoft: '#EFAE83',
+      ink: '#3A2516', inkSoft: '#7A5E45', line: '#E4BE94',
+    },
+  };
+
+  const FONT_SCALES = {
+    '보통': { base: 22, body: 26, big: 32, title: 40, mega: 54, btn: 30 },
+    '크게': { base: 26, body: 30, big: 38, title: 48, mega: 64, btn: 36 },
+    '아주 크게': { base: 30, body: 36, big: 44, title: 56, mega: 74, btn: 42 },
+  };
+
+  function Icon({ name, size = 28, color = 'currentColor', stroke = 2.2 }) {
+    const p = { fill: 'none', stroke: color, strokeWidth: stroke, strokeLinecap: 'round', strokeLinejoin: 'round' };
+    switch (name) {
+      case 'speaker':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M4 9v6h4l5 4V5L8 9H4z"/><path {...p} d="M16 8c1.5 1 2.5 2.4 2.5 4S17.5 15 16 16"/><path {...p} d="M19 5c2.5 1.7 4 4.2 4 7s-1.5 5.3-4 7"/></svg>;
+      case 'speaker-on':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path fill={color} d="M4 9v6h4l5 4V5L8 9H4z"/><path {...p} d="M16 8c1.5 1 2.5 2.4 2.5 4S17.5 15 16 16"/><path {...p} d="M19 5c2.5 1.7 4 4.2 4 7s-1.5 5.3-4 7"/></svg>;
+      case 'back':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M15 5l-7 7 7 7"/></svg>;
+      case 'refresh':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path {...p} d="M21 4v4h-4"/><path {...p} d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path {...p} d="M3 20v-4h4"/></svg>;
+      case 'share':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><circle {...p} cx="6" cy="12" r="2.5"/><circle {...p} cx="18" cy="6" r="2.5"/><circle {...p} cx="18" cy="18" r="2.5"/><path {...p} d="M8.2 11l7.6-4M8.2 13l7.6 4"/></svg>;
+      case 'check':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M5 12.5l4.5 4.5L19 7"/></svg>;
+      case 'message':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M4 5h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1z"/></svg>;
+      case 'clock':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><circle {...p} cx="12" cy="12" r="9"/><path {...p} d="M12 7v5l3.5 2"/></svg>;
+      case 'sparkle':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><path {...p} d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/></svg>;
+      case 'plate':
+        return <svg width={size} height={size} viewBox="0 0 24 24"><circle {...p} cx="12" cy="12" r="9"/><circle {...p} cx="12" cy="12" r="5"/></svg>;
+      default: return null;
+    }
+  }
+
+  function speak(text, onEnd) {
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR'; u.rate = 0.88; u.pitch = 1.0;
+      u.onend = () => onEnd && onEnd();
+      window.speechSynthesis.speak(u);
+    } catch (e) { onEnd && onEnd(); }
+  }
+  function stopSpeaking() { try { window.speechSynthesis.cancel(); } catch (e) {} }
+
+  function SpeakerButton({ text, palette, size = 56, label = '음성으로 읽어드릴까요?' }) {
+    const [on, setOn] = React.useState(false);
+    React.useEffect(() => () => stopSpeaking(), []);
+    const toggle = () => {
+      if (on) { stopSpeaking(); setOn(false); return; }
+      setOn(true);
+      speak(text, () => setOn(false));
+    };
+    return (
+      <button onClick={toggle} aria-label={label} className="tappable"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          height: size, padding: '0 18px 0 14px',
+          background: on ? palette.accent : palette.card,
+          color: on ? '#fff' : palette.ink,
+          border: `2px solid ${on ? palette.accent : palette.line}`,
+          borderRadius: size / 2,
+          fontSize: 19, fontWeight: 700,
+          boxShadow: on ? `0 4px 0 ${palette.accentDeep}` : `0 3px 0 ${palette.line}`,
+        }}>
+        <span style={{
+          width: size - 18, height: size - 18, borderRadius: '50%',
+          background: on ? '#fff' : palette.accentSoft,
+          color: on ? palette.accent : palette.accentDeep,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+        }}>
+          {on && (<span style={{
+            position:'absolute', inset:0, borderRadius:'50%',
+            border:`3px solid ${palette.accent}`, animation: 'pulse-ring 1.4s ease-out infinite',
+          }}/>)}
+          <Icon name={on ? 'speaker-on' : 'speaker'} size={22} stroke={2.5}/>
+        </span>
+        {on ? '읽는 중… (탭하면 멈춰요)' : '읽어드릴까요?'}
+      </button>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 식단 데이터 — 저염, 당뇨/혈압 관리 위주
+  // ─────────────────────────────────────────────────────────────
+  const MEALS = [
+    {
+      id: 'spinach-doenjang',
+      name: '시금치 된장국과 잡곡밥',
+      short: '시금치 된장국',
+      benefit: '나트륨은 줄이고\n섬유질은 듬뿍',
+      tag: '저염', accent: '#5B8C3E',
+      plate: ['🍚', '🥣', '🥬', '🥢'],
+      why: '오늘은 날씨가 쌀쌀해서 따뜻한 국물이 좋아요. 시금치는 혈압 관리에 도움이 되고, 된장은 평소 드시던 분량보다 한 숟갈만 줄였어요.',
+      kcal: 420, na: 480, time: '20분',
+      ingredients: [
+        ['시금치', '한 줌 (100g)'], ['된장', '1/2 큰술'],
+        ['두부', '1/4모'], ['대파', '조금'],
+        ['멸치 육수', '2컵'], ['잡곡밥', '한 공기'],
+      ],
+      steps: [
+        '냄비에 멸치 육수 2컵을 넣고 끓여요.',
+        '된장 1/2큰술을 풀어주세요. (평소보다 조금 적게)',
+        '두부를 큼직하게 썰어 넣어요.',
+        '끓으면 시금치와 대파를 넣고 1분만 더 끓여요.',
+        '잡곡밥과 함께 따뜻하게 드세요.',
+      ],
+    },
+    {
+      id: 'tofu-jorim',
+      name: '두부조림과 현미밥',
+      short: '두부조림',
+      benefit: '단백질은 든든하게\n당분은 천천히',
+      tag: '당뇨에 좋아요', accent: '#C97B3A',
+      plate: ['🍚', '🟫', '🥬', '🥢'],
+      why: '두부는 부드러워서 드시기 편하고, 현미밥은 혈당이 천천히 올라가요. 간장 양념은 절반만 사용했어요.',
+      kcal: 450, na: 520, time: '15분',
+      ingredients: [
+        ['두부', '한 모 (300g)'], ['간장', '1큰술 (싱겁게)'],
+        ['다진 마늘', '1작은술'], ['대파', '조금'],
+        ['고춧가루', '1/2작은술'], ['현미밥', '한 공기'],
+      ],
+      steps: [
+        '두부는 두툼하게 썰어 키친타올로 물기를 빼주세요.',
+        '팬에 기름을 살짝 두르고 두부를 노릇하게 구워요.',
+        '양념장(간장+마늘+고춧가루+물 2큰술)을 부어주세요.',
+        '약한 불에서 5분간 자작하게 졸여요.',
+        '대파를 올리고 현미밥과 함께 드세요.',
+      ],
+    },
+    {
+      id: 'mackerel',
+      name: '고등어구이와 미역국',
+      short: '고등어구이',
+      benefit: '오메가3 가득\n혈관 건강에 좋아요',
+      tag: '혈관에 좋아요', accent: '#3B6E8F',
+      plate: ['🍚', '🐟', '🌿', '🥢'],
+      why: '고등어는 일주일에 두 번 정도 드시면 혈관에 좋아요. 미역국은 따로 간을 더 하지 않아도 충분히 시원해요.',
+      kcal: 510, na: 460, time: '25분',
+      ingredients: [
+        ['고등어', '한 마리 (반토막)'], ['미역', '한 줌 (불린 것)'],
+        ['소고기', '조금 (50g)'], ['다진 마늘', '1작은술'],
+        ['참기름', '1작은술'], ['잡곡밥', '한 공기'],
+      ],
+      steps: [
+        '고등어는 키친타올로 물기를 닦고 소금을 살짝 뿌려요.',
+        '팬을 달군 뒤 약한 불에서 앞뒤로 5분씩 구워요.',
+        '미역국은 참기름에 소고기 볶다가 미역과 물을 넣고 10분 끓여요.',
+        '마늘을 넣고 간장으로 살짝만 간을 맞춰요.',
+        '잡곡밥과 함께 따뜻하게 드세요.',
+      ],
+    },
+    {
+      id: 'pumpkin-juk',
+      name: '단호박죽 한 그릇',
+      short: '단호박죽',
+      benefit: '소화가 편안하고\n부드러워요',
+      tag: '소화에 좋아요', accent: '#D69240',
+      plate: ['🥣', '🎃', '🥄', '🌰'],
+      why: '속이 부담스러우신 날에 좋아요. 단호박은 혈압에 도움이 되고, 설탕 대신 호박 자체의 단맛만 살렸어요.',
+      kcal: 380, na: 220, time: '30분',
+      ingredients: [
+        ['단호박', '1/2개'], ['찹쌀가루', '3큰술'],
+        ['소금', '아주 조금'], ['물', '4컵'],
+        ['잣 또는 호박씨', '조금'],
+      ],
+      steps: [
+        '단호박은 껍질을 벗기고 큼직하게 썰어요.',
+        '냄비에 물 4컵과 함께 푹 익혀요 (15분).',
+        '잘 익으면 으깨거나 믹서에 곱게 갈아요.',
+        '찹쌀가루를 물에 풀어 천천히 넣고 저어가며 끓여요.',
+        '소금으로 아주 조금만 간을 맞추고, 잣을 올려 드세요.',
+      ],
+    },
+    {
+      id: 'kongnamul',
+      name: '콩나물국밥',
+      short: '콩나물국밥',
+      benefit: '시원하고 개운한\n저칼로리 한 그릇',
+      tag: '저칼로리', accent: '#A88A4C',
+      plate: ['🍚', '🥣', '🌱', '🥚'],
+      why: '간단하면서도 든든해요. 콩나물은 숙취 해소에도 좋고, 국물은 멸치로만 우려서 짜지 않아요.',
+      kcal: 360, na: 510, time: '15분',
+      ingredients: [
+        ['콩나물', '두 줌 (150g)'], ['멸치 육수', '3컵'],
+        ['달걀', '1개'], ['새우젓', '1/2작은술 (싱겁게)'],
+        ['대파, 마늘', '조금'], ['보리밥', '한 공기'],
+      ],
+      steps: [
+        '냄비에 멸치 육수를 넣고 끓여요.',
+        '콩나물을 넣고 뚜껑을 덮어 3분간 끓여요.',
+        '새우젓으로 살짝만 간을 맞춰요.',
+        '뚝배기에 보리밥을 담고 국물을 부어요.',
+        '달걀을 풀어 올리고 대파를 뿌려 드세요.',
+      ],
+    },
+  ];
+
+  function pickMeal(prevId) {
+    const pool = MEALS.filter(m => m.id !== prevId);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // MealPlate — shared by all variants
+  // ─────────────────────────────────────────────────────────────
+  function MealPlate({ meal, p, size = 220, style = {} }) {
+    const items = meal.plate || ['🍚','🥣','🥬','🥢'];
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        background: `radial-gradient(circle at 50% 45%, ${p.card} 0%, ${p.cardSoft} 70%, ${p.line} 100%)`,
+        boxShadow: `0 20px 40px rgba(0,0,0,0.10), inset 0 -8px 16px rgba(0,0,0,0.05)`,
+        position: 'relative', flexShrink: 0, ...style,
+      }}>
+        <div style={{ position:'absolute', inset: '12%', borderRadius:'50%', border:`2px dashed ${p.line}`, opacity:0.5 }}/>
+        <div style={{
+          position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gridTemplateRows: '1fr 1fr', placeItems: 'center', padding: '18%',
+        }}>
+          {items.map((e, i) => (
+            <div key={i} style={{ fontSize: size * 0.22, animation: `pop 0.5s ${i*0.08}s both` }}>{e}</div>
+          ))}
+        </div>
+        <div style={{
+          position: 'absolute', top: -8, right: -4,
+          background: meal.accent, color: '#fff',
+          padding: '8px 16px', borderRadius: 999,
+          fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em',
+          boxShadow: '0 4px 10px rgba(0,0,0,0.18)',
+        }}>{meal.tag}</div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Variant A — Clean (단정)
+  // ─────────────────────────────────────────────────────────────
+  function CleanHome({ p, f, nav, recent }) {
+    const today = new Date();
+    const dateStr = `${today.getMonth() + 1}월 ${today.getDate()}일 ${['일','월','화','수','목','금','토'][today.getDay()]}요일`;
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 28px 40px', boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'column' }}>
+        <div style={{ marginBottom: 28, animation: 'rise 0.5s ease' }}>
+          <div style={{ fontSize: f.base, color: p.inkSoft, fontWeight: 600, letterSpacing: '-0.01em' }}>
+            오늘, {dateStr}
+          </div>
+          <div style={{ fontSize: f.title, color: p.ink, fontWeight: 800, marginTop: 10, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+            안녕하세요,<br/>오늘은 무엇을<br/>드시고 싶으세요?
+          </div>
+        </div>
+        <button onClick={() => nav('loading')} className="tappable"
+          style={{
+            width: '100%', padding: '36px 24px', marginTop: 8,
+            background: p.accent, color: '#fff',
+            border: 'none', borderRadius: 28,
+            fontSize: f.btn, fontWeight: 800, lineHeight: 1.25,
+            boxShadow: `0 8px 0 ${p.accentDeep}, 0 16px 32px rgba(178,80,30,0.25)`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+            fontFamily: 'inherit', letterSpacing: '-0.01em',
+          }}>
+          <span style={{ fontSize: f.base, fontWeight: 700, opacity: 0.85 }}>여기를 눌러주세요</span>
+          <span style={{ fontSize: f.big + 4, fontWeight: 900 }}>오늘의 건강 식단<br/>추천받기</span>
+          <span style={{
+            marginTop: 6, padding: '10px 22px', background: 'rgba(255,255,255,0.22)',
+            borderRadius: 999, fontSize: f.base - 2, fontWeight: 700,
+          }}>한 번만 누르시면 돼요  →</span>
+        </button>
+        <div style={{
+          marginTop: 22, padding: '18px 22px',
+          background: p.cardSoft, borderRadius: 18,
+          fontSize: f.base - 2, color: p.inkSoft, fontWeight: 600, lineHeight: 1.5,
+          border: `1.5px solid ${p.line}`,
+        }}>
+          저염·당뇨·혈압에 맞춘<br/>건강한 식단을 골라드려요.
+        </div>
+        {recent.length > 0 && (
+          <div style={{ marginTop: 'auto', paddingTop: 28 }}>
+            <div style={{ fontSize: f.base - 4, color: p.inkSoft, fontWeight: 700, marginBottom: 10 }}>지난 추천</div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>
+              {recent.slice(0, 3).map(m => (
+                <div key={m.id} style={{
+                  flexShrink: 0, padding: '10px 16px',
+                  background: p.card, borderRadius: 12, border: `1.5px solid ${p.line}`,
+                  fontSize: f.base - 4, fontWeight: 700, color: p.ink,
+                }}>{m.short}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function CleanLoading({ p, f, onDone }) {
+    React.useEffect(() => { const t = setTimeout(onDone, 1400); return () => clearTimeout(t); }, [onDone]);
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '0 28px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+        <div style={{
+          width: 120, height: 120, borderRadius: '50%',
+          border: `8px solid ${p.cardSoft}`, borderTopColor: p.accent,
+          animation: 'spin 1s linear infinite',
+        }}/>
+        <div style={{ fontSize: f.title - 4, fontWeight: 800, color: p.ink, textAlign: 'center', lineHeight: 1.3 }}>
+          오늘의 식단을<br/>고르고 있어요…
+        </div>
+        <div style={{ fontSize: f.base, color: p.inkSoft, fontWeight: 600 }}>잠시만 기다려 주세요</div>
+      </div>
+    );
+  }
+
+  function CleanResult({ p, f, meal, nav, onAnother }) {
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 24px 32px', boxSizing: 'border-box' }}>
+        <div className="tappable" onClick={() => nav('home')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          background: 'transparent', color: p.ink, fontWeight: 700, fontSize: f.base - 2,
+        }}>
+          <Icon name="back" size={26} color={p.ink} stroke={2.5}/> 처음으로
+        </div>
+        <div style={{
+          background: p.card, borderRadius: 28, padding: '32px 24px 28px',
+          marginTop: 12, border: `2px solid ${p.line}`,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.06)', animation: 'rise 0.5s ease',
+        }}>
+          <div style={{ fontSize: f.base - 2, color: p.accent, fontWeight: 800, letterSpacing: '0.04em', marginBottom: 8 }}>
+            ✨ 오늘의 추천
+          </div>
+          <div style={{ fontSize: f.title - 6, color: p.ink, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.02em' }}>
+            {meal.name}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '24px 0 8px' }}>
+            <MealPlate meal={meal} p={p} size={210}/>
+          </div>
+          <div style={{
+            marginTop: 18, padding: '20px 22px',
+            background: p.cardSoft, borderRadius: 18,
+            fontSize: f.body - 4, color: p.ink, fontWeight: 700, lineHeight: 1.45,
+            whiteSpace: 'pre-line', textAlign: 'center',
+          }}>{meal.benefit}</div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            {[
+              { ic: 'clock', label: '걸리는 시간', val: meal.time },
+              { ic: 'sparkle', label: '나트륨', val: `${meal.na}mg` },
+              { ic: 'plate', label: '한 끼 칼로리', val: `${meal.kcal}kcal` },
+            ].map((info, i) => (
+              <div key={i} style={{
+                flex: 1, padding: '14px 8px', borderRadius: 14,
+                background: '#fff', border: `1.5px solid ${p.line}`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                textAlign: 'center',
+              }}>
+                <Icon name={info.ic} size={22} color={p.accent}/>
+                <div style={{ fontSize: 13, color: p.inkSoft, fontWeight: 700 }}>{info.label}</div>
+                <div style={{ fontSize: f.base - 4, color: p.ink, fontWeight: 800 }}>{info.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+          <SpeakerButton palette={p} size={58}
+            text={`오늘의 추천 식단은 ${meal.name} 입니다. ${meal.why}`}/>
+        </div>
+        <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <button onClick={() => nav('detail')} className="tappable" style={{
+            padding: '22px 12px', background: p.accent, color: '#fff',
+            border: 'none', borderRadius: 20, fontFamily: 'inherit',
+            fontSize: f.base, fontWeight: 800, lineHeight: 1.25,
+            boxShadow: `0 6px 0 ${p.accentDeep}`,
+          }}>만드는 법<br/>자세히 보기</button>
+          <button onClick={() => nav('share')} className="tappable" style={{
+            padding: '22px 12px', background: p.card, color: p.ink,
+            border: `2px solid ${p.ink}`, borderRadius: 20, fontFamily: 'inherit',
+            fontSize: f.base, fontWeight: 800, lineHeight: 1.25,
+            boxShadow: `0 6px 0 ${p.line}`,
+          }}>가족에게<br/>보내기</button>
+        </div>
+        <button onClick={onAnother} className="tappable" style={{
+          marginTop: 12, width: '100%', padding: '18px 12px',
+          background: 'transparent', color: p.ink,
+          border: `2px dashed ${p.inkSoft}`, borderRadius: 20, fontFamily: 'inherit',
+          fontSize: f.base - 2, fontWeight: 700,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          <Icon name="refresh" size={22} color={p.ink}/> 다른 식단 추천받기
+        </button>
+      </div>
+    );
+  }
+
+  function CleanDetail({ p, f, meal, nav }) {
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 24px 40px', boxSizing: 'border-box' }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          background: 'transparent', color: p.ink, fontWeight: 700, fontSize: f.base - 2,
+        }}>
+          <Icon name="back" size={26} color={p.ink} stroke={2.5}/> 추천 결과로
+        </div>
+        <div style={{ marginTop: 8, fontSize: f.title - 8, fontWeight: 900, color: p.ink, lineHeight: 1.2 }}>
+          {meal.name}
+        </div>
+        <div style={{ marginTop: 8, fontSize: f.base - 2, color: p.inkSoft, fontWeight: 700 }}>
+          걸리는 시간 약 {meal.time} · {meal.kcal}kcal
+        </div>
+        <div style={{
+          marginTop: 22, padding: '24px 20px',
+          background: p.card, borderRadius: 22, border: `2px solid ${p.line}`,
+        }}>
+          <div style={{ fontSize: f.big - 6, fontWeight: 900, color: p.ink, marginBottom: 14 }}>준비할 재료</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {meal.ingredients.map(([k, v], i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                padding: '14px 0', borderTop: i === 0 ? 'none' : `1.5px dashed ${p.line}`,
+              }}>
+                <div style={{ fontSize: f.base, color: p.ink, fontWeight: 700 }}>{k}</div>
+                <div style={{ fontSize: f.base - 4, color: p.inkSoft, fontWeight: 600 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: f.big - 6, fontWeight: 900, color: p.ink, marginBottom: 14, paddingLeft: 4 }}>만드는 법</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {meal.steps.map((s, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: 16, padding: '20px 20px',
+                background: p.card, borderRadius: 18, border: `2px solid ${p.line}`,
+              }}>
+                <div style={{
+                  flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
+                  background: p.accent, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: f.base, fontWeight: 900,
+                }}>{i + 1}</div>
+                <div style={{ fontSize: f.base - 2, color: p.ink, fontWeight: 600, lineHeight: 1.5, paddingTop: 6 }}>{s}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center' }}>
+          <SpeakerButton palette={p} size={58}
+            text={`${meal.name} 만드는 법을 알려드릴게요. ${meal.steps.map((s, i) => `${i+1}단계, ${s}`).join(' ')}`}/>
+        </div>
+      </div>
+    );
+  }
+
+  function CleanShare({ p, f, meal, nav }) {
+    const [sent, setSent] = React.useState(null);
+    const family = [
+      { name: '큰딸 (지영)', sub: '010-2354-····', avatar: '👧', tone: '#E07A50' },
+      { name: '아들 (민준)', sub: '010-4421-····', avatar: '👦', tone: '#5B8C3E' },
+      { name: '며느리 (수진)', sub: '010-9988-····', avatar: '🧑', tone: '#7355B5' },
+      { name: '손녀 (서아)', sub: '010-3322-····', avatar: '👶', tone: '#D9A03D' },
+    ];
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 24px 40px', boxSizing: 'border-box' }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          background: 'transparent', color: p.ink, fontWeight: 700, fontSize: f.base - 2,
+        }}>
+          <Icon name="back" size={26} color={p.ink} stroke={2.5}/> 뒤로
+        </div>
+        <div style={{ marginTop: 8, fontSize: f.title - 6, fontWeight: 900, color: p.ink, lineHeight: 1.2 }}>
+          가족에게<br/>알려드릴까요?
+        </div>
+        <div style={{ marginTop: 12, fontSize: f.base - 2, color: p.inkSoft, fontWeight: 700, lineHeight: 1.5 }}>
+          '{meal.short}' 식단을<br/>이렇게 보내드려요
+        </div>
+        <div style={{
+          marginTop: 18, padding: '22px 22px',
+          background: '#FAE100', borderRadius: 20, borderTopLeftRadius: 6,
+          position: 'relative', boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ fontSize: f.base - 4, color: '#7A5C00', fontWeight: 800, marginBottom: 6 }}>엄마 / 아빠 →</div>
+          <div style={{ fontSize: f.base, color: '#3A2A00', fontWeight: 700, lineHeight: 1.5 }}>
+            오늘 점심으로 '<b>{meal.name}</b>'을(를)<br/>
+            먹으려고 한단다.<br/>
+            {meal.benefit.split('\n').join(' ')} 🌿
+          </div>
+        </div>
+        <div style={{ marginTop: 22, fontSize: f.base - 2, fontWeight: 800, color: p.inkSoft, paddingLeft: 4 }}>
+          누구에게 보낼까요?
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+          {family.map(member => {
+            const isSent = sent === member.name;
+            return (
+              <button key={member.name}
+                onClick={() => { setSent(member.name); setTimeout(() => setSent(null), 2400); }}
+                className="tappable" disabled={isSent}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  padding: '16px 18px', background: isSent ? p.accentSoft : p.card,
+                  border: `2px solid ${isSent ? p.accent : p.line}`, borderRadius: 18,
+                  fontFamily: 'inherit', textAlign: 'left', width: '100%',
+                  boxShadow: `0 4px 0 ${p.line}`,
+                }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                  background: member.tone + '20',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 30,
+                }}>{member.avatar}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: f.base, fontWeight: 800, color: p.ink }}>{member.name}</div>
+                  <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 600, marginTop: 2 }}>{member.sub}</div>
+                </div>
+                {isSent ? (
+                  <div style={{
+                    display:'flex', alignItems:'center', gap: 6,
+                    color: p.accentDeep, fontWeight: 900, fontSize: f.base - 4,
+                  }}>
+                    <Icon name="check" size={26} color={p.accentDeep} stroke={3}/> 보냈어요
+                  </div>
+                ) : (
+                  <Icon name="share" size={26} color={p.inkSoft}/>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const CLEAN = { Home: CleanHome, Loading: CleanLoading, Result: CleanResult, Detail: CleanDetail, Share: CleanShare };
+
+  // ─────────────────────────────────────────────────────────────
+  // Variant B — Warm (따뜻) — default
+  // ─────────────────────────────────────────────────────────────
+  function WarmHome({ p, f, nav, recent }) {
+    const today = new Date();
+    const dateStr = `${today.getMonth() + 1}월 ${today.getDate()}일`;
+    const dayName = ['일','월','화','수','목','금','토'][today.getDay()];
+    const hour = today.getHours();
+    const greeting = hour < 11 ? '아침은 드셨어요?' : hour < 17 ? '점심 시간이 다가와요' : '저녁 메뉴 고민되시죠?';
+    return (
+      <div style={{
+        minHeight: '100%', boxSizing: 'border-box',
+        background: `linear-gradient(180deg, ${p.accentSoft}40 0%, ${p.bg} 40%)`,
+        padding: '60px 26px 32px', display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ animation: 'rise 0.5s ease' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              padding: '8px 16px', borderRadius: 999,
+              background: '#fff', color: p.accentDeep,
+              fontSize: f.base - 4, fontWeight: 800,
+              border: `2px solid ${p.accentSoft}`,
+            }}>{dateStr} {dayName}요일</div>
+          </div>
+          <div style={{ marginTop: 18, fontSize: f.title - 2, color: p.ink, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+            어머님,<br/><span style={{ color: p.accentDeep }}>{greeting}</span>
+          </div>
+        </div>
+        <div style={{ position: 'relative', margin: '36px auto 18px', filter: 'drop-shadow(0 14px 30px rgba(180,80,30,0.18))' }}>
+          <div style={{
+            width: 220, height: 220, borderRadius: '50%',
+            background: `radial-gradient(circle at 50% 40%, #fff 0%, ${p.card} 75%, ${p.accentSoft} 100%)`,
+            position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `4px solid #fff`,
+          }}>
+            <div style={{ position: 'absolute', inset: 18, borderRadius: '50%', border: `3px dashed ${p.line}`, opacity: 0.6 }}/>
+            <div style={{ fontSize: 84 }}>🍚</div>
+            <div style={{ position:'absolute', top: 22, right: 28, fontSize: 48, transform: 'rotate(-15deg)' }}>🥬</div>
+            <div style={{ position:'absolute', bottom: 28, left: 30, fontSize: 50 }}>🥣</div>
+            <div style={{ position:'absolute', bottom: 38, right: 30, fontSize: 36, transform: 'rotate(20deg)' }}>🥢</div>
+          </div>
+          <div style={{ position:'absolute', top: -8, right: 8, fontSize: 32, animation: 'pop 0.6s 0.2s both' }}>✨</div>
+          <div style={{ position:'absolute', bottom: 10, left: -6, fontSize: 26, animation: 'pop 0.6s 0.35s both' }}>🌿</div>
+        </div>
+        <button onClick={() => nav('loading')} className="tappable"
+          style={{
+            width: '100%', padding: '32px 24px',
+            background: `linear-gradient(180deg, ${p.accent} 0%, ${p.accentDeep} 100%)`,
+            color: '#fff', border: 'none', borderRadius: 9999,
+            fontSize: f.btn, fontWeight: 900,
+            boxShadow: `0 10px 0 ${p.accentDeep}, 0 18px 32px rgba(178,80,30,0.3)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+            fontFamily: 'inherit', letterSpacing: '-0.02em',
+          }}>
+          <span style={{ fontSize: f.btn + 4 }}>👇</span>
+          오늘의 식단 받기
+        </button>
+        <div style={{
+          marginTop: 20, textAlign: 'center',
+          fontSize: f.base - 2, color: p.inkSoft, fontWeight: 700, lineHeight: 1.5,
+        }}>
+          한 번 누르면 끝!<br/>저염·당뇨에 맞춰 골라드려요
+        </div>
+        {recent.length > 0 && (
+          <div style={{ marginTop: 'auto', paddingTop: 30 }}>
+            <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 800, marginBottom: 10, letterSpacing: '0.05em' }}>
+              지난 추천 ·
+            </div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>
+              {recent.slice(0, 3).map(m => (
+                <div key={m.id} style={{
+                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px 10px 10px',
+                  background: '#fff', borderRadius: 999,
+                  fontSize: f.base - 4, fontWeight: 700, color: p.ink,
+                  border: `1.5px solid ${p.line}`,
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%', background: m.accent + '20',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                  }}>{m.plate[0]}</div>
+                  {m.short}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function WarmLoading({ p, f, onDone }) {
+    React.useEffect(() => { const t = setTimeout(onDone, 1500); return () => clearTimeout(t); }, [onDone]);
+    const items = ['🥬','🍚','🥣','🐟','🥕'];
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '0 28px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
+        <div style={{
+          width: 200, height: 200, borderRadius: '50%',
+          background: '#fff', position: 'relative',
+          boxShadow: `0 20px 40px rgba(0,0,0,0.1)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {items.map((e, i) => {
+            const angle = (i / items.length) * 360;
+            return (
+              <div key={i} style={{
+                position:'absolute', fontSize: 42,
+                transform: `rotate(${angle}deg) translateY(-70px) rotate(${-angle}deg)`,
+                animation: 'spin 2.5s linear infinite', transformOrigin: 'center',
+              }}>{e}</div>
+            );
+          })}
+          <div style={{ fontSize: 48 }}>🍽️</div>
+        </div>
+        <div style={{ fontSize: f.title - 8, fontWeight: 800, color: p.ink, textAlign: 'center' }}>
+          고르고 있어요…
+        </div>
+      </div>
+    );
+  }
+
+  function WarmResult({ p, f, meal, nav, onAnother }) {
+    return (
+      <div style={{
+        minHeight: '100%', boxSizing: 'border-box',
+        background: `linear-gradient(180deg, ${meal.accent}25 0%, ${p.bg} 30%)`,
+        padding: '70px 22px 32px',
+      }}>
+        <div className="tappable" onClick={() => nav('home')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          background: 'rgba(255,255,255,0.7)', color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+          borderRadius: 999,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 처음
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 10px', animation: 'pop 0.5s ease' }}>
+          <MealPlate meal={meal} p={p} size={240}/>
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 18 }}>
+          <div style={{ fontSize: f.base - 4, color: p.accent, fontWeight: 800, letterSpacing: '0.06em', marginBottom: 6 }}>
+            오늘의 추천
+          </div>
+          <div style={{ fontSize: f.title, color: p.ink, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.025em' }}>
+            {meal.name}
+          </div>
+        </div>
+        <div style={{
+          marginTop: 22, padding: '24px 22px',
+          background: '#fff', borderRadius: 24,
+          boxShadow: `0 10px 24px rgba(0,0,0,0.06)`, border: `1.5px solid ${p.line}`,
+          animation: 'rise 0.6s 0.15s both',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ fontSize: 24 }}>💡</div>
+            <div style={{ fontSize: f.base - 2, color: p.accentDeep, fontWeight: 900 }}>왜 이걸 추천했을까요?</div>
+          </div>
+          <div style={{ fontSize: f.body - 4, color: p.ink, fontWeight: 600, lineHeight: 1.55 }}>
+            {meal.why}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+          {[
+            { ic: '⏱️', label: meal.time },
+            { ic: '🔥', label: `${meal.kcal} kcal` },
+            { ic: '🧂', label: `나트륨 ${meal.na}mg` },
+          ].map((info, i) => (
+            <div key={i} style={{
+              display:'flex', alignItems:'center', gap: 8,
+              padding: '12px 18px', background: p.card, borderRadius: 999,
+              border: `2px solid ${p.line}`,
+              fontSize: f.base - 4, fontWeight: 800, color: p.ink,
+            }}>
+              <span style={{ fontSize: 22 }}>{info.ic}</span>{info.label}
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
+          <SpeakerButton palette={p} size={60}
+            text={`오늘의 추천 식단은 ${meal.name} 입니다. ${meal.why}`}/>
+        </div>
+        <button onClick={() => nav('detail')} className="tappable" style={{
+          marginTop: 18, width: '100%', padding: '24px 18px',
+          background: p.accent, color: '#fff',
+          border: 'none', borderRadius: 22, fontFamily: 'inherit',
+          fontSize: f.btn - 4, fontWeight: 900,
+          boxShadow: `0 7px 0 ${p.accentDeep}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span>만드는 법 보기</span>
+          <span style={{ fontSize: f.btn - 2 }}>→</span>
+        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <button onClick={() => nav('share')} className="tappable" style={{
+            padding: '18px 12px', background: p.cardSoft, color: p.ink,
+            border: `2px solid ${p.line}`, borderRadius: 18, fontFamily: 'inherit',
+            fontSize: f.base - 4, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <Icon name="share" size={22} color={p.ink}/> 가족에게
+          </button>
+          <button onClick={onAnother} className="tappable" style={{
+            padding: '18px 12px', background: p.cardSoft, color: p.ink,
+            border: `2px solid ${p.line}`, borderRadius: 18, fontFamily: 'inherit',
+            fontSize: f.base - 4, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <Icon name="refresh" size={22} color={p.ink}/> 다른 거
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function WarmDetail({ p, f, meal, nav }) {
+    const [step, setStep] = React.useState(0);
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 24px 40px', boxSizing: 'border-box' }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 추천 결과
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+          <MealPlate meal={meal} p={p} size={96}/>
+          <div>
+            <div style={{ fontSize: f.title - 12, fontWeight: 900, color: p.ink, lineHeight: 1.1 }}>
+              {meal.short}
+            </div>
+            <div style={{ marginTop: 4, fontSize: f.base - 4, color: p.inkSoft, fontWeight: 700 }}>
+              ⏱️ {meal.time} · 🔥 {meal.kcal} kcal
+            </div>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 22, padding: '22px',
+          background: '#fff', borderRadius: 24, border: `1.5px solid ${p.line}`,
+          boxShadow: `0 6px 14px rgba(0,0,0,0.04)`,
+        }}>
+          <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ fontSize: 28 }}>🛒</div>
+            <div style={{ fontSize: f.big - 8, fontWeight: 900, color: p.ink }}>준비할 재료</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {meal.ingredients.map(([k, v], i) => (
+              <div key={i} style={{ padding: '14px 14px', background: p.cardSoft, borderRadius: 14 }}>
+                <div style={{ fontSize: f.base - 4, color: p.ink, fontWeight: 800 }}>{k}</div>
+                <div style={{ fontSize: f.base - 8, color: p.inkSoft, fontWeight: 700, marginTop: 2 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 22 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap: 10 }}>
+              <div style={{ fontSize: 28 }}>👩‍🍳</div>
+              <div style={{ fontSize: f.big - 8, fontWeight: 900, color: p.ink }}>만드는 법</div>
+            </div>
+            <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 800 }}>
+              {step + 1} / {meal.steps.length}
+            </div>
+          </div>
+          <div style={{
+            padding: '28px 22px', background: '#fff', borderRadius: 24,
+            border: `2px solid ${p.accent}`,
+            boxShadow: `0 10px 20px rgba(0,0,0,0.06)`,
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%', background: p.accent, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: f.big - 8, fontWeight: 900, marginBottom: 14,
+            }}>{step + 1}</div>
+            <div style={{ fontSize: f.body - 2, color: p.ink, fontWeight: 700, lineHeight: 1.5 }}>
+              {meal.steps[step]}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className="tappable" style={{
+              flex: 1, padding: '18px 12px',
+              background: step === 0 ? p.cardSoft : '#fff',
+              color: step === 0 ? p.inkSoft : p.ink, opacity: step === 0 ? 0.5 : 1,
+              border: `2px solid ${p.line}`, borderRadius: 18, fontFamily: 'inherit',
+              fontSize: f.base - 2, fontWeight: 800,
+            }}>← 이전</button>
+            {step < meal.steps.length - 1 ? (
+              <button onClick={() => setStep(s => s + 1)} className="tappable" style={{
+                flex: 2, padding: '18px 12px',
+                background: p.accent, color: '#fff',
+                border: 'none', borderRadius: 18, fontFamily: 'inherit',
+                fontSize: f.base - 2, fontWeight: 800,
+                boxShadow: `0 5px 0 ${p.accentDeep}`,
+              }}>다음 →</button>
+            ) : (
+              <div style={{
+                flex: 2, padding: '18px 12px', textAlign: 'center',
+                background: '#5B8C3E', color: '#fff',
+                borderRadius: 18, fontSize: f.base - 2, fontWeight: 800,
+              }}>완성! 🎉</div>
+            )}
+          </div>
+          <div style={{ marginTop: 14, display:'flex', justifyContent: 'center' }}>
+            <SpeakerButton palette={p} text={meal.steps[step]}/>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function WarmShare({ p, f, meal, nav }) {
+    const [sent, setSent] = React.useState(null);
+    const family = [
+      { name: '큰딸 지영이', sub: '카카오톡', avatar: '👧', tone: '#E07A50', kind: 'kakao' },
+      { name: '아들 민준이', sub: '문자', avatar: '👦', tone: '#5B8C3E', kind: 'sms' },
+      { name: '며느리 수진이', sub: '카카오톡', avatar: '🧑', tone: '#7355B5', kind: 'kakao' },
+      { name: '손녀 서아', sub: '문자', avatar: '👶', tone: '#D9A03D', kind: 'sms' },
+    ];
+    return (
+      <div style={{ minHeight: '100%', background: p.bg, padding: '70px 22px 40px', boxSizing: 'border-box' }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 뒤로
+        </div>
+        <div style={{ marginTop: 8, fontSize: f.title - 6, fontWeight: 900, color: p.ink, lineHeight: 1.2 }}>
+          가족에게 알릴까요?
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 800, marginBottom: 8, paddingLeft: 8 }}>
+            이렇게 보내드려요 ↓
+          </div>
+          <div style={{ padding: '20px', background: '#9BC4DB', borderRadius: 22, boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}>
+            <div style={{ textAlign:'center', color:'#fff', fontSize: 14, fontWeight: 700, marginBottom: 14 }}>
+              오늘 · 오전 11:32
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <div style={{
+                maxWidth: '82%', padding: '14px 16px',
+                background: '#FAE100', borderRadius: 16, borderTopRightRadius: 4,
+                fontSize: f.base - 4, color: '#3A2A00', fontWeight: 700, lineHeight: 1.5,
+              }}>
+                <div style={{ display:'flex', gap: 8, alignItems:'center', marginBottom: 6 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: meal.accent + '20',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize: 20,
+                  }}>{meal.plate[0]}</div>
+                  <b>{meal.name}</b>
+                </div>
+                오늘 점심은 이걸로 먹어볼까 해.<br/>
+                {meal.benefit.split('\n')[0]} ☺️
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', fontSize: 12, color:'#fff', fontWeight: 700 }}>
+              전송 완료
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 22, fontSize: f.base - 2, fontWeight: 800, color: p.inkSoft, paddingLeft: 4 }}>
+          누구에게 보낼까요?
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+          {family.map(member => {
+            const isSent = sent === member.name;
+            return (
+              <button key={member.name}
+                onClick={() => { setSent(member.name); setTimeout(() => setSent(null), 2400); }}
+                className="tappable"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px',
+                  background: isSent ? p.accentSoft : '#fff',
+                  border: `2px solid ${isSent ? p.accent : p.line}`,
+                  borderRadius: 20,
+                  fontFamily: 'inherit', textAlign: 'left', width: '100%',
+                }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+                  background: member.tone,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 32,
+                }}>{member.avatar}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: f.base, fontWeight: 800, color: p.ink }}>{member.name}</div>
+                  <div style={{ fontSize: f.base - 8, color: p.inkSoft, fontWeight: 700, marginTop: 2,
+                    display:'flex', alignItems:'center', gap: 6 }}>
+                    {member.kind === 'kakao' ? (
+                      <><span style={{
+                        width: 18, height: 18, borderRadius: 4, background: '#FAE100',
+                        display:'inline-flex', alignItems:'center', justifyContent:'center',
+                        fontSize: 11, color: '#3A2A00', fontWeight: 900,
+                      }}>K</span> 카카오톡</>
+                    ) : (<><Icon name="message" size={16} color={p.inkSoft}/> 문자 메시지</>)}
+                  </div>
+                </div>
+                {isSent ? (
+                  <div style={{
+                    display:'flex', alignItems:'center', gap: 4,
+                    color: p.accentDeep, fontWeight: 900, fontSize: f.base - 6,
+                  }}>
+                    <Icon name="check" size={24} color={p.accentDeep} stroke={3}/> 보냈어요
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '10px 14px', background: p.accent, color: '#fff',
+                    borderRadius: 999, fontSize: f.base - 8, fontWeight: 900,
+                  }}>보내기</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const WARM = { Home: WarmHome, Loading: WarmLoading, Result: WarmResult, Detail: WarmDetail, Share: WarmShare };
+
+  // ─────────────────────────────────────────────────────────────
+  // Variant C — Friendly (친근)
+  // ─────────────────────────────────────────────────────────────
+  const FRIENDLY_FONT = "'Gowun Dodum', 'Noto Sans KR', system-ui, sans-serif";
+
+  function GrandchildSticker({ p, size = 60, mood = 'wave' }) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        background: '#FFE1C7', position: 'relative',
+        border: `3px solid ${p.accentDeep}`,
+        boxShadow: `0 4px 0 ${p.accentDeep}30`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.55,
+      }}>
+        <div style={{
+          position:'absolute', top: -10, left: '50%', transform:'translateX(-50%) rotate(-12deg)',
+          fontSize: size * 0.4,
+        }}>🌿</div>
+        {mood === 'wave' && '😊'}
+        {mood === 'wink' && '😉'}
+        {mood === 'hug' && '🤗'}
+        {mood === 'chef' && '👩‍🍳'}
+      </div>
+    );
+  }
+
+  function FriendlyBubble({ p, f, children, tail = 'left', bg }) {
+    const tailLeft = tail === 'left';
+    return (
+      <div style={{
+        position: 'relative', padding: '20px 22px',
+        background: bg || '#fff',
+        border: `2.5px solid ${p.accentDeep}`,
+        borderRadius: 24,
+        boxShadow: `0 5px 0 ${p.accentDeep}30`,
+        color: p.ink, fontSize: f.body - 4, fontWeight: 700, lineHeight: 1.5,
+      }}>
+        <div style={{
+          position: 'absolute', top: 18, [tailLeft ? 'left' : 'right']: -14,
+          width: 22, height: 22, background: bg || '#fff',
+          borderLeft: tailLeft ? `2.5px solid ${p.accentDeep}` : 'none',
+          borderBottom: tailLeft ? `2.5px solid ${p.accentDeep}` : 'none',
+          borderRight: tailLeft ? 'none' : `2.5px solid ${p.accentDeep}`,
+          borderTop: tailLeft ? 'none' : `2.5px solid ${p.accentDeep}`,
+          transform: 'rotate(45deg)',
+        }}/>
+        {children}
+      </div>
+    );
+  }
+
+  function FriendlyHome({ p, f, nav, recent }) {
+    return (
+      <div style={{
+        minHeight: '100%', boxSizing: 'border-box', background: `${p.bg}`,
+        padding: '66px 24px 32px', fontFamily: FRIENDLY_FONT,
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', animation: 'rise 0.5s ease' }}>
+          <GrandchildSticker p={p} size={68} mood="wave"/>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: f.base - 6, color: p.accentDeep, fontWeight: 800, marginBottom: 4 }}>
+              손주 다정이
+            </div>
+            <FriendlyBubble p={p} f={f}>
+              할머니, 안녕하세요!<br/>오늘은 뭐 드실까요?
+            </FriendlyBubble>
+          </div>
+        </div>
+        <div style={{ marginTop: 34, position: 'relative' }}>
+          <div style={{
+            position:'absolute', inset: 0,
+            background: p.accentDeep, borderRadius: 32,
+            transform: 'rotate(-1.5deg) translate(4px, 6px)', zIndex: 0,
+          }}/>
+          <button onClick={() => nav('loading')} className="tappable"
+            style={{
+              position: 'relative', zIndex: 1,
+              width: '100%', padding: '32px 24px',
+              background: '#fff',
+              border: `3px solid ${p.accentDeep}`,
+              borderRadius: 32,
+              fontFamily: FRIENDLY_FONT,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+            }}>
+            <div style={{ fontSize: 56, animation: 'pop 0.5s ease' }}>👇</div>
+            <div style={{
+              padding: '6px 18px', borderRadius: 999,
+              background: p.accent, color: '#fff',
+              fontSize: f.base - 6, fontWeight: 800,
+            }}>여기를 한 번만 누르세요</div>
+            <div style={{
+              fontSize: f.btn + 4, fontWeight: 800, color: p.ink,
+              lineHeight: 1.2, textAlign: 'center', letterSpacing: '-0.01em',
+            }}>
+              오늘은<br/><span style={{ color: p.accentDeep }}>뭐 드실까요?</span>
+            </div>
+          </button>
+        </div>
+        <div style={{
+          marginTop: 26, padding: '16px 18px',
+          background: p.cardSoft, borderRadius: 18,
+          border: `2px dashed ${p.line}`,
+          fontSize: f.base - 4, color: p.inkSoft, fontWeight: 700, lineHeight: 1.6,
+          textAlign: 'center',
+        }}>
+          💝 할머니 건강 생각해서<br/>싱겁고 든든한 걸로 골라드려요
+        </div>
+        {recent.length > 0 && (
+          <div style={{ marginTop: 'auto', paddingTop: 26 }}>
+            <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 800, marginBottom: 10, paddingLeft: 4 }}>
+              지난번엔 이거 드셨어요
+            </div>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+              {recent.slice(0, 3).map((m, i) => (
+                <div key={m.id} style={{
+                  flexShrink: 0, padding: '10px 14px',
+                  background: '#fff', borderRadius: 14,
+                  border: `2px solid ${p.line}`,
+                  fontSize: f.base - 6, fontWeight: 700, color: p.ink,
+                  transform: `rotate(${i % 2 === 0 ? -1 : 1}deg)`,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{ fontSize: 18 }}>{m.plate[0]}</span>{m.short}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function FriendlyLoading({ p, f, onDone }) {
+    React.useEffect(() => { const t = setTimeout(onDone, 1700); return () => clearTimeout(t); }, [onDone]);
+    const msgs = ['음… 뭐가 좋을까요', '오늘은 이게 좋겠어요!'];
+    const [i, setI] = React.useState(0);
+    React.useEffect(() => { const t = setInterval(() => setI(v => (v+1) % msgs.length), 700); return () => clearInterval(t); }, []);
+    return (
+      <div style={{
+        minHeight: '100%', background: p.bg, fontFamily: FRIENDLY_FONT,
+        padding: '0 28px', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 24,
+      }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <GrandchildSticker p={p} size={84} mood="chef"/>
+        </div>
+        <FriendlyBubble p={p} f={f} bg="#fff">{msgs[i]}</FriendlyBubble>
+        <div style={{ display:'flex', gap: 8 }}>
+          {[0,1,2].map(d => (
+            <div key={d} style={{
+              width: 12, height: 12, borderRadius: '50%', background: p.accent,
+              animation: `pop 0.8s ${d * 0.15}s infinite alternate`,
+            }}/>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function FriendlyResult({ p, f, meal, nav, onAnother }) {
+    return (
+      <div style={{
+        minHeight: '100%', background: p.bg, fontFamily: FRIENDLY_FONT,
+        padding: '70px 22px 32px', boxSizing: 'border-box',
+      }}>
+        <div className="tappable" onClick={() => nav('home')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 처음
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 6, animation: 'rise 0.4s ease' }}>
+          <GrandchildSticker p={p} size={60} mood="wink"/>
+          <div style={{ flex: 1 }}>
+            <FriendlyBubble p={p} f={f}>
+              할머니, 오늘은<br/>
+              <span style={{ color: p.accentDeep, fontWeight: 800, fontSize: f.body }}>이거 어떠세요?</span>
+            </FriendlyBubble>
+          </div>
+        </div>
+        <div style={{ marginTop: 22, position: 'relative', animation: 'pop 0.5s 0.15s both' }}>
+          <div style={{
+            position:'absolute', inset: 0,
+            background: meal.accent, borderRadius: 32,
+            transform: 'rotate(-2deg) translate(6px, 8px)',
+          }}/>
+          <div style={{
+            position:'relative',
+            background: '#fff', borderRadius: 32, padding: '28px 22px',
+            border: `3px solid ${p.accentDeep}`,
+            boxShadow: `0 6px 0 ${p.accentDeep}`,
+          }}>
+            <div style={{
+              position: 'absolute', top: -16, right: 18,
+              padding: '10px 18px', background: meal.accent, color: '#fff',
+              borderRadius: 999, fontSize: 17, fontWeight: 900,
+              border: `3px solid #fff`,
+              boxShadow: `0 4px 0 ${p.accentDeep}50`,
+              transform: 'rotate(6deg)',
+            }}>{meal.tag}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+              <MealPlate meal={meal} p={p} size={210}/>
+            </div>
+            <div style={{
+              marginTop: 22, textAlign: 'center',
+              fontSize: f.title - 4, fontWeight: 800, color: p.ink, lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+            }}>{meal.name}</div>
+            <div style={{
+              marginTop: 16, padding: '16px 18px',
+              background: p.cardSoft, borderRadius: 18,
+              textAlign: 'center',
+              fontSize: f.body - 6, color: p.ink, fontWeight: 700, lineHeight: 1.5,
+              whiteSpace: 'pre-line', border: `2px dashed ${p.accent}`,
+            }}>
+              <div style={{ fontSize: 26, marginBottom: 4 }}>💛</div>
+              {meal.benefit}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 18, gap: 10 }}>
+              {[
+                { ic: '⏱️', label: meal.time },
+                { ic: '🔥', label: `${meal.kcal}kcal` },
+                { ic: '🧂', label: `${meal.na}mg` },
+              ].map((info, i) => (
+                <div key={i} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28 }}>{info.ic}</div>
+                  <div style={{ fontSize: f.base - 6, fontWeight: 800, color: p.ink, marginTop: 2 }}>{info.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 22, display:'flex', justifyContent: 'center' }}>
+          <SpeakerButton palette={p} size={60}
+            text={`할머니, 오늘은 ${meal.name}이 어떠세요? ${meal.why}`}/>
+        </div>
+        <button onClick={() => nav('detail')} className="tappable" style={{
+          marginTop: 16, width: '100%', padding: '22px 18px',
+          background: p.accent, color: '#fff',
+          border: `3px solid ${p.accentDeep}`, borderRadius: 22,
+          fontFamily: FRIENDLY_FONT, fontSize: f.btn - 2, fontWeight: 800,
+          boxShadow: `0 6px 0 ${p.accentDeep}`,
+        }}>만드는 법 알려드릴까요? 📖</button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <button onClick={() => nav('share')} className="tappable" style={{
+            padding: '18px 12px', background: '#fff', color: p.ink,
+            border: `2.5px solid ${p.accentDeep}`, borderRadius: 18,
+            fontFamily: FRIENDLY_FONT, fontSize: f.base - 4, fontWeight: 800,
+            boxShadow: `0 4px 0 ${p.accentDeep}50`,
+          }}>가족한테<br/>알리기 💌</button>
+          <button onClick={onAnother} className="tappable" style={{
+            padding: '18px 12px', background: '#fff', color: p.ink,
+            border: `2.5px solid ${p.accentDeep}`, borderRadius: 18,
+            fontFamily: FRIENDLY_FONT, fontSize: f.base - 4, fontWeight: 800,
+            boxShadow: `0 4px 0 ${p.accentDeep}50`,
+          }}>다른 거<br/>골라볼까요? 🔄</button>
+        </div>
+      </div>
+    );
+  }
+
+  function FriendlyDetail({ p, f, meal, nav }) {
+    return (
+      <div style={{
+        minHeight: '100%', background: p.bg, fontFamily: FRIENDLY_FONT,
+        padding: '70px 22px 40px', boxSizing: 'border-box',
+      }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 추천 결과
+        </div>
+        <div style={{ display: 'flex', gap: 14, alignItems:'flex-start', marginTop: 6 }}>
+          <GrandchildSticker p={p} size={60} mood="chef"/>
+          <div style={{ flex: 1 }}>
+            <FriendlyBubble p={p} f={f}>
+              <b>{meal.short}</b> 만드는 법<br/>천천히 알려드릴게요!
+            </FriendlyBubble>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 22, position: 'relative',
+          background: '#FFFDEB',
+          border: `2.5px solid ${p.accentDeep}`,
+          borderRadius: 20, padding: '22px 22px',
+          boxShadow: `0 5px 0 ${p.accentDeep}40`,
+          transform: 'rotate(-0.6deg)',
+        }}>
+          <div style={{ fontSize: f.big - 8, fontWeight: 800, color: p.ink, marginBottom: 12 }}>🛒 살 것</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {meal.ingredients.map(([k, v], i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                <span style={{
+                  width: 26, height: 26, borderRadius: '50%',
+                  border: `2.5px solid ${p.accentDeep}`,
+                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  fontSize: 16, fontWeight: 900, color: p.accentDeep, flexShrink: 0,
+                }}>✓</span>
+                <span style={{ fontSize: f.base - 2, fontWeight: 800, color: p.ink }}>{k}</span>
+                <span style={{ flex: 1, borderBottom: `1.5px dotted ${p.line}`, marginBottom: 6 }}/>
+                <span style={{ fontSize: f.base - 6, fontWeight: 700, color: p.inkSoft }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 22, fontSize: f.big - 8, fontWeight: 800, color: p.ink, paddingLeft: 4, marginBottom: 12 }}>
+          👩‍🍳 만드는 순서
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {meal.steps.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: 14, alignItems: 'flex-start',
+              padding: '18px 18px',
+              background: '#fff',
+              border: `2.5px solid ${p.accentDeep}`,
+              borderRadius: 20,
+              boxShadow: `0 4px 0 ${p.accentDeep}40`,
+              transform: `rotate(${i % 2 === 0 ? -0.3 : 0.3}deg)`,
+            }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: '50%',
+                background: p.accent, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: f.base, fontWeight: 900, flexShrink: 0,
+                border: `3px solid #fff`,
+                boxShadow: `0 2px 0 ${p.accentDeep}`,
+              }}>{i + 1}</div>
+              <div style={{ fontSize: f.body - 4, color: p.ink, fontWeight: 700, lineHeight: 1.5, paddingTop: 6 }}>
+                {s}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 26, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <GrandchildSticker p={p} size={56} mood="hug"/>
+          <div style={{ flex: 1 }}>
+            <FriendlyBubble p={p} f={f} bg={p.cardSoft}>
+              천천히 만드세요!<br/>맛있게 드시고 건강하세요 ☺️
+            </FriendlyBubble>
+          </div>
+        </div>
+        <div style={{ marginTop: 22, display:'flex', justifyContent: 'center' }}>
+          <SpeakerButton palette={p} size={58}
+            text={`${meal.name} 만드는 법 알려드릴게요. ${meal.steps.map((s, i) => `${i+1}단계. ${s}`).join(' ')}`}/>
+        </div>
+      </div>
+    );
+  }
+
+  function FriendlyShare({ p, f, meal, nav }) {
+    const [sent, setSent] = React.useState(null);
+    const family = [
+      { name: '큰딸 지영이', sub: '제일 자주 받아요', avatar: '👧', tone: '#E07A50' },
+      { name: '아들 민준이', sub: '카카오톡', avatar: '👦', tone: '#5B8C3E' },
+      { name: '며느리 수진이', sub: '저번에도 보냈어요', avatar: '🧑', tone: '#7355B5' },
+      { name: '손녀 서아', sub: '문자', avatar: '👶', tone: '#D9A03D' },
+    ];
+    return (
+      <div style={{
+        minHeight: '100%', background: p.bg, fontFamily: FRIENDLY_FONT,
+        padding: '70px 22px 40px', boxSizing: 'border-box',
+      }}>
+        <div className="tappable" onClick={() => nav('result')} style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'10px 14px', marginLeft:-8,
+          color: p.ink, fontWeight: 800, fontSize: f.base - 4,
+        }}>
+          <Icon name="back" size={22} color={p.ink} stroke={2.5}/> 뒤로
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 6, alignItems: 'flex-start' }}>
+          <GrandchildSticker p={p} size={60} mood="wave"/>
+          <div style={{ flex: 1 }}>
+            <FriendlyBubble p={p} f={f}>
+              누구한테<br/>
+              <b style={{ color: p.accentDeep }}>자랑하실까요?</b> 💌
+            </FriendlyBubble>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 22, position: 'relative',
+          background: '#fff', borderRadius: 22,
+          border: `2.5px solid ${p.accentDeep}`,
+          padding: '22px 22px',
+          boxShadow: `0 5px 0 ${p.accentDeep}50`,
+          transform: 'rotate(-0.8deg)',
+        }}>
+          <div style={{
+            position: 'absolute', top: -10, right: 18,
+            width: 50, height: 60, background: p.accent,
+            border: `3px dashed #fff`, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 28, color: '#fff',
+            boxShadow: `0 2px 0 ${p.accentDeep}`,
+          }}>💌</div>
+          <div style={{ fontSize: f.base - 6, color: p.inkSoft, fontWeight: 800, letterSpacing: '0.05em' }}>
+            오늘의 한마디
+          </div>
+          <div style={{ marginTop: 10, fontSize: f.base, color: p.ink, fontWeight: 700, lineHeight: 1.6 }}>
+            오늘 점심은 <b style={{ color: p.accentDeep }}>{meal.short}</b>으로<br/>
+            먹어볼까 해.<br/>
+            {meal.benefit.split('\n').join(' ')} 🌿
+          </div>
+          <div style={{
+            marginTop: 16, padding: '12px 14px',
+            background: p.cardSoft, borderRadius: 12,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              background: meal.accent + '20',
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize: 24,
+            }}>{meal.plate[0]}</div>
+            <div style={{ fontSize: f.base - 6, fontWeight: 800, color: p.ink }}>
+              {meal.name}<br/>
+              <span style={{ color: p.inkSoft, fontSize: f.base - 8 }}>{meal.kcal}kcal · {meal.time}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 22, fontSize: f.base - 4, fontWeight: 800, color: p.inkSoft, paddingLeft: 4,
+        }}>받는 사람을 골라주세요</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+          {family.map((member) => {
+            const isSent = sent === member.name;
+            return (
+              <button key={member.name}
+                onClick={() => { setSent(member.name); setTimeout(() => setSent(null), 2400); }}
+                className="tappable"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px',
+                  background: isSent ? p.accentSoft : '#fff',
+                  border: `2.5px solid ${isSent ? p.accent : p.accentDeep}`,
+                  borderRadius: 20,
+                  fontFamily: FRIENDLY_FONT, textAlign: 'left', width: '100%',
+                  boxShadow: `0 4px 0 ${p.accentDeep}40`,
+                }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+                  background: '#FFE1C7', border: `3px solid ${member.tone}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 32,
+                }}>{member.avatar}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: f.base, fontWeight: 800, color: p.ink }}>{member.name}</div>
+                  <div style={{ fontSize: f.base - 8, color: p.inkSoft, fontWeight: 700, marginTop: 2 }}>
+                    {member.sub}
+                  </div>
+                </div>
+                {isSent ? (
+                  <div style={{
+                    display:'flex', flexDirection:'column', alignItems:'center', gap: 4,
+                    color: p.accentDeep, fontWeight: 900, fontSize: f.base - 8,
+                  }}>
+                    <Icon name="check" size={28} color={p.accentDeep} stroke={3.5}/>
+                    보냈어요!
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '10px 16px', background: p.accent, color: '#fff',
+                    borderRadius: 999, fontSize: f.base - 6, fontWeight: 900,
+                    border: `2px solid ${p.accentDeep}`,
+                  }}>보내기 →</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const FRIENDLY = { Home: FriendlyHome, Loading: FriendlyLoading, Result: FriendlyResult, Detail: FriendlyDetail, Share: FriendlyShare };
+
+  // ─────────────────────────────────────────────────────────────
+  // App — wires it all together
+  // ─────────────────────────────────────────────────────────────
+  const VARIANTS = {
+    clean:    { label: '단정',  obj: CLEAN,    desc: '깔끔한 흰색 카드' },
+    warm:     { label: '따뜻',  obj: WARM,     desc: '큰 접시 일러스트' },
+    friendly: { label: '친근',  obj: FRIENDLY, desc: '손주가 골라준 듯' },
+  };
+
+  function App() {
+    const [t, setTweak] = useTweaks({ variant: 'warm', fontScale: '크게', palette: 'beige' });
+    const variant = VARIANTS[t.variant] || VARIANTS.warm;
+    const screens = variant.obj;
+    const palette = PALETTES[t.palette] || PALETTES.beige;
+    const fontScale = FONT_SCALES[t.fontScale] || FONT_SCALES['크게'];
+
+    const [screen, setScreen] = React.useState('home');
+    const [meal, setMeal] = React.useState(MEALS[0]);
+    const [recent, setRecent] = React.useState([]);
+
+    React.useEffect(() => () => stopSpeaking(), []);
+    React.useEffect(() => { stopSpeaking(); }, [t.variant]);
+
+    const nav = (next) => { stopSpeaking(); setScreen(next); };
+
+    const pickAndShow = () => {
+      const next = pickMeal(meal && meal.id);
+      setMeal(next);
+      setRecent(prev => {
+        const filtered = prev.filter(m => m.id !== next.id);
+        return [next, ...filtered].slice(0, 5);
+      });
+      setScreen('result');
+    };
+
+    let body;
+    if (screen === 'home') body = <screens.Home p={palette} f={fontScale} nav={nav} recent={recent}/>;
+    else if (screen === 'loading') body = <screens.Loading p={palette} f={fontScale} onDone={pickAndShow}/>;
+    else if (screen === 'result') body = <screens.Result p={palette} f={fontScale} meal={meal} nav={nav} onAnother={() => nav('loading')}/>;
+    else if (screen === 'detail') body = <screens.Detail p={palette} f={fontScale} meal={meal} nav={nav}/>;
+    else if (screen === 'share') body = <screens.Share p={palette} f={fontScale} meal={meal} nav={nav}/>;
+
+    return (
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <IOSDevice width={402} height={874}>
+            <div className="phone-scroll" style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+              {body}
+            </div>
+          </IOSDevice>
+        </div>
+
+        <TweaksPanel title="Tweaks · 식단 추천">
+          <TweakSection label="디자인 변형"/>
+          <TweakRadio
+            label="화면 분위기"
+            value={t.variant}
+            options={[
+              { label: '단정', value: 'clean' },
+              { label: '따뜻', value: 'warm' },
+              { label: '친근', value: 'friendly' },
+            ]}
+            onChange={v => setTweak('variant', v)}
+          />
+          <TweakSection label="글씨 크기"/>
+          <TweakRadio
+            label="크기"
+            value={t.fontScale}
+            options={['보통', '크게', '아주 크게']}
+            onChange={v => setTweak('fontScale', v)}
+          />
+          <TweakSection label="색상 톤"/>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {Object.entries(PALETTES).map(([k, pal]) => (
+              <button key={k} onClick={() => setTweak('palette', k)}
+                style={{
+                  flex: 1, padding: 6, borderRadius: 10,
+                  border: t.palette === k ? '2px solid #29261b' : '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent', cursor: 'pointer',
+                }}>
+                <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
+                  <div style={{ flex: 1, height: 18, background: pal.bg, borderRadius: 4 }}/>
+                  <div style={{ flex: 1, height: 18, background: pal.accent, borderRadius: 4 }}/>
+                  <div style={{ flex: 1, height: 18, background: pal.accentDeep, borderRadius: 4 }}/>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 600 }}>{pal.label}</div>
+              </button>
+            ))}
+          </div>
+          <TweakSection label="화면 이동"/>
+          <TweakButton label="🏠 홈으로" onClick={() => nav('home')}/>
+          <TweakButton label="🍽️ 추천 결과로" onClick={pickAndShow} secondary/>
+        </TweaksPanel>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
